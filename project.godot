@@ -1,0 +1,35 @@
+; Motor: Godot 4.7 — ver contexto/00-decisiones.md
+config_version=5
+
+[application]
+
+config/name="Cadena (prototipo v0)"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[display]
+
+; Resolución base vertical. Con stretch canvas_items + expand, esto es un
+; MÍNIMO: en pantallas más alargadas el viewport crece en vez de deformarse.
+window/size/viewport_width=720
+window/size/viewport_height=1280
+; Solo afecta a la ventana del editor en escritorio, no al teléfono.
+window/size/window_width_override=405
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[input_devices]
+
+; Hace que el clic del ratón genere eventos táctiles, para que el mismo código
+; de input sirva en el editor y en el teléfono sin ramas.
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+; Compatibility en vez de Forward+: es lo correcto para 2D en Android, sobre
+; todo en gama baja.
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.051, 0.051, 0.071, 1)

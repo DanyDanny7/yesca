@@ -13,3 +13,4 @@ reescribe y se anota por qué cambió — el historial lo guarda git.
 | `01-criterios-diseno.md` | Qué tiene que cumplir el juego para ser pegajoso. Sirve de checklist |
 | `02-conceptos.md` | Los conceptos sobre la mesa, con su estado |
 | `03-concepto-cadena.md` | Especificación del concepto elegido y plan por fases |
+| `04-calibracion-v0.md` | Números medidos del v0 y por qué son los que son |
