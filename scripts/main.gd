@@ -105,8 +105,13 @@ const ENJAMBRE_ATRACCION := 55.0
 const ENJAMBRE_SEPARACION := 110.0
 const HUIDA_MARGEN := 120.0
 const HUIDA_FUERZA := 420.0
+## Índice del selector de pausa que devuelve el control al nivel.
+const AUTO_MOV := 7
 
-enum State { MENU, SELECT, READY, PLAYING, DEAD, WIN, FINAL }
+## PAUSA va al FINAL a propósito. Insertar un estado en medio desplaza los
+## índices y rompe tools/simulacion.gd, que ya se quedó girando en vacío una vez
+## justo por eso.
+enum State { MENU, SELECT, READY, PLAYING, DEAD, WIN, FINAL, PAUSA }
 enum Mode { CAMPANA, SIN_FIN }
 
 @onready var _dots_root: Node2D = $Dots
@@ -120,6 +125,14 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _stage_label: Label = $UI/Stage
 @onready var _fallos_label: Label = $UI/Fallos
 @onready var _combos_root: Control = $UI/Combos
+@onready var _btn_pausa: CircleButton = $UI/Pausa
+
+@onready var _pause_screen: Control = $UI/PauseScreen
+@onready var _btn_seguir: CircleButton = $UI/PauseScreen/Seguir
+@onready var _btn_menu: CircleButton = $UI/PauseScreen/Menu
+@onready var _btn_mov_prev: CircleButton = $UI/PauseScreen/MovPrev
+@onready var _btn_mov_next: CircleButton = $UI/PauseScreen/MovNext
+@onready var _mov_nombre: Label = $UI/PauseScreen/MovNombre
 @onready var _bar_bg: ColorRect = $UI/BarBg
 @onready var _bar_fill: ColorRect = $UI/BarBg/BarFill
 
@@ -191,11 +204,16 @@ var _flash_left: float = 0.0
 var _record_nuevo: bool = false
 var _fallos: int = 0
 var _stage_shown: int = 1
+## Estado al que se vuelve al despausar.
+var _antes_de_pausar: State = State.PLAYING
+## Selección del menú de pausa: 0..6 son los modos, AUTO_MOV es "el del nivel".
+var _mov_sel: int = 0
 
 
 func _ready() -> void:
 	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _fallos_label, _score_label,
-			_best_label, _objetivo_label, _hint_label, _flash_label, _combos_root]
+			_best_label, _objetivo_label, _hint_label, _flash_label, _combos_root,
+			_btn_pausa]
 	_cargar()
 	_poblar_campo()
 	_ir_a(State.MENU)
@@ -214,7 +232,8 @@ func _process(delta: float) -> void:
 	# En MENU y SELECT el campo sigue vivo de fondo: una pantalla de inicio con
 	# el juego moviéndose detrás se siente despierta, y además enseña la
 	# mecánica antes de que el jugador toque nada.
-	if _state != State.DEAD and _state != State.WIN and _state != State.FINAL:
+	# En pausa el mundo se congela igual que al morir: no se llama a _mover_dots.
+	if _mundo_activo():
 		_mover_dots(delta)
 		_check_catches()
 		_check_cleared()
@@ -277,11 +296,26 @@ func _unhandled_input(event: InputEvent) -> void:
 				_empezar_partida()
 		State.FINAL:
 			_ir_a(State.MENU)
+		State.PAUSA:
+			if _btn_seguir.contiene(p):
+				_ir_a(_antes_de_pausar)
+			elif _btn_menu.contiene(p):
+				_ir_a(State.MENU)
+			elif _btn_mov_prev.contiene(p):
+				_elegir_movimiento(_mov_sel - 1)
+			elif _btn_mov_next.contiene(p):
+				_elegir_movimiento(_mov_sel + 1)
 		State.READY:
-			_state = State.PLAYING
-			_tap(p)
+			if _btn_pausa.contiene(p):
+				_pausar()
+			else:
+				_state = State.PLAYING
+				_tap(p)
 		State.PLAYING:
-			_tap(p)
+			if _btn_pausa.contiene(p):
+				_pausar()
+			else:
+				_tap(p)
 
 
 # --- Escalones ------------------------------------------------------------
@@ -786,12 +820,39 @@ func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 
 # --- Pantallas ------------------------------------------------------------
 
+## Estados en los que el campo sigue vivo. MENU y SELECT incluidos: una pantalla
+## con el juego moviéndose detrás se siente despierta y enseña la mecánica antes
+## de que el jugador toque nada.
+func _mundo_activo() -> bool:
+	return _state == State.MENU or _state == State.SELECT 		or _state == State.READY or _state == State.PLAYING
+
+
+func _pausar() -> void:
+	_antes_de_pausar = _state
+	_mov_sel = movimiento_prueba if forzar_movimiento else AUTO_MOV
+	_ir_a(State.PAUSA)
+
+
+## Cambiar el movimiento desde la pausa se aplica a los círculos que ya están en
+## pantalla, no solo a los que nazcan después: si no, comparar dos reglas exigía
+## esperar a que se renovara el campo entero.
+func _elegir_movimiento(sel: int) -> void:
+	_mov_sel = wrapi(sel, 0, AUTO_MOV + 1)
+	forzar_movimiento = _mov_sel != AUTO_MOV
+	if forzar_movimiento:
+		movimiento_prueba = _mov_sel
+	var modo := _movimiento_actual()
+	for d in _dots:
+		d.modo = modo
+
+
 func _ir_a(s: State) -> void:
 	_state = s
 	_menu_screen.visible = s == State.MENU
 	_select_screen.visible = s == State.SELECT
 	_over_screen.visible = s == State.DEAD
 	_win_screen.visible = s == State.WIN or s == State.FINAL
+	_pause_screen.visible = s == State.PAUSA
 	var jugando := s == State.READY or s == State.PLAYING
 	for nodo in _hud:
 		nodo.visible = jugando
@@ -834,6 +895,10 @@ func _guardar() -> void:
 
 func _update_ui() -> void:
 	_menu_best.text = "mejor sin fin  %d" % _best
+
+	if _state == State.PAUSA:
+		_mov_nombre.text = "según el nivel" if _mov_sel == AUTO_MOV else NOMBRES_MOV[_mov_sel]
+		return
 
 	if _state == State.SELECT:
 		_sel_bioma.text = str(Niveles.nivel(_nivel)["bioma"]).to_upper()

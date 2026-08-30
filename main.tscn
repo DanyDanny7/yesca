@@ -102,6 +102,27 @@ theme_override_colors/font_color = Color(0.427, 0.89, 0.627, 1)
 theme_override_font_sizes/font_size = 32
 horizontal_alignment = 1
 
+[node name="Pausa" type="Control" parent="UI"]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 30.0
+offset_top = -112.0
+offset_right = 106.0
+offset_bottom = -36.0
+mouse_filter = 2
+script = ExtResource("2_circle")
+color = Color(0.25, 0.25, 0.32, 0.85)
+pulse = 0.0
+
+[node name="Text" type="Label" parent="UI/Pausa"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 30
+text = "II"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="Combos" type="Control" parent="UI"]
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -502,3 +523,134 @@ theme_override_colors/font_color = Color(0.4, 0.5, 0.45, 1)
 theme_override_font_sizes/font_size = 24
 text = "o toca donde sea"
 horizontal_alignment = 1
+
+[node name="PauseScreen" type="Control" parent="UI"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Bg" type="ColorRect" parent="UI/PauseScreen"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.051, 0.051, 0.071, 0.93)
+
+[node name="Title" type="Label" parent="UI/PauseScreen"]
+anchor_right = 1.0
+offset_top = 230.0
+offset_bottom = 310.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 60
+text = "PAUSA"
+horizontal_alignment = 1
+
+[node name="MovCaption" type="Label" parent="UI/PauseScreen"]
+anchor_right = 1.0
+offset_top = 396.0
+offset_bottom = 430.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.5, 0.5, 0.6, 1)
+theme_override_font_sizes/font_size = 24
+text = "movimiento de los círculos"
+horizontal_alignment = 1
+
+[node name="MovPrev" type="Control" parent="UI/PauseScreen"]
+offset_left = 40.0
+offset_top = 440.0
+offset_right = 140.0
+offset_bottom = 540.0
+mouse_filter = 2
+script = ExtResource("2_circle")
+color = Color(0.25, 0.25, 0.32, 1)
+pulse = 0.0
+
+[node name="Text" type="Label" parent="UI/PauseScreen/MovPrev"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 40
+text = "‹"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MovNext" type="Control" parent="UI/PauseScreen"]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -140.0
+offset_top = 440.0
+offset_right = -40.0
+offset_bottom = 540.0
+mouse_filter = 2
+script = ExtResource("2_circle")
+color = Color(0.25, 0.25, 0.32, 1)
+pulse = 0.0
+
+[node name="Text" type="Label" parent="UI/PauseScreen/MovNext"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 40
+text = "›"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MovNombre" type="Label" parent="UI/PauseScreen"]
+anchor_right = 1.0
+offset_left = 150.0
+offset_top = 452.0
+offset_right = -150.0
+offset_bottom = 528.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.427, 0.89, 0.627, 1)
+theme_override_font_sizes/font_size = 38
+text = "rebote"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="Seguir" type="Control" parent="UI/PauseScreen"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -120.0
+offset_top = 10.0
+offset_right = 120.0
+offset_bottom = 250.0
+mouse_filter = 2
+script = ExtResource("2_circle")
+color = Color(0.427, 0.89, 0.627, 1)
+
+[node name="Text" type="Label" parent="UI/PauseScreen/Seguir"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.051, 0.051, 0.071, 1)
+theme_override_font_sizes/font_size = 40
+text = "SEGUIR"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Menu" type="Control" parent="UI/PauseScreen"]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -75.0
+offset_top = -230.0
+offset_right = 75.0
+offset_bottom = -80.0
+mouse_filter = 2
+script = ExtResource("2_circle")
+color = Color(0.25, 0.25, 0.32, 1)
+pulse = 0.0
+
+[node name="Text" type="Label" parent="UI/PauseScreen/Menu"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 30
+text = "MENÚ"
+horizontal_alignment = 1
+vertical_alignment = 1

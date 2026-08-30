@@ -76,12 +76,24 @@ aspecto — que era la condición para que un bioma valiera la pena.
 
 ## Cómo probarlos
 
-En el inspector del nodo `Main`, grupo **Pruebas**: activar
-`forzar_movimiento` y cambiar `movimiento_prueba` con el juego corriendo. El
-HUD muestra siempre el modo en curso junto al escalón.
+**Desde el juego**: botón de pausa en la esquina inferior izquierda. Dentro hay
+un selector de movimiento con ‹ ›, y salida al menú principal. El cambio se
+aplica **a los círculos que ya están en pantalla**, no solo a los que nazcan
+después: si no, comparar dos reglas obligaba a esperar a que se renovara el
+campo entero. La opción "según el nivel" devuelve el control al bioma.
 
-También hay un nivel por modo en la campaña (niveles 9 a 14), cada uno con el
-objetivo que mejor lo luce.
+En pausa el mundo se congela igual que al morir — ni los círculos se mueven ni
+la barra baja.
+
+**Desde el editor**: inspector del nodo `Main`, grupo Pruebas —
+`forzar_movimiento` y `movimiento_prueba`, con el juego corriendo.
+
+El HUD muestra siempre el modo en curso junto al escalón.
+
+Un compromiso asumido: el botón de pausa ocupa una esquina del campo de juego,
+así que un círculo que pase justo por debajo no se puede tocar — el tap pausa.
+Es una esquina pequeña y el botón tiene que estar en algún sitio; si molesta,
+la alternativa es reservarle una franja al HUD y encoger el campo.
 
 ## Pendiente
 
