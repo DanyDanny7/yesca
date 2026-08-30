@@ -13,9 +13,10 @@ Cada tap es una apuesta entre detonar ya o esperar a que se junten más.
 
 ## Estado
 
-**Fase v0** — solo la cascada, para responder si se siente bien al tacto. Sin
-barra de tiempo, sin récord, sin derrota. Ver `contexto/03-concepto-cadena.md`
-para el plan v0-v3.
+**Fase v1** — campo continuo y barra de tiempo. El v0 por rondas se descartó:
+borraba el tablero tras cada cascada y se sentía un bucle sin avance, que era
+justo el defecto que el diseño endless existía para evitar. Ver
+`contexto/05-economia-v1.md` y `contexto/03-concepto-cadena.md`.
 
 ## Cómo correrlo
 
@@ -50,7 +51,10 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
 - `scripts/main.gd` — bucle, input, detección de contagios y estado de ronda.
 - `scripts/dot.gd`, `scripts/explosion.gd` — nodos que se dibujan solos con
   `_draw()`. Sin sprites ni escenas: para formas geométricas no hacen falta.
-- `tools/` — utilidades de desarrollo, fuera del juego.
+- `tools/` — utilidades de desarrollo, fuera del juego. `calibracion.gd` mide
+  el reparto de cadenas; `simulacion.gd` juega partidas enteras con dos
+  perfiles de jugador para ver si la economía separa el juego bueno del malo.
+  Ninguno mide diversión.
 
 ## Pendiente de entorno
 

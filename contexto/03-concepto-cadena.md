@@ -43,17 +43,17 @@ Contrastado contra `01-criterios-diseno.md`:
 
 No implementar todo junto. Cada fase se juega antes de pasar a la siguiente.
 
-**v0 — ¿se siente bien?**
+**v0 — ¿se siente bien?**  ·  HECHO, y descartado por bucle
 Puntos moviéndose y rebotando, tap, explosión que se expande, cascada.
 Sin barra, sin score, sin muerte. Solo la cascada. Si esto no es satisfactorio
 al tacto, el concepto se cae y no vale la pena seguir.
 
-**v1 — ¿hay juego?**
+**v1 — ¿hay juego?**  ·  IMPLEMENTADO, pendiente de jugar
 Se añade la barra de tiempo, el costo por tap, la recompensa por cadena y el
 fin de partida. Aquí es donde se descubre si existe la tensión de la apuesta o
 si es trivial. Es la fase que decide el proyecto.
 
-**v2 — game feel.**
+**v2 — game feel.**  ·  siguiente
 Hit stop, screen shake, partículas, háptica, sonido con variación de pitch,
 easing. Sin tocar la mecánica. Aquí es donde un prototipo aburrido se vuelve
 adictivo, o se confirma que no lo era.
