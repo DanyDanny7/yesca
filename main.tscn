@@ -38,6 +38,29 @@ theme_override_colors/font_color = Color(0.45, 0.45, 0.55, 1)
 theme_override_font_sizes/font_size = 22
 text = "tiempo"
 
+[node name="Stage" type="Label" parent="UI"]
+anchor_right = 1.0
+offset_left = 40.0
+offset_top = 72.0
+offset_right = -40.0
+offset_bottom = 100.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.45, 0.45, 0.55, 1)
+theme_override_font_sizes/font_size = 22
+text = "escalón 1"
+horizontal_alignment = 2
+
+[node name="Fallos" type="Label" parent="UI"]
+anchor_right = 1.0
+offset_left = 40.0
+offset_top = 98.0
+offset_right = -40.0
+offset_bottom = 124.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 22
+text = "fallos  0 / 10"
+horizontal_alignment = 2
+
 [node name="Score" type="Label" parent="UI"]
 anchor_right = 1.0
 offset_top = 118.0
@@ -67,6 +90,20 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.72, 0.72, 0.8, 1)
 theme_override_font_sizes/font_size = 36
 text = "toca un círculo"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Combo" type="Label" parent="UI"]
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_top = -150.0
+offset_bottom = 30.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.329, 0.439, 1)
+theme_override_font_sizes/font_size = 150
+text = "×2"
+modulate = Color(1, 1, 1, 0)
 horizontal_alignment = 1
 vertical_alignment = 1
 

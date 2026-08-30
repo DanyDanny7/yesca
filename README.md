@@ -9,15 +9,15 @@ publicidad; si no, se publica igual sin anuncios.
 **Concepto — Cadena.** Puntos flotando por la pantalla. Tocas uno: explota, y
 su onda expansiva contagia a los vecinos, que explotan a su vez en cascada. Una
 barra de tiempo baja sin parar; tocar cuesta tiempo, atrapar devuelve tiempo, y
-la recompensa crece con la longitud de la cadena. Cada tap es una apuesta entre
-detonar ya o esperar a que se junten más.
+tanto el tiempo como los puntos crecen con la longitud de la cadena. Cada tap es
+una apuesta entre detonar ya o esperar a que se junten más.
 
 ## Estado
 
-**Fase v2** — mecánica completa y legible: se toca un círculo, hay pantallas de
-inicio y de fin, el récord persiste y vaciar la pantalla se premia. Falta todo
-el game feel (impacto, vibración, partículas, sonido). Ver
-`contexto/06-pantallas-e-input.md` y `contexto/03-concepto-cadena.md`.
+**Fase v3** — curva de dificultad por escalones, multiplicador de cadena que
+puntúa (el punto N de una cascada vale N) y medidor de fallos consecutivos.
+Falta todo el game feel: impacto, vibración, partículas, sonido. Ver
+`contexto/07-escalones-y-combo.md` y `contexto/03-concepto-cadena.md`.
 
 ## Cómo correrlo
 

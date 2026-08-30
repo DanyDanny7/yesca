@@ -25,7 +25,7 @@ func _initialize() -> void:
 	# Headless ignora el resize de ventana y da 1280x1280. En vez de pelearse
 	# con eso, se iguala la DENSIDAD del campo real de 720x1280:
 	#   25 / (720*1280) * (1280*1280) = 44.4
-	main.dot_count = 44
+	main.target_dots = 44
 	root.add_child(main)
 	await process_frame
 	await process_frame
@@ -40,8 +40,8 @@ func _initialize() -> void:
 func _run(main, smart: bool) -> Array:
 	var out := []
 	for t in TRIALS:
-		main._reset_field()
-		main._state = 0  # WAITING: evita que _end_round se dispare solo
+		main._poblar_campo()
+		main._state = 0  # State.START: el campo vive pero la partida no corre
 		await process_frame
 		main._spawn_explosion(_pick(main, smart), TAP_R)
 		var guard := 0
@@ -53,8 +53,9 @@ func _run(main, smart: bool) -> Array:
 
 func _pick(main, smart: bool) -> Vector2:
 	if not smart:
-		var r := root.get_visible_rect().size
-		return Vector2(randf() * r.x, randf() * r.y)
+		# Un círculo cualquiera: desde v2 el jugador ya no puede detonar en un
+		# vacío, así que medir un punto aleatorio de la pantalla no diría nada.
+		return main._dots[randi() % main._dots.size()].position
 	var best := Vector2.ZERO
 	var best_n := -1
 	for d in main._dots:
