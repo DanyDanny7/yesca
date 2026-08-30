@@ -26,6 +26,11 @@ de contenido — puzzle con niveles a mano, RPG, cualquier cosa que exija
 producir 40 niveles o texto. El contenido tiene que escalar solo:
 procedural, endless, emergente.
 
+**Concepto: Cadena.**
+Detonación en cascada sobre un campo de puntos, con una barra de tiempo como
+única economía: tocar cuesta, atrapar devuelve. Ver `03-concepto-cadena.md`.
+Sigue sujeto a validación por prototipo — si v1 no genera tensión, se cae.
+
 ## Contexto del desarrollador
 
 Dev con experiencia. Ya conoce el flujo completo de publicación y testeo en
@@ -41,6 +46,5 @@ Lo que sí es terreno nuevo:
 
 ## Abiertas
 
-- Concepto definitivo (ver `02-conceptos.md`)
 - Nombre real del proyecto (depende del concepto)
 - Estilo visual (depende del concepto)
