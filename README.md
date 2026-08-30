@@ -19,19 +19,27 @@ para el plan v0-v3.
 
 ## Cómo correrlo
 
+```powershell
+.\tools\run.ps1              # ejecuta el juego
+.\tools\run.ps1 -Editor      # abre el editor
+.\tools\run.ps1 -Calibrar    # banco de calibración headless
+```
+
+El lanzador encuentra Godot solo. Existe porque una terminal abierta antes de
+instalar Godot hereda el PATH viejo y `godot` no se resuelve aunque la entrada
+ya esté en el registro — reabrir VSCode lo arregla, pero el script funciona
+igual sin tener que acordarse.
+
+Con `godot` ya en el PATH, el equivalente directo es:
+
 ```sh
-godot --path .            # abre el proyecto y ejecuta
+godot --path .            # ejecuta
 godot -e --path .         # abre el editor
+godot --headless --path . --script res://tools/calibracion.gd
 ```
 
 En el editor, los parámetros de calibración están como `@export` en el nodo
 `Main`: se pueden mover desde el inspector con el juego corriendo.
-
-Banco de calibración (mide reparto de cadenas, no diversión):
-
-```sh
-godot --headless --path . --script res://tools/calibracion.gd
-```
 
 ## Estructura
 
