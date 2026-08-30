@@ -18,3 +18,4 @@ reescribe y se anota por qué cambió — el historial lo guarda git.
 | `06-pantallas-e-input.md` | Tocar un círculo, pantallas de inicio y fin, y la muerte invisible |
 | `07-escalones-y-combo.md` | Curva de dificultad por escalones, multiplicador de cadena y fallos |
 | `08-campana.md` | Modos, niveles como datos y por qué la supervivencia no tiene victoria |
+| `09-movimientos.md` | Las siete reglas de desplazamiento y por qué son el cimiento de los biomas |

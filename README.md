@@ -19,8 +19,10 @@ vive el cierre (un juego de supervivencia no tiene victoria por naturaleza; para
 que exista un "ganaste" la partida tiene que ser finita). **Sin fin**: la caza
 del récord.
 
-Falta todo el game feel — impacto, vibración, partículas, sonido — y los biomas
-con reglas propias de movimiento. Ver `contexto/08-campana.md`.
+Siete reglas de movimiento (rebote, abeja, nieve, choque, corriente, enjambre,
+huida) que son el cimiento de los biomas, con un nivel por regla para probarlas.
+Falta todo el game feel: impacto, vibración, partículas, sonido. Ver
+`contexto/08-campana.md` y `contexto/09-movimientos.md`.
 
 ## Cómo correrlo
 
@@ -56,9 +58,12 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
   dificultad y máquina de estados de pantallas.
 - `scripts/niveles.gd` — la campaña como tabla de datos: un nivel es un
   objetivo más un escalón de partida, no contenido dibujado a mano.
-- `scripts/dot.gd`, `scripts/explosion.gd`, `scripts/circle_button.gd` — nodos
-  que se dibujan solos con `_draw()`. Sin sprites ni escenas: para formas
-  geométricas no hacen falta.
+- `scripts/dot.gd` — un círculo y sus reglas de desplazamiento. No mueve su
+  posición solo: lo dirige `main.gd`, porque hay modos que necesitan ver a los
+  demás círculos o a las detonaciones.
+- `scripts/explosion.gd`, `scripts/circle_button.gd` — nodos que se dibujan
+  solos con `_draw()`. Sin sprites ni escenas: para formas geométricas no hacen
+  falta.
 - `tools/` — utilidades de desarrollo, fuera del juego. `calibracion.gd` mide
   el reparto de cadenas; `simulacion.gd` juega partidas enteras con dos
   perfiles de jugador para ver si la economía separa el juego bueno del malo.

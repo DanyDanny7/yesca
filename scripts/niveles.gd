@@ -13,9 +13,9 @@ extends RefCounted
 ## mismo mecanismo. Los primeros niveles están ordenados para enseñar una cosa
 ## cada uno.
 ##
-## Pendiente: los biomas de verdad, con reglas propias de movimiento e
-## interacción con las explosiones. Este primer bioma usa el comportamiento
-## base; añadir más biomas antes de tener esas reglas sería relleno.
+## Cada nivel trae además su regla de movimiento (`mov`), que es lo que
+## convierte un bioma en algo más que una paleta: cambia cómo se lee el campo y
+## cómo hay que planear la cadena.
 
 enum Meta {
 	PUNTOS,          ## llegar a N puntos
@@ -26,22 +26,56 @@ enum Meta {
 }
 
 const LISTA: Array[Dictionary] = [
-	{"bioma": "Campo abierto", "meta": Meta.PUNTOS, "valor": 60, "escalon": 0,
+	# --- Campo abierto: el comportamiento base, para enseñar el juego -------
+	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+		"meta": Meta.PUNTOS, "valor": 60, "escalon": 0,
 		"pista": "toca un círculo y deja que la onda haga el resto"},
-	{"bioma": "Campo abierto", "meta": Meta.CADENA, "valor": 4, "escalon": 0,
+	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+		"meta": Meta.CADENA, "valor": 4, "escalon": 0,
 		"pista": "busca cuatro juntos, no toques el primero que veas"},
-	{"bioma": "Campo abierto", "meta": Meta.PUNTOS, "valor": 250, "escalon": 1,
+	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+		"meta": Meta.PUNTOS, "valor": 250, "escalon": 1,
 		"pista": "cada eslabón vale más que el anterior"},
-	{"bioma": "Campo abierto", "meta": Meta.LIMPIAS, "valor": 1, "escalon": 1,
-		"pista": "espera a que el campo se junte"},
-	{"bioma": "Campo abierto", "meta": Meta.CADENA, "valor": 6, "escalon": 2,
-		"pista": "tocar durante una cascada la corta y pierdes el multiplicador"},
-	{"bioma": "Campo abierto", "meta": Meta.SEGUNDOS, "valor": 45, "escalon": 2,
+	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+		"meta": Meta.SEGUNDOS, "valor": 45, "escalon": 1,
 		"pista": "aquí no puntúas, sobrevives"},
-	{"bioma": "Campo abierto", "meta": Meta.PUNTOS_LIMPIOS, "valor": 300, "escalon": 3,
+	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+		"meta": Meta.CADENA, "valor": 6, "escalon": 2,
+		"pista": "puedes tener varias cadenas a la vez, cada una con su cuenta"},
+	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+		"meta": Meta.PUNTOS_LIMPIOS, "valor": 300, "escalon": 3,
 		"pista": "un solo fallo y vuelves a empezar"},
-	{"bioma": "Campo abierto", "meta": Meta.CADENA, "valor": 9, "escalon": 4,
+	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+		"meta": Meta.CADENA, "valor": 9, "escalon": 4,
 		"pista": "con el campo así de rápido, la paciencia es todo"},
+	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+		"meta": Meta.LIMPIAS, "valor": 1, "escalon": 2,
+		"pista": "el más duro: no puede quedar ni uno"},
+
+	# --- Un movimiento por nivel, para probarlos en juego ------------------
+	#
+	# Todavía NO son biomas: son el catálogo de reglas de desplazamiento, cada
+	# una con el objetivo que mejor la luce. De aquí saldrán los biomas de
+	# verdad, quedándose con las que cambien la forma de jugar y no solo el
+	# aspecto.
+	{"bioma": "Panal", "mov": Dot.Movimiento.ABEJA,
+		"meta": Meta.PUNTOS, "valor": 200, "escalon": 1,
+		"pista": "van a tirones: no basta con mirar dónde están, sino hacia dónde salen"},
+	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
+		"meta": Meta.CADENA, "valor": 5, "escalon": 1,
+		"pista": "chocan entre ellos, así que los grupos se deshacen solos"},
+	{"bioma": "Ventisca", "mov": Dot.Movimiento.NIEVE,
+		"meta": Meta.PUNTOS, "valor": 250, "escalon": 1,
+		"pista": "caen despacio y en vaivén; el campo se renueva por arriba"},
+	{"bioma": "Río", "mov": Dot.Movimiento.CORRIENTE,
+		"meta": Meta.CADENA, "valor": 6, "escalon": 2,
+		"pista": "todos van en la misma dirección: espera a que la corriente los junte"},
+	{"bioma": "Enjambre", "mov": Dot.Movimiento.ENJAMBRE,
+		"meta": Meta.CADENA, "valor": 10, "escalon": 2,
+		"pista": "se buscan solos; aquí lo difícil no es encontrar el grupo sino el momento"},
+	{"bioma": "Estampida", "mov": Dot.Movimiento.HUIDA,
+		"meta": Meta.CADENA, "valor": 6, "escalon": 2,
+		"pista": "huyen de tus explosiones: atrapa a los vecinos antes de que escapen"},
 ]
 
 
@@ -99,6 +133,11 @@ static func cumplido(i: int, puntos: int, cadena: int, limpias: int, segundos: f
 		Meta.SEGUNDOS:
 			return segundos >= float(v)
 	return false
+
+
+## La regla de movimiento del nivel.
+static func movimiento(i: int) -> int:
+	return int(nivel(i).get("mov", Dot.Movimiento.REBOTE))
 
 
 ## Si el nivel se pierde en cuanto fallas un tap.

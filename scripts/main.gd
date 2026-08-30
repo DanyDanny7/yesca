@@ -28,6 +28,16 @@ extends Node2D
 @export var target_dots: int = 25
 @export var dot_speed_min: float = 60.0
 @export var dot_speed_max: float = 140.0
+## Cuánto se dispersan las rapideces entre círculos. En 0 todos van parecido;
+## subiéndolo conviven muy lentos con muy rápidos, y eso cambia la lectura del
+## campo más que subir la media.
+@export var speed_variance: float = 0.0
+
+## Movimiento con el que probar, ignorando el del nivel. Es la palanca para
+## cachear biomas en vivo desde el inspector con el juego corriendo.
+@export_group("Pruebas")
+@export var forzar_movimiento: bool = false
+@export var movimiento_prueba: Dot.Movimiento = Dot.Movimiento.REBOTE
 
 @export_group("Detonación")
 ## Radio de la detonación del círculo que tocas, mayor que el de las
@@ -85,6 +95,16 @@ const COMBO_POP_TIME := 0.45
 const COMBO_SIZE := Vector2(240.0, 100.0)
 const STAGE_COLOR_TOPE := 10.0
 const SAVE_PATH := "user://cadena.cfg"
+const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
+		"enjambre", "huida"]
+## Fuerzas de los modos que Main dirige. Bajas a propósito: el movimiento tiene
+## que seguir siendo legible, no convertirse en una sopa.
+const ENJAMBRE_VISTA := 220.0
+const ENJAMBRE_ROCE := 60.0
+const ENJAMBRE_ATRACCION := 55.0
+const ENJAMBRE_SEPARACION := 110.0
+const HUIDA_MARGEN := 120.0
+const HUIDA_FUERZA := 420.0
 
 enum State { MENU, SELECT, READY, PLAYING, DEAD, WIN, FINAL }
 enum Mode { CAMPANA, SIN_FIN }
@@ -109,6 +129,7 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _menu_best: Label = $UI/MenuScreen/Best
 
 @onready var _select_screen: Control = $UI/SelectScreen
+@onready var _sel_bioma: Label = $UI/SelectScreen/Title
 @onready var _sel_num: Label = $UI/SelectScreen/Num
 @onready var _sel_meta: Label = $UI/SelectScreen/Meta
 @onready var _sel_pista: Label = $UI/SelectScreen/Pista
@@ -194,6 +215,7 @@ func _process(delta: float) -> void:
 	# el juego moviéndose detrás se siente despierta, y además enseña la
 	# mecánica antes de que el jugador toque nada.
 	if _state != State.DEAD and _state != State.WIN and _state != State.FINAL:
+		_mover_dots(delta)
 		_check_catches()
 		_check_cleared()
 		_check_stage()
@@ -454,23 +476,127 @@ func _refill_field(delta: float) -> void:
 	var rect := get_viewport_rect().size
 	var d := Dot.new()
 	var fuera := d.radius * 2.0
+	var modo := _movimiento_actual()
 
-	match randi() % 4:
-		0: d.position = Vector2(randf() * rect.x, -fuera)
-		1: d.position = Vector2(randf() * rect.x, rect.y + fuera)
-		2: d.position = Vector2(-fuera, randf() * rect.y)
-		_: d.position = Vector2(rect.x + fuera, randf() * rect.y)
+	if modo == Dot.Movimiento.NIEVE:
+		# La nieve solo tiene sentido entrando por arriba.
+		d.position = Vector2(randf() * rect.x, -fuera)
+	else:
+		match randi() % 4:
+			0: d.position = Vector2(randf() * rect.x, -fuera)
+			1: d.position = Vector2(randf() * rect.x, rect.y + fuera)
+			2: d.position = Vector2(-fuera, randf() * rect.y)
+			_: d.position = Vector2(rect.x + fuera, randf() * rect.y)
 
 	# Apunta al tercio central para que cruce el campo en vez de rozar el borde.
 	var objetivo := Vector2(
 		randf_range(rect.x * 0.33, rect.x * 0.67),
 		randf_range(rect.y * 0.33, rect.y * 0.67))
-	var bonus := _speed_bonus()
-	d.velocity = (objetivo - d.position).normalized() \
-		* randf_range(dot_speed_min + bonus, dot_speed_max + bonus)
+	_preparar_dot(d, modo, (objetivo - d.position).normalized())
 
 	_dots_root.add_child(d)
 	_dots.append(d)
+
+
+## El movimiento del bioma en curso.
+func _movimiento_actual() -> int:
+	if forzar_movimiento:
+		return movimiento_prueba
+	if _mode == Mode.CAMPANA:
+		return Niveles.movimiento(_nivel)
+	return Dot.Movimiento.REBOTE
+
+
+## Main dirige el movimiento en vez de que cada círculo lo haga en su _process.
+##
+## Hay modos que necesitan ver a los demás círculos o a las detonaciones, y
+## además así el orden de actualización es determinista: primero las reglas
+## globales, después la integración de cada uno, y solo entonces los contagios.
+func _mover_dots(delta: float) -> void:
+	match _movimiento_actual():
+		Dot.Movimiento.CHOQUE:
+			_resolver_choques()
+		Dot.Movimiento.ENJAMBRE:
+			_aplicar_enjambre(delta)
+		Dot.Movimiento.HUIDA:
+			_aplicar_huida(delta)
+
+	var rect := get_viewport_rect().size
+	for d in _dots:
+		d.mover(delta, rect)
+
+
+## Choque elástico entre iguales: se intercambia la componente de la velocidad
+## a lo largo de la normal y se separan lo que se hubieran solapado.
+func _resolver_choques() -> void:
+	for i in range(_dots.size()):
+		for j in range(i + 1, _dots.size()):
+			var a := _dots[i]
+			var b := _dots[j]
+			var dif := b.position - a.position
+			var dist := dif.length()
+			var minima := a.radius + b.radius
+			if dist < 0.001 or dist >= minima:
+				continue
+
+			var n := dif / dist
+			var solape := minima - dist
+			a.position -= n * solape * 0.5
+			b.position += n * solape * 0.5
+
+			var va := a.velocity.dot(n)
+			var vb := b.velocity.dot(n)
+			# Si ya se están separando no se toca: evita que dos círculos
+			# pegados se queden vibrando el uno contra el otro.
+			if va - vb <= 0.0:
+				continue
+			a.velocity += n * (vb - va)
+			b.velocity += n * (va - vb)
+
+
+## Se buscan entre sí y forman grumos. Cambia el juego más de lo que parece:
+## los clusters aparecen solos, así que la habilidad deja de ser encontrarlos y
+## pasa a ser elegir el instante.
+func _aplicar_enjambre(delta: float) -> void:
+	for d in _dots:
+		var centro := Vector2.ZERO
+		var vecinos := 0
+		var roce := Vector2.ZERO
+		for o in _dots:
+			if o == d:
+				continue
+			var dif := o.position - d.position
+			var dist := dif.length()
+			if dist > ENJAMBRE_VISTA or dist < 0.001:
+				continue
+			centro += o.position
+			vecinos += 1
+			if dist < ENJAMBRE_ROCE:
+				roce -= dif / dist
+		if vecinos == 0:
+			continue
+		var hacia := ((centro / float(vecinos)) - d.position).normalized()
+		d.velocity += (hacia * ENJAMBRE_ATRACCION + roce * ENJAMBRE_SEPARACION) * delta
+		# Se renormaliza para que juntarse no acelere ni frene a nadie.
+		d.velocity = d.velocity.normalized() * d.base_speed
+
+
+## Se apartan de las detonaciones activas.
+##
+## Es el primer modo que reacciona a la mecánica en vez de solo desplazarse, y
+## le da la vuelta al juego: la onda dispersa al grupo que estabas cazando, así
+## que las cadenas largas exigen atrapar a los vecinos antes de que escapen.
+func _aplicar_huida(delta: float) -> void:
+	if _explosions.is_empty():
+		return
+	for d in _dots:
+		for e in _explosions:
+			var dif := d.position - e.position
+			var dist := dif.length()
+			if dist < 0.001 or dist > e.radius + HUIDA_MARGEN:
+				continue
+			d.velocity += (dif / dist) * HUIDA_FUERZA * delta
+		d.velocity = d.velocity.normalized() * d.base_speed
 
 
 func _spawn_explosion(pos: Vector2, radius: float, chain_id: int) -> void:
@@ -570,13 +696,12 @@ func _flash(texto: String) -> void:
 
 # --- Fin de partida -------------------------------------------------------
 
-## Al terminar se congela el mundo entero.
-##
-## Antes solo se detenía la lógica de partida, pero cada punto mueve su propia
-## posición en su _process, así que seguían rebotando y la muerte era
-## literalmente invisible: el juego "continuaba".
+## Al terminar se congela el mundo entero: en DEAD, WIN y FINAL no se llama a
+## _mover_dots. Antes solo se detenía la lógica de partida y los círculos
+## seguían rebotando por su cuenta, así que la muerte era literalmente
+## invisible y el juego parecía continuar.
 func _congelar() -> void:
-	_dots_root.process_mode = Node.PROCESS_MODE_DISABLED
+	pass
 
 
 func _perder(motivo: String) -> void:
@@ -620,8 +745,6 @@ func _empezar_partida() -> void:
 
 
 func _poblar_campo() -> void:
-	_dots_root.process_mode = Node.PROCESS_MODE_INHERIT
-
 	for d in _dots:
 		d.queue_free()
 	_dots.clear()
@@ -635,14 +758,30 @@ func _poblar_campo() -> void:
 	# El campo arranca lleno y repartido; solo las reposiciones entran por los
 	# bordes. Verlo llenarse punto a punto sería una espera muerta al empezar.
 	var rect := get_viewport_rect().size
+	var modo := _movimiento_actual()
 	for i in target_dots:
 		var d := Dot.new()
 		d.position = Vector2(
 			randf_range(SPAWN_MARGIN, rect.x - SPAWN_MARGIN),
 			randf_range(SPAWN_MARGIN, rect.y - SPAWN_MARGIN))
-		d.velocity = Vector2.from_angle(randf() * TAU) * randf_range(dot_speed_min, dot_speed_max)
+		_preparar_dot(d, modo, Vector2.from_angle(randf() * TAU))
 		_dots_root.add_child(d)
 		_dots.append(d)
+
+
+## Modo, rumbo y rapidez de un círculo recién nacido.
+##
+## La rapidez base se guarda aparte de la velocidad porque los modos que
+## reorientan el vector (enjambre, huida, abeja) la necesitan para no acelerar
+## ni frenar sin querer al cambiar de dirección.
+func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
+	d.modo = modo
+	var bonus := _speed_bonus()
+	var rapidez := randf_range(dot_speed_min + bonus, dot_speed_max + bonus)
+	if speed_variance > 0.0:
+		rapidez *= randf_range(1.0 - speed_variance, 1.0 + speed_variance)
+	d.base_speed = maxf(10.0, rapidez)
+	d.velocity = rumbo * d.base_speed
 
 
 # --- Pantallas ------------------------------------------------------------
@@ -697,6 +836,7 @@ func _update_ui() -> void:
 	_menu_best.text = "mejor sin fin  %d" % _best
 
 	if _state == State.SELECT:
+		_sel_bioma.text = str(Niveles.nivel(_nivel)["bioma"]).to_upper()
 		_sel_num.text = "NIVEL %d" % (_nivel + 1)
 		_sel_meta.text = Niveles.describir(_nivel)
 		_sel_pista.text = str(Niveles.nivel(_nivel)["pista"])
@@ -720,7 +860,7 @@ func _update_ui() -> void:
 		_objetivo_label.text = ""
 
 	var s := _stage()
-	_stage_label.text = "escalón %d%s" % [s, "  ·  respiro" if _es_respiro(s) else ""]
+	_stage_label.text = "escalón %d  ·  %s" % [s, NOMBRES_MOV[_movimiento_actual()]]
 	_fallos_label.text = "fallos  %d / %d" % [_fallos, _fallos_permitidos()]
 	_fallos_label.modulate = Color("ff5470") if _fallos > 0 else Color(0.45, 0.45, 0.55)
 
