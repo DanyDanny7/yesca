@@ -357,6 +357,17 @@ func _tap(pos: Vector2) -> void:
 
 	_time_left -= tap_cost
 	_fallos = 0
+
+	# Un tap ARRANCA una cadena, no continúa la que hubiera en curso.
+	#
+	# Sin esto, tocar a media cascada regalaba multiplicador: el contador seguía
+	# subiendo desde donde estaba y pulsar más rendía igual que dejar propagar.
+	# Con el reinicio, interrumpir una cadena viva cuesta todo lo acumulado, y
+	# esperar a que termine pasa a ser una decisión de verdad.
+	if _cascade_len >= 3:
+		_flash("cadena cortada  ×%d" % _cascade_len)
+	_cascade_len = 0
+
 	var donde := objetivo.position
 	_dots.erase(objetivo)
 	objetivo.queue_free()
@@ -377,6 +388,10 @@ func _dot_mas_cercano(pos: Vector2) -> Dot:
 
 
 ## El punto N de una cascada vale N, no 1.
+##
+## Solo la PROPAGACIÓN sube el contador: el círculo que tocas siempre vale x1 y
+## a partir de ahí suman los que alcanza la onda. El multiplicador mide la
+## cadena, no cuántas veces has pulsado.
 ##
 ## Es lo que convierte el objetivo en ENCADENAR en vez de en pulsar. Una cadena
 ## de 8 da 1+2+..+8 = 36 puntos, contra los 8 que darían ocho taps sueltos: 4.5x

@@ -85,8 +85,12 @@ func _partida(main, bueno: bool) -> Array:
 
 	while main._state != 3 and main._elapsed < cap_segundos:  # 3 = State.DEAD
 		await process_frame
-		if main._explosions.size() > 0:
-			continue  # con una cascada en curso no se toca, se mira
+		# Solo el jugador bueno sabe esperar. El descuidado toca a media cascada
+		# y se come el reinicio del multiplicador, que es precisamente la
+		# diferencia que el juego quiere premiar. Modelarlo de otra forma
+		# escondía el efecto del cambio.
+		if bueno and main._explosions.size() > 0:
+			continue
 		var objetivo = _decidir(main, bueno)
 		if objetivo != null:
 			main._tap(objetivo)

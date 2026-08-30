@@ -83,6 +83,14 @@ paciencia a base de volumen.
 Y hace lo que se buscaba de diseño: el objetivo pasa a ser **encadenar**, no
 pulsar. Eso frena el ritmo y compensa pensar qué círculo tocar.
 
+**Solo la propagación sube el contador.** El círculo que tocas siempre vale ×1
+y a partir de ahí suman los que alcanza la onda; un tap nuevo ARRANCA una cadena
+en vez de continuar la que hubiera en curso. Sin esto, tocar a media cascada
+regalaba multiplicador y pulsar más rendía igual que dejar propagar. Con el
+reinicio, interrumpir una cadena viva cuesta todo lo acumulado, y esperar a que
+termine pasa a ser la decisión central del juego. Se avisa en pantalla con
+"cadena cortada ×N" para que se entienda lo que se acaba de tirar.
+
 En pantalla, el multiplicador sale grande y en el centro, con un golpe de escala
 en cada incremento. Ese golpe es la sensación de que algo se acumula.
 
@@ -108,11 +116,17 @@ los círculos rápidos.
 
 | Perfil | Sobrevive | Puntúa |
 |---|---|---|
-| Descuidado | ~78 s | ~851 |
-| Bueno | ~159 s | ~2533 |
+| Descuidado (toca a media cascada) | ~98 s | ~324 |
+| Bueno (deja propagar) | ~156 s | ~2498 |
 
-**2.0x en supervivencia, 3.0x en puntuación.** La varianza del descuidado es
-enorme (de 70 a 1912 puntos), que es lo esperable de jugar sin criterio.
+**1.6x en supervivencia, 7.7x en puntuación.** La mejor separación conseguida, y
+viene casi entera del reinicio del multiplicador.
+
+Un apunte sobre el banco de pruebas: hasta esta medición el perfil "descuidado"
+del simulador también esperaba a que la cascada terminara, así que nunca sufría
+el reinicio y el cambio parecía no hacer nada. Un jugador descuidado de verdad
+toca a media cascada. Modelarlo mal escondía justo el efecto que se quería
+medir.
 
 ## Pendiente
 
