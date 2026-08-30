@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/circle_button.gd" id="2_circle"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -26,10 +27,21 @@ offset_bottom = 20.0
 mouse_filter = 2
 color = Color(0.427, 0.89, 0.627, 1)
 
+[node name="BarCaption" type="Label" parent="UI"]
+anchor_right = 1.0
+offset_left = 40.0
+offset_top = 72.0
+offset_right = -40.0
+offset_bottom = 100.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.45, 0.45, 0.55, 1)
+theme_override_font_sizes/font_size = 22
+text = "tiempo"
+
 [node name="Score" type="Label" parent="UI"]
 anchor_right = 1.0
-offset_top = 96.0
-offset_bottom = 230.0
+offset_top = 118.0
+offset_bottom = 252.0
 mouse_filter = 2
 theme_override_font_sizes/font_size = 100
 text = "0"
@@ -37,23 +49,175 @@ horizontal_alignment = 1
 
 [node name="Best" type="Label" parent="UI"]
 anchor_right = 1.0
-offset_top = 228.0
-offset_bottom = 272.0
+offset_top = 250.0
+offset_bottom = 294.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.55, 0.55, 0.66, 1)
 theme_override_font_sizes/font_size = 28
 text = "mejor  0"
 horizontal_alignment = 1
 
-[node name="Message" type="Label" parent="UI"]
+[node name="Hint" type="Label" parent="UI"]
 anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
-offset_top = -80.0
-offset_bottom = 80.0
+offset_top = -30.0
+offset_bottom = 30.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.72, 0.72, 0.8, 1)
-theme_override_font_sizes/font_size = 38
-text = "toca para detonar"
+theme_override_font_sizes/font_size = 36
+text = "toca un círculo"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="Flash" type="Label" parent="UI"]
+anchor_right = 1.0
+offset_top = 320.0
+offset_bottom = 372.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.427, 0.89, 0.627, 1)
+theme_override_font_sizes/font_size = 34
+horizontal_alignment = 1
+
+[node name="StartScreen" type="Control" parent="UI"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Bg" type="ColorRect" parent="UI/StartScreen"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.051, 0.051, 0.071, 0.9)
+
+[node name="Title" type="Label" parent="UI/StartScreen"]
+anchor_right = 1.0
+offset_top = 260.0
+offset_bottom = 360.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 84
+text = "CADENA"
+horizontal_alignment = 1
+
+[node name="Sub" type="Label" parent="UI/StartScreen"]
+anchor_right = 1.0
+offset_left = 60.0
+offset_top = 372.0
+offset_right = -60.0
+offset_bottom = 470.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.55, 0.66, 1)
+theme_override_font_sizes/font_size = 28
+text = "toca un círculo y explota.
+la onda contagia a los vecinos."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Play" type="Control" parent="UI/StartScreen"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -60.0
+offset_right = 150.0
+offset_bottom = 240.0
+mouse_filter = 2
+script = ExtResource("2_circle")
+
+[node name="PlayText" type="Label" parent="UI/StartScreen/Play"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.051, 0.051, 0.071, 1)
+theme_override_font_sizes/font_size = 44
+text = "JUGAR"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Best" type="Label" parent="UI/StartScreen"]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -160.0
+offset_bottom = -100.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.55, 0.66, 1)
+theme_override_font_sizes/font_size = 30
+text = "mejor  0"
+horizontal_alignment = 1
+
+[node name="OverScreen" type="Control" parent="UI"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Bg" type="ColorRect" parent="UI/OverScreen"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.051, 0.051, 0.071, 0.92)
+
+[node name="Title" type="Label" parent="UI/OverScreen"]
+anchor_right = 1.0
+offset_top = 230.0
+offset_bottom = 290.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.329, 0.439, 1)
+theme_override_font_sizes/font_size = 38
+text = "SE ACABÓ EL TIEMPO"
+horizontal_alignment = 1
+
+[node name="Score" type="Label" parent="UI/OverScreen"]
+anchor_right = 1.0
+offset_top = 300.0
+offset_bottom = 450.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 120
+text = "0"
+horizontal_alignment = 1
+
+[node name="Detail" type="Label" parent="UI/OverScreen"]
+anchor_right = 1.0
+offset_top = 452.0
+offset_bottom = 540.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.55, 0.66, 1)
+theme_override_font_sizes/font_size = 28
+text = "mejor  0"
+horizontal_alignment = 1
+
+[node name="Retry" type="Control" parent="UI/OverScreen"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = 60.0
+offset_right = 150.0
+offset_bottom = 360.0
+mouse_filter = 2
+script = ExtResource("2_circle")
+
+[node name="RetryText" type="Label" parent="UI/OverScreen/Retry"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.051, 0.051, 0.071, 1)
+theme_override_font_sizes/font_size = 44
+text = "OTRA"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Foot" type="Label" parent="UI/OverScreen"]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -120.0
+offset_bottom = -70.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.4, 0.4, 0.5, 1)
+theme_override_font_sizes/font_size = 24
+text = "o toca donde sea"
+horizontal_alignment = 1

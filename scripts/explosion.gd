@@ -6,13 +6,18 @@ extends Node2D
 ## La fase de "sostiene" es la que hace posible la cadena — es la ventana en la
 ## que un punto puede entrar y contagiarse. Acortarla vuelve el juego mucho más
 ## exigente; es de los primeros parámetros a tocar al calibrar.
+##
+## También se usa, con otro color y sin registrarse en la lista de detonaciones
+## activas, como marca de tap fallado: se ve igual pero no contagia nada.
 
-const COLOR := Color("ff5470")
+const COLOR_ACTIVA := Color("ff5470")
+const COLOR_FALLO := Color("6a6a7a")
 
 @export var max_radius: float = 90.0
 @export var grow_time: float = 0.3
 @export var hold_time: float = 0.6
 @export var decay_time: float = 0.3
+@export var color: Color = COLOR_ACTIVA
 
 ## Radio actual. Main lo lee para detectar contagios.
 var radius: float = 0.0
@@ -47,5 +52,5 @@ func _draw() -> void:
 		fade = 1.0 - (_t - grow_time - hold_time) / decay_time
 	fade = clampf(fade, 0.0, 1.0)
 
-	draw_circle(Vector2.ZERO, radius, Color(COLOR, 0.16 * fade))
-	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, Color(COLOR, fade), 3.0, true)
+	draw_circle(Vector2.ZERO, radius, Color(color, 0.16 * fade))
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, Color(color, fade), 3.0, true)

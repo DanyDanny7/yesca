@@ -6,17 +6,18 @@ Juego móvil 2D para Android, hecho en Godot 4.7. Proyecto personal: el objetivo
 es que sea divertido y pegajoso. Si lo consigue, se publica en Play Store con
 publicidad; si no, se publica igual sin anuncios.
 
-**Concepto — Cadena.** Puntos flotando por la pantalla. Tocas: detonas, la
-explosión se expande y todo punto que alcanza explota también, en cascada. Una
-barra de tiempo baja sin parar; tocar cuesta tiempo, atrapar devuelve tiempo.
-Cada tap es una apuesta entre detonar ya o esperar a que se junten más.
+**Concepto — Cadena.** Puntos flotando por la pantalla. Tocas uno: explota, y
+su onda expansiva contagia a los vecinos, que explotan a su vez en cascada. Una
+barra de tiempo baja sin parar; tocar cuesta tiempo, atrapar devuelve tiempo, y
+la recompensa crece con la longitud de la cadena. Cada tap es una apuesta entre
+detonar ya o esperar a que se junten más.
 
 ## Estado
 
-**Fase v1** — campo continuo y barra de tiempo. El v0 por rondas se descartó:
-borraba el tablero tras cada cascada y se sentía un bucle sin avance, que era
-justo el defecto que el diseño endless existía para evitar. Ver
-`contexto/05-economia-v1.md` y `contexto/03-concepto-cadena.md`.
+**Fase v2** — mecánica completa y legible: se toca un círculo, hay pantallas de
+inicio y de fin, el récord persiste y vaciar la pantalla se premia. Falta todo
+el game feel (impacto, vibración, partículas, sonido). Ver
+`contexto/06-pantallas-e-input.md` y `contexto/03-concepto-cadena.md`.
 
 ## Cómo correrlo
 
@@ -49,8 +50,9 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
 - `main.tscn` — escena principal, con los contenedores de puntos y
   detonaciones más la UI.
 - `scripts/main.gd` — bucle, input, detección de contagios y estado de ronda.
-- `scripts/dot.gd`, `scripts/explosion.gd` — nodos que se dibujan solos con
-  `_draw()`. Sin sprites ni escenas: para formas geométricas no hacen falta.
+- `scripts/dot.gd`, `scripts/explosion.gd`, `scripts/circle_button.gd` — nodos
+  que se dibujan solos con `_draw()`. Sin sprites ni escenas: para formas
+  geométricas no hacen falta.
 - `tools/` — utilidades de desarrollo, fuera del juego. `calibracion.gd` mide
   el reparto de cadenas; `simulacion.gd` juega partidas enteras con dos
   perfiles de jugador para ver si la economía separa el juego bueno del malo.

@@ -33,8 +33,10 @@ const ACELERACION := 3.0
 
 ## Cuántos puntos tiene que ver juntos el jugador bueno para gastar un tap.
 const CLUSTER_MINIMO := 6
-## Por debajo de esto ya no se puede elegir: toca detonar donde sea.
+## Por debajo de esto ya no se puede elegir: toca detonar lo que haya.
 const DESESPERO := 2.5
+## Con qué frecuencia se le va el dedo al jugador descuidado.
+const PROB_FALLO := 0.25
 
 
 func _initialize() -> void:
@@ -54,6 +56,7 @@ func _initialize() -> void:
 	await process_frame
 
 	print("viewport: ", root.get_visible_rect().size, "   cap: %.0fs   partidas: %d" % [cap_segundos, runs])
+	print("modelo de input: se toca un CÍRCULO, no la pantalla")
 	print("")
 	if solo != "bueno":
 		await _perfil(main, "DESCUIDADO (toca al azar en cuanto le baja la barra)", false)
@@ -76,11 +79,11 @@ func _perfil(main, etiqueta: String, bueno: bool) -> void:
 
 
 func _partida(main, bueno: bool) -> Array:
-	main._start_run()
-	main._state = 1  # PLAYING
+	main._empezar_partida()
+	main._state = 2  # State.PLAYING
 	await process_frame
 
-	while main._state != 2 and main._elapsed < cap_segundos:
+	while main._state != 3 and main._elapsed < cap_segundos:  # 3 = State.DEAD
 		await process_frame
 		if main._explosions.size() > 0:
 			continue  # con una cascada en curso no se toca, se mira
@@ -92,13 +95,20 @@ func _partida(main, bueno: bool) -> Array:
 
 
 func _decidir(main, bueno: bool):
-	var apurado: bool = main._time_left < DESESPERO
-	if not bueno:
-		# Reactivo y sin criterio: toca en cuanto la barra baja de la mitad.
-		if main._time_left < main.time_max * 0.5:
-			var r := root.get_visible_rect().size
-			return Vector2(randf() * r.x, randf() * r.y)
+	if main._dots.is_empty():
 		return null
+	var apurado: bool = main._time_left < DESESPERO
+
+	if not bueno:
+		# Reactivo y sin criterio: toca en cuanto la barra baja de la mitad,
+		# eligiendo un círculo cualquiera. Con PROB_FALLO se le va el dedo, que
+		# es lo que le pasa a quien juega sin mirar.
+		if main._time_left >= main.time_max * 0.5:
+			return null
+		var d = main._dots[randi() % main._dots.size()]
+		if randf() < PROB_FALLO:
+			return d.position + Vector2.from_angle(randf() * TAU) * (main.tap_tolerance * 2.0)
+		return d.position
 
 	var mejor = _mejor_cluster(main)
 	if mejor == null:
@@ -108,7 +118,8 @@ func _decidir(main, bueno: bool):
 	return null
 
 
-## Devuelve [posición, cuántos puntos caen dentro del radio de tap].
+## El círculo con más vecinos dentro de su radio de detonación, que es el que
+## un jugador con buen ojo elegiría. Devuelve [posición, cuántos vecinos].
 func _mejor_cluster(main):
 	var mejor_pos = null
 	var mejor_n := -1
