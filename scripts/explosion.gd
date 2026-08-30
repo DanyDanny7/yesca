@@ -19,6 +19,13 @@ const COLOR_FALLO := Color("6a6a7a")
 @export var decay_time: float = 0.3
 @export var color: Color = COLOR_ACTIVA
 
+## A qué cadena pertenece esta detonación.
+##
+## Varias cadenas pueden estar vivas a la vez: cada tap arranca la suya y se
+## propaga por su cuenta, con su propio multiplicador. Sin este identificador
+## todas compartirían contador y encadenar en dos sitios a la vez daría lo
+## mismo que hacerlo en uno.
+var chain_id: int = 0
 ## Radio actual. Main lo lee para detectar contagios.
 var radius: float = 0.0
 ## Main es el dueño del ciclo de vida y la libera cuando esto se pone en true.

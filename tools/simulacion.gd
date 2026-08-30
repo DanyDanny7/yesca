@@ -80,10 +80,13 @@ func _perfil(main, etiqueta: String, bueno: bool) -> void:
 
 func _partida(main, bueno: bool) -> Array:
 	main._empezar_partida()
-	main._state = 2  # State.PLAYING
+	# Los índices siguen a enum State { MENU, SELECT, READY, PLAYING, DEAD, ... }
+	# Ojo al tocarlo: añadir estados al principio del enum desplaza estos números
+	# y el simulador se queda girando en vacío sin que avance el reloj.
+	main._state = 3  # State.PLAYING
 	await process_frame
 
-	while main._state != 3 and main._elapsed < cap_segundos:  # 3 = State.DEAD
+	while main._state != 4 and main._elapsed < cap_segundos:  # 4 = State.DEAD
 		await process_frame
 		# Solo el jugador bueno sabe esperar. El descuidado toca a media cascada
 		# y se come el reinicio del multiplicador, que es precisamente la

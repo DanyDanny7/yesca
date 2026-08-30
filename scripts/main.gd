@@ -81,6 +81,8 @@ const SPAWN_MARGIN := 40.0
 const WARN_TIME := 3.0
 const FLASH_TIME := 1.4
 const COMBO_POP_TIME := 0.45
+## Caja de la etiqueta flotante de cada cadena.
+const COMBO_SIZE := Vector2(240.0, 100.0)
 const STAGE_COLOR_TOPE := 10.0
 const SAVE_PATH := "user://cadena.cfg"
 
@@ -97,7 +99,7 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _flash_label: Label = $UI/Flash
 @onready var _stage_label: Label = $UI/Stage
 @onready var _fallos_label: Label = $UI/Fallos
-@onready var _combo_label: Label = $UI/Combo
+@onready var _combos_root: Control = $UI/Combos
 @onready var _bar_bg: ColorRect = $UI/BarBg
 @onready var _bar_fill: ColorRect = $UI/BarBg/BarFill
 
@@ -144,13 +146,27 @@ var _time_left: float = 0.0
 var _score: int = 0
 var _best: int = 0
 var _elapsed: float = 0.0
-var _cascade_len: int = 0
+## Cadenas vivas: id -> {"len": int, "pos": Vector2, "pop": float}
+##
+## Varias a la vez. Cada tap arranca la suya y se propaga por su cuenta con su
+## propio multiplicador, así que se puede sembrar una segunda cascada mientras
+## la primera todavía se está resolviendo. Con un contador único, encadenar en
+## dos sitios daba lo mismo que encadenar en uno.
+var _cadenas: Dictionary = {}
+var _next_chain: int = 0
+## id de cadena -> Label flotante en uso.
+var _combo_labels: Dictionary = {}
+## Etiquetas libres, listas para reutilizar.
+##
+## Se reciclan en vez de crearse y liberarse por cadena. Con varias cadenas
+## naciendo y muriendo por segundo, instanciar un Label cada vez tiene un coste
+## real: cada uno arrastra tema, fuente y layout propios.
+var _combo_pool: Array[Label] = []
 var _best_cascade: int = 0
 var _limpias: int = 0
 var _respawn_timer: float = 0.0
 var _field_was_empty: bool = false
 var _flash_left: float = 0.0
-var _combo_pop: float = 0.0
 var _record_nuevo: bool = false
 var _fallos: int = 0
 var _stage_shown: int = 1
@@ -158,7 +174,7 @@ var _stage_shown: int = 1
 
 func _ready() -> void:
 	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _fallos_label, _score_label,
-			_best_label, _objetivo_label, _hint_label, _flash_label, _combo_label]
+			_best_label, _objetivo_label, _hint_label, _flash_label, _combos_root]
 	_cargar()
 	_poblar_campo()
 	_ir_a(State.MENU)
@@ -168,8 +184,7 @@ func _process(delta: float) -> void:
 	_explosions = _prune(_explosions)
 	_effects = _prune(_effects)
 
-	if _explosions.is_empty():
-		_cascade_len = 0
+	_prune_cadenas()
 
 	if _state == State.PLAYING:
 		_elapsed += delta
@@ -197,7 +212,8 @@ func _process(delta: float) -> void:
 
 	if _flash_left > 0.0:
 		_flash_left -= delta
-	_combo_pop = maxf(0.0, _combo_pop - delta / COMBO_POP_TIME)
+	for id in _cadenas:
+		_cadenas[id]["pop"] = maxf(0.0, _cadenas[id]["pop"] - delta / COMBO_POP_TIME)
 
 	_update_ui()
 
@@ -334,20 +350,18 @@ func _tap(pos: Vector2) -> void:
 	_time_left -= tap_cost
 	_fallos = 0
 
-	# Un tap ARRANCA una cadena, no continúa la que hubiera en curso.
-	#
-	# Sin esto, tocar a media cascada regalaba multiplicador: el contador seguía
-	# subiendo desde donde estaba y pulsar más rendía igual que dejar propagar.
-	# Con el reinicio, interrumpir una cadena viva cuesta todo lo acumulado.
-	if _cascade_len >= 3:
-		_flash("cadena cortada  ×%d" % _cascade_len)
-	_cascade_len = 0
-
+	# Un tap ARRANCA su propia cadena. No continúa la que hubiera en curso ni la
+	# corta: las dos conviven y se propagan en paralelo, cada una con su
+	# multiplicador. Así sembrar una segunda cascada mientras la primera se
+	# resuelve es una jugada, y no una forma de inflar el mismo contador.
 	var donde := objetivo.position
 	_dots.erase(objetivo)
 	objetivo.queue_free()
-	_cobrar_punto()
-	_spawn_explosion(donde, tap_radius)
+
+	_next_chain += 1
+	_cadenas[_next_chain] = {"len": 0, "pos": donde, "pop": 0.0}
+	_cobrar_punto(_next_chain, donde)
+	_spawn_explosion(donde, tap_radius, _next_chain)
 
 
 ## El círculo más cercano al dedo dentro de la tolerancia, o null si no hay.
@@ -369,29 +383,39 @@ func _dot_mas_cercano(pos: Vector2) -> Dot:
 ## cadena, no cuántas veces has pulsado. Es lo que convierte el objetivo en
 ## encadenar en vez de en pulsar, y lo que impide que la frecuencia compense la
 ## calidad.
-func _cobrar_punto() -> void:
-	_cascade_len += 1
-	_score += _cascade_len
-	_best_cascade = maxi(_best_cascade, _cascade_len)
-	_time_left = minf(time_max, _time_left + reward_base + reward_step * (_cascade_len - 1))
-	if _cascade_len >= 2:
-		_combo_pop = 1.0
+func _cobrar_punto(id: int, pos: Vector2) -> void:
+	if not _cadenas.has(id):
+		_cadenas[id] = {"len": 0, "pos": pos, "pop": 0.0}
+	var c: Dictionary = _cadenas[id]
+	c["len"] = int(c["len"]) + 1
+	c["pos"] = pos
+	c["pop"] = 1.0
+
+	var n: int = c["len"]
+	_score += n
+	_best_cascade = maxi(_best_cascade, n)
+	_time_left = minf(time_max, _time_left + reward_base + reward_step * (n - 1))
 
 
 ## Detección de contagios por distancia, no con Area2D: con ~25 puntos el coste
 ## es irrelevante y a cambio es determinista y se lee de un vistazo.
 func _check_catches() -> void:
-	var caught_at: Array[Vector2] = []
+	var atrapados: Array[Dictionary] = []
 	var survivors: Array[Dot] = []
 
 	for d in _dots:
-		var hit := false
+		# Gana la detonación más CERCANA, no la primera de la lista: cuando dos
+		# cadenas se solapan, la que reclama el círculo tiene que ser la que el
+		# jugador ve encima de él.
+		var mejor: Explosion = null
+		var mejor_dist := INF
 		for e in _explosions:
-			if d.position.distance_to(e.position) <= e.radius + d.radius:
-				hit = true
-				break
-		if hit:
-			caught_at.append(d.position)
+			var dist := d.position.distance_to(e.position)
+			if dist <= e.radius + d.radius and dist < mejor_dist:
+				mejor_dist = dist
+				mejor = e
+		if mejor != null:
+			atrapados.append({"pos": d.position, "cadena": mejor.chain_id})
 			d.queue_free()
 		else:
 			survivors.append(d)
@@ -401,9 +425,9 @@ func _check_catches() -> void:
 	# Se difiere el spawn respecto al bucle de arriba: añadir a _explosions
 	# mientras se itera sobre él haría que un punto se contagie de su propia
 	# detonación en el mismo frame.
-	for pos in caught_at:
-		_cobrar_punto()
-		_spawn_explosion(pos, _chain_radius())
+	for a in atrapados:
+		_cobrar_punto(int(a["cadena"]), a["pos"])
+		_spawn_explosion(a["pos"], _chain_radius(), int(a["cadena"]))
 
 
 ## Vaciar la pantalla es lo más parecido a ganar que tiene una partida sin fin.
@@ -449,10 +473,11 @@ func _refill_field(delta: float) -> void:
 	_dots.append(d)
 
 
-func _spawn_explosion(pos: Vector2, radius: float) -> void:
+func _spawn_explosion(pos: Vector2, radius: float, chain_id: int) -> void:
 	var e := Explosion.new()
 	e.position = pos
 	e.max_radius = radius
+	e.chain_id = chain_id
 	e.color = _stage_color()
 	_explosions_root.add_child(e)
 	_explosions.append(e)
@@ -466,6 +491,66 @@ func _spawn_effect(pos: Vector2) -> void:
 	e.hold_time = 0.1
 	_explosions_root.add_child(e)
 	_effects.append(e)
+
+
+## Una cadena vive mientras le quede alguna detonación en pantalla.
+##
+## Se poda justo después de las detonaciones y ANTES de los contagios, para que
+## _check_catches solo pueda referirse a cadenas vivas.
+func _prune_cadenas() -> void:
+	var vivas := {}
+	for e in _explosions:
+		vivas[e.chain_id] = true
+	for id in _cadenas.keys():
+		if not vivas.has(id):
+			_cadenas.erase(id)
+
+
+## Un contador por cadena, colocado donde acaba de propagarse.
+##
+## El contador vive junto a su explosión y no en el centro de la pantalla: con
+## varias cadenas a la vez, un número centrado no diría a cuál pertenece.
+func _sync_combos() -> void:
+	for id in _cadenas:
+		var c: Dictionary = _cadenas[id]
+		if int(c["len"]) < 2:
+			continue
+		if not _combo_labels.has(id):
+			_combo_labels[id] = _tomar_combo_label()
+		var lbl: Label = _combo_labels[id]
+		lbl.text = "×%d" % int(c["len"])
+		lbl.position = Vector2(c["pos"]) - COMBO_SIZE * 0.5
+		var pop := float(c["pop"])
+		var golpe := 1.0 + 0.5 * pop * pop
+		lbl.scale = Vector2(golpe, golpe)
+		lbl.modulate = _stage_color()
+
+	for id in _combo_labels.keys():
+		if not _cadenas.has(id):
+			_soltar_combo_label(id)
+
+
+func _tomar_combo_label() -> Label:
+	if not _combo_pool.is_empty():
+		var reciclada: Label = _combo_pool.pop_back()
+		reciclada.visible = true
+		return reciclada
+	var l := Label.new()
+	l.size = COMBO_SIZE
+	l.pivot_offset = COMBO_SIZE * 0.5
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", 76)
+	_combos_root.add_child(l)
+	return l
+
+
+func _soltar_combo_label(id: int) -> void:
+	var l: Label = _combo_labels[id]
+	l.visible = false
+	_combo_pool.append(l)
+	_combo_labels.erase(id)
 
 
 func _prune(lista: Array[Explosion]) -> Array[Explosion]:
@@ -520,11 +605,13 @@ func _empezar_partida() -> void:
 	_time_left = time_start
 	_score = 0
 	_elapsed = 0.0
-	_cascade_len = 0
+	_cadenas.clear()
+	_next_chain = 0
+	for id in _combo_labels.keys():
+		_soltar_combo_label(id)
 	_best_cascade = 0
 	_limpias = 0
 	_fallos = 0
-	_combo_pop = 0.0
 	_respawn_timer = _respawn_interval()
 	_field_was_empty = false
 	_flash_left = 0.0
@@ -642,13 +729,6 @@ func _update_ui() -> void:
 	_bar_fill.color = Color("ff5470") if _time_left < WARN_TIME else Color("6de3a0")
 
 	# El multiplicador solo existe mientras la cascada está viva.
-	if _cascade_len >= 2:
-		_combo_label.text = "×%d" % _cascade_len
-		_combo_label.modulate.a = 1.0
-	else:
-		_combo_label.modulate.a = maxf(0.0, _combo_label.modulate.a - 0.06)
-	_combo_label.pivot_offset = _combo_label.size * 0.5
-	var golpe := 1.0 + 0.45 * _combo_pop * _combo_pop
-	_combo_label.scale = Vector2(golpe, golpe)
+	_sync_combos()
 
 	_flash_label.modulate.a = clampf(_flash_left / (FLASH_TIME * 0.5), 0.0, 1.0)

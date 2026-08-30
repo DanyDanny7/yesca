@@ -84,15 +84,38 @@ Y hace lo que se buscaba de diseño: el objetivo pasa a ser **encadenar**, no
 pulsar. Eso frena el ritmo y compensa pensar qué círculo tocar.
 
 **Solo la propagación sube el contador.** El círculo que tocas siempre vale ×1
-y a partir de ahí suman los que alcanza la onda; un tap nuevo ARRANCA una cadena
-en vez de continuar la que hubiera en curso. Sin esto, tocar a media cascada
-regalaba multiplicador y pulsar más rendía igual que dejar propagar. Con el
-reinicio, interrumpir una cadena viva cuesta todo lo acumulado, y esperar a que
-termine pasa a ser la decisión central del juego. Se avisa en pantalla con
-"cadena cortada ×N" para que se entienda lo que se acaba de tirar.
+y a partir de ahí suman los que alcanza la onda. Sin esto, tocar a media cascada
+regalaba multiplicador y pulsar más rendía igual que dejar propagar.
 
-En pantalla, el multiplicador sale grande y en el centro, con un golpe de escala
-en cada incremento. Ese golpe es la sensación de que algo se acumula.
+### N cadenas en paralelo
+
+La primera versión hacía que un tap nuevo **reiniciara** el contador. Se quedó
+corta: lo correcto es que cada tap arranque **su propia cadena**, y que haya
+tantas vivas a la vez como el jugador quiera sembrar. Así se puede lanzar una
+segunda cascada abajo mientras la primera todavía se resuelve arriba, y cada una
+lleva su multiplicador por separado.
+
+Detalles que hicieron falta:
+
+- Cada `Explosion` guarda un `chain_id`. Sin él todas compartirían contador y
+  encadenar en dos sitios daría lo mismo que hacerlo en uno.
+- Un círculo alcanzado por dos ondas se lo lleva la detonación **más cercana**,
+  no la primera de la lista: cuando dos cadenas se solapan, la que lo reclama
+  tiene que ser la que el jugador ve encima.
+- El contador vive **junto a su explosión**, no en el centro de la pantalla. Con
+  varias cadenas a la vez, un número centrado no diría a cuál pertenece.
+- Las etiquetas se **reciclan en un pool**. Con cadenas naciendo y muriendo
+  varias veces por segundo, instanciar un `Label` cada vez tiene coste real:
+  cada uno arrastra tema, fuente y layout propios.
+
+Medido con un jugador que machaca: pico de **12 cadenas simultáneas** y 9
+contadores en pantalla, con explosiones, cadenas y etiquetas todas acotadas y
+limpiándose solas.
+
+Lo importante es que **no ablandó el juego**, que era el riesgo: al no reiniciar
+ya no hay castigo por tocar a media cascada. Pero cada tap del impaciente arranca
+una cadena que muere en ×1 o ×2, mientras el paciente construye una larga. La
+separación no cayó — subió.
 
 ## El medidor de fallos
 
@@ -116,17 +139,21 @@ los círculos rápidos.
 
 | Perfil | Sobrevive | Puntúa |
 |---|---|---|
-| Descuidado (toca a media cascada) | ~98 s | ~324 |
-| Bueno (deja propagar) | ~156 s | ~2498 |
+| Descuidado (toca a media cascada) | ~43 s | ~194 |
+| Bueno (deja propagar) | ~163 s | ~2622 |
 
-**1.6x en supervivencia, 7.7x en puntuación.** La mejor separación conseguida, y
-viene casi entera del reinicio del multiplicador.
+**3.8x en supervivencia, 13.5x en puntuación.** La mejor separación conseguida.
 
-Un apunte sobre el banco de pruebas: hasta esta medición el perfil "descuidado"
-del simulador también esperaba a que la cascada terminara, así que nunca sufría
-el reinicio y el cambio parecía no hacer nada. Un jugador descuidado de verdad
-toca a media cascada. Modelarlo mal escondía justo el efecto que se quería
-medir.
+Dos apuntes sobre el banco de pruebas, porque las dos veces el error escondió
+justo lo que se quería medir:
+
+- El perfil "descuidado" esperaba a que la cascada terminara, igual que el
+  bueno, así que nunca sufría el reinicio del multiplicador y el cambio parecía
+  no hacer nada. Un jugador descuidado de verdad toca a media cascada.
+- Al añadir los estados MENU y SELECT, el enum `State` se desplazó y el
+  simulador seguía usando los índices viejos: ponía la partida en READY en vez
+  de PLAYING y se quedaba girando en vacío sin que el reloj avanzara nunca. Los
+  índices están ahora comentados en `simulacion.gd` con el aviso.
 
 ## Pendiente
 
