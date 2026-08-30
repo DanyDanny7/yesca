@@ -17,3 +17,4 @@ reescribe y se anota por qué cambió — el historial lo guarda git.
 | `05-economia-v1.md` | Campo continuo y barra de tiempo: por qué y con qué números |
 | `06-pantallas-e-input.md` | Tocar un círculo, pantallas de inicio y fin, y la muerte invisible |
 | `07-escalones-y-combo.md` | Curva de dificultad por escalones, multiplicador de cadena y fallos |
+| `08-campana.md` | Modos, niveles como datos y por qué la supervivencia no tiene victoria |

@@ -1,32 +1,28 @@
 extends Node2D
 
-## Cadena — v3.
+## Cadena — v4.
 ##
 ## Se toca un CÍRCULO, no la pantalla. El círculo tocado explota y su onda
 ## expansiva contagia a los vecinos, que explotan a su vez. Una barra de tiempo
-## baja sola; tocar cuesta tiempo y atrapar lo devuelve.
+## baja sola; tocar cuesta tiempo y atrapar lo devuelve. El punto N de una
+## cascada vale N, y solo la propagación sube el multiplicador.
 ## Ver contexto/03-concepto-cadena.md
 ##
-## Historial de las correcciones que trajeron el juego hasta aquí:
+## Dos modos. CAMPAÑA da el cierre: cada nivel tiene un objetivo y se gana o se
+## pierde. SIN FIN es la caza del récord. Un juego de pura supervivencia no
+## tiene victoria por naturaleza — para que exista un "ganaste" la partida tiene
+## que ser finita, y de ahí salen los niveles.
 ##
-## v0 estaba estructurado por rondas (detonar, resolver, borrar todo, repetir).
-## Se sentía un bucle cerrado sin avance, que era justo el defecto que el
-## concepto endless existía para evitar.
-##
-## v1 dejaba detonar en cualquier punto de la pantalla. Eso es una acción
-## arbitraria: apuntas a un vacío y esperas. Tocar un círculo concreto es una
-## acción con puntería, y hace que el fallo sea legible.
-##
-## v1 tampoco comunicaba nada: morir no se veía porque cada punto mueve su
-## propia posición en su _process y aquí solo se detenía la lógica de partida.
-##
-## v2 subía la dificultad con una rampa lineal, continua y atada al reloj. Una
-## pendiente suave es una pendiente que no se nota: la intensidad se percibe por
-## contraste, no por nivel absoluto. Ahora son escalones, y van por PUNTUACIÓN.
+## Historial de correcciones en contexto/05, 06 y 07. Las que más marcan este
+## código:
+##  - el campo es continuo y nunca se borra (v0 iba por rondas y se sentía un
+##    bucle cerrado sin avance)
+##  - al terminar se congela el mundo entero, o la muerte es invisible
+##  - la dificultad manda por reloj, no por puntuación: atarla a la puntuación
+##    es una goma elástica que le tapa el techo al buen jugador
 
 # Los parámetros de calibración van como @export para poder moverlos desde el
-# inspector con el juego corriendo. Calibrar recompilando es insufrible, y en
-# esta fase calibrar ES el trabajo.
+# inspector con el juego corriendo. Calibrar recompilando es insufrible.
 
 @export_group("Campo")
 @export var target_dots: int = 25
@@ -38,81 +34,25 @@ extends Node2D
 ## detonaciones en cadena: es el valor de haber apuntado bien.
 @export var tap_radius: float = 150.0
 ## Cuánto se perdona la puntería. Un círculo mide 9 px y se mueve; un dedo tapa
-## más de 50. Sin esta tolerancia el juego sería un test de precisión, que no es
-## la habilidad que queremos premiar — la que queremos es elegir QUÉ círculo.
+## más de 50. La habilidad a premiar es elegir QUÉ círculo, no la precisión.
 @export var tap_tolerance: float = 60.0
 
-## La única economía del juego. De estos números sale toda la tensión: el tap
-## descuidado tiene que ser pérdida neta y el tap paciente ganancia neta.
-##
-## reward_base es deliberadamente bajo y reward_step alto. Al pasar a "tocar un
-## círculo" el tap descuidado dejó de poder fallar del todo — siempre revienta
-## al menos el círculo que tocas — y con una recompensa plana eso bastaba para
-## sobrevivir sin mirar. Cargando el premio en la LONGITUD de la cadena en vez
-## de en el número de puntos, la cascada corta se vuelve pérdida neta y solo la
-## paciencia paga.
 @export_group("Economía de tiempo")
 @export var time_start: float = 10.0
 @export var time_max: float = 15.0
-## Deliberadamente caro. Es la palanca que separa jugar bien de jugar mucho.
-##
-## Con un tap barato la FRECUENCIA compensa la CALIDAD: como tocar un círculo
-## siempre revienta al menos ese círculo, tocar mal muchas veces rinde tanto
-## como tocar bien pocas, y la brecha entre ambos perfiles se hunde. Encareciendo
-## el tap, la cascada corta deja de pagarse sola y solo la paciencia sobrevive.
+## Deliberadamente caro. Con un tap barato la FRECUENCIA compensa la CALIDAD.
 @export var tap_cost: float = 2.0
-## Lo que cuesta de reloj un tap fallado, aparte de sumar al contador de fallos.
-##
-## Es la mitad del tap acertado a propósito. Con el coste completo el margen de
-## fallos era código muerto: cinco fallos vaciaban la barra de 10 s y siempre
-## morías por tiempo antes de que el contador llegara a su límite. Para que el
-## medidor de fallos exista de verdad, el castigo principal tiene que ser el
-## contador y no el reloj.
+## La mitad del acertado: si costara igual, el margen de fallos sería código
+## muerto porque siempre morirías por tiempo antes de agotarlo.
 @export var miss_cost: float = 1.0
 @export var reward_base: float = 0.4
-## Extra por cada punto adicional de la MISMA cascada.
 @export var reward_step: float = 0.18
-## Premio por vaciar la pantalla entera. En un endless no existe "ganar", así
-## que esto es lo más parecido que hay y merece celebrarse.
 @export var clear_bonus: float = 3.0
 
-## La dificultad sube por ESCALONES, no por rampa, y va atada a la PUNTUACIÓN.
-##
-## Escalones y no pendiente porque el tramo plano es lo que te deja acomodarte,
-## y es esa comodidad la que hace que el siguiente salto se sienta. Sin meseta
-## no hay escalón, solo una rampa con ruido.
-##
-## Por puntuación y no por reloj porque así el que juega bien llega rápido a lo
-## difícil, que es lo que quiere, y el que juega mal se queda más tiempo en lo
-## fácil, que es lo que necesita. Es ajuste dinámico de dificultad gratis. Y no
-## se puede explotar quedándose quieto: sobrevivir exige puntuar.
-##
-## Se mueven cuatro palancas a la vez en vez de una mucho, porque cada una
-## ataca una habilidad distinta: presión (desagüe), escasez (reposición),
-## generosidad (radio de cadena) y legibilidad (velocidad).
 ## Manda el RELOJ; la puntuación es solo un acelerador con umbral alto.
-##
-## Al principio se hizo al revés y fue un error medido: con los escalones atados
-## a la puntuación, la dificultad se vuelve una goma elástica que persigue al
-## buen jugador y le tapa el techo, mientras el descuidado granjea el escalón
-## más generoso. La separación entre ambos se hundió de 4.8x a 1.4x. En un juego
-## que va del marcador, comprimir el rango de puntuaciones es lo peor que puede
-## pasar — es buena idea en Tetris porque allí la puntuación SON las líneas,
-## aquí no.
 @export_group("Escalones")
 @export var stage_size: int = 400
-## Segundos que también hacen subir de escalón, aunque no puntúes.
-##
-## Sin esto la dificultad por puntuación es una goma elástica: el que juega bien
-## puntúa rápido, sube rápido y se estrella contra el desagüe alto, mientras que
-## el descuidado puntúa despacio y se queda granjeando el escalón 1. Medido, la
-## separación entre jugar bien y jugar mal se hundió de 4.8x a 1.4x — y para un
-## juego que va del marcador, comprimir el rango de puntuaciones es lo peor que
-## puede pasar. Con el techo temporal el lento no puede acomodarse, y el bueno
-## sigue mandando por puntuación, que es el comportamiento que se buscaba.
 @export var stage_seconds: float = 20.0
-## Uno de cada tantos escalones no sube la presión: es un respiro. El valle es
-## lo que hace que se note el pico.
 @export var rest_every: int = 4
 
 @export_subgroup("Presión")
@@ -132,40 +72,27 @@ extends Node2D
 @export_subgroup("Legibilidad")
 @export var speed_step: float = 8.0
 
-## Fallos SEGUIDOS que se toleran antes de perder, al estilo del medidor de
-## Guitar Hero. Un acierto lo pone a cero.
-##
-## Aviso honesto sobre lo que esto hace y lo que no: como se reinicia al
-## acertar, casi nunca se va a disparar con el campo lleno, y por tanto NO es lo
-## que frena al que machaca la pantalla — de eso se encargan el coste del tap y
-## el multiplicador de cadena. Lo que sí hace es castigar el manotazo a ciegas
-## cuando el campo está vacío o los círculos van rápido.
 @export_subgroup("Fallos")
 @export var fallos_base: int = 5
-## Cuántos fallos se pierden de margen por escalón. La cuerda se acorta.
 @export var fallos_step: float = 0.4
 @export var fallos_min: int = 3
 
 const SPAWN_MARGIN := 40.0
 const WARN_TIME := 3.0
 const FLASH_TIME := 1.4
-const SAVE_PATH := "user://cadena.cfg"
-## A qué escalón el color de las detonaciones termina de calentarse.
-const STAGE_COLOR_TOPE := 10.0
 const COMBO_POP_TIME := 0.45
+const STAGE_COLOR_TOPE := 10.0
+const SAVE_PATH := "user://cadena.cfg"
 
-enum State {
-	START,    ## pantalla de inicio, el campo se mueve de fondo
-	READY,    ## campo vivo, barra llena, el tiempo aún no corre
-	PLAYING,  ## el tiempo baja
-	DEAD,     ## pantalla de fin, el mundo congelado
-}
+enum State { MENU, SELECT, READY, PLAYING, DEAD, WIN, FINAL }
+enum Mode { CAMPANA, SIN_FIN }
 
 @onready var _dots_root: Node2D = $Dots
 @onready var _explosions_root: Node2D = $Explosions
 
 @onready var _score_label: Label = $UI/Score
 @onready var _best_label: Label = $UI/Best
+@onready var _objetivo_label: Label = $UI/Objetivo
 @onready var _hint_label: Label = $UI/Hint
 @onready var _flash_label: Label = $UI/Flash
 @onready var _stage_label: Label = $UI/Stage
@@ -174,48 +101,67 @@ enum State {
 @onready var _bar_bg: ColorRect = $UI/BarBg
 @onready var _bar_fill: ColorRect = $UI/BarBg/BarFill
 
-@onready var _start_screen: Control = $UI/StartScreen
-@onready var _start_button: CircleButton = $UI/StartScreen/Play
-@onready var _start_best: Label = $UI/StartScreen/Best
+@onready var _menu_screen: Control = $UI/MenuScreen
+@onready var _btn_campana: CircleButton = $UI/MenuScreen/Campana
+@onready var _btn_sinfin: CircleButton = $UI/MenuScreen/SinFin
+@onready var _menu_best: Label = $UI/MenuScreen/Best
+
+@onready var _select_screen: Control = $UI/SelectScreen
+@onready var _sel_num: Label = $UI/SelectScreen/Num
+@onready var _sel_meta: Label = $UI/SelectScreen/Meta
+@onready var _sel_pista: Label = $UI/SelectScreen/Pista
+@onready var _btn_prev: CircleButton = $UI/SelectScreen/Prev
+@onready var _btn_next: CircleButton = $UI/SelectScreen/Next
+@onready var _btn_play: CircleButton = $UI/SelectScreen/Play
+@onready var _btn_volver: CircleButton = $UI/SelectScreen/Volver
 
 @onready var _over_screen: Control = $UI/OverScreen
-@onready var _over_button: CircleButton = $UI/OverScreen/Retry
 @onready var _over_title: Label = $UI/OverScreen/Title
 @onready var _over_score: Label = $UI/OverScreen/Score
 @onready var _over_detail: Label = $UI/OverScreen/Detail
 
+@onready var _win_screen: Control = $UI/WinScreen
+@onready var _win_title: Label = $UI/WinScreen/Title
+@onready var _win_detail: Label = $UI/WinScreen/Detail
+@onready var _win_seguir_text: Label = $UI/WinScreen/Seguir/Text
+
 var _hud: Array[Control] = []
 var _dots: Array[Dot] = []
 var _explosions: Array[Explosion] = []
-## Anillos de tap fallado. Se dibujan igual que una detonación pero no contagian
-## nada, y se llevan aparte para que no cuenten como "cascada en curso".
+## Anillos de tap fallado: se dibujan igual pero no contagian, y se llevan
+## aparte para que no cuenten como "cascada en curso".
 var _effects: Array[Explosion] = []
-var _state: State = State.START
+
+var _state: State = State.MENU
+var _mode: Mode = Mode.SIN_FIN
+## Nivel en curso y nivel más alto desbloqueado.
+var _nivel: int = 0
+var _nivel_max: int = 0
+## Escalón de partida que impone el nivel.
+var _stage_offset: int = 0
+
 var _time_left: float = 0.0
 var _score: int = 0
 var _best: int = 0
 var _elapsed: float = 0.0
-## Puntos atrapados por la cascada en curso. Se reinicia cuando no queda
-## ninguna detonación viva, y es lo que escala la recompensa.
 var _cascade_len: int = 0
+var _best_cascade: int = 0
+var _limpias: int = 0
 var _respawn_timer: float = 0.0
 var _field_was_empty: bool = false
 var _flash_left: float = 0.0
-var _record_nuevo: bool = false
-## Último escalón anunciado, para detectar el salto.
-var _stage_shown: int = 1
-var _fallos: int = 0
-var _best_cascade: int = 0
-## Va de 1 a 0 y anima el golpe de escala del multiplicador.
 var _combo_pop: float = 0.0
+var _record_nuevo: bool = false
+var _fallos: int = 0
+var _stage_shown: int = 1
 
 
 func _ready() -> void:
 	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _fallos_label, _score_label,
-			_best_label, _hint_label, _flash_label, _combo_label]
-	_cargar_record()
+			_best_label, _objetivo_label, _hint_label, _flash_label, _combo_label]
+	_cargar()
 	_poblar_campo()
-	_ir_a_inicio()
+	_ir_a(State.MENU)
 
 
 func _process(delta: float) -> void:
@@ -229,22 +175,29 @@ func _process(delta: float) -> void:
 		_elapsed += delta
 		_time_left -= delta * _drain_rate()
 
-	if _state != State.DEAD:
+	# En MENU y SELECT el campo sigue vivo de fondo: una pantalla de inicio con
+	# el juego moviéndose detrás se siente despierta, y además enseña la
+	# mecánica antes de que el jugador toque nada.
+	if _state != State.DEAD and _state != State.WIN and _state != State.FINAL:
 		_check_catches()
 		_check_cleared()
 		_check_stage()
 		_refill_field(delta)
 
-	# La muerte solo ocurre con el tablero quieto. Así un último tap desesperado
-	# con la barra ya en cero todavía puede salvarte si atrapa algo, y ese
-	# rescate es de los momentos que hacen volver a jugar.
-	if _state == State.PLAYING and _time_left <= 0.0 and _explosions.is_empty():
-		_die()
-
-	_combo_pop = maxf(0.0, _combo_pop - delta / COMBO_POP_TIME)
+	if _state == State.PLAYING:
+		# La victoria se comprueba ANTES que la derrota: si el último eslabón de
+		# una cascada cumple el objetivo justo cuando la barra llega a cero,
+		# ganas. Es lo justo y además es un final memorable.
+		if _mode == Mode.CAMPANA and _objetivo_cumplido():
+			_ganar()
+		elif _time_left <= 0.0 and _explosions.is_empty():
+			# La muerte solo ocurre con el tablero quieto, así que un último tap
+			# desesperado todavía puede salvarte si atrapa algo.
+			_perder("SE ACABÓ EL TIEMPO")
 
 	if _flash_left > 0.0:
 		_flash_left -= delta
+	_combo_pop = maxf(0.0, _combo_pop - delta / COMBO_POP_TIME)
 
 	_update_ui()
 
@@ -254,34 +207,57 @@ func _unhandled_input(event: InputEvent) -> void:
 	# que el clic del editor entra por aquí igual que el dedo en el teléfono.
 	if not (event is InputEventScreenTouch and event.pressed):
 		return
+	var p: Vector2 = event.position
 
 	match _state:
-		State.START:
-			if _start_button.contiene(event.position):
+		State.MENU:
+			if _btn_campana.contiene(p):
+				_nivel = mini(_nivel_max, Niveles.total() - 1)
+				_ir_a(State.SELECT)
+			elif _btn_sinfin.contiene(p):
+				_mode = Mode.SIN_FIN
+				_empezar_partida()
+		State.SELECT:
+			if _btn_volver.contiene(p):
+				_ir_a(State.MENU)
+			elif _btn_prev.contiene(p):
+				_nivel = maxi(0, _nivel - 1)
+			elif _btn_next.contiene(p):
+				_nivel = mini(mini(_nivel_max, Niveles.total() - 1), _nivel + 1)
+			elif _btn_play.contiene(p):
+				_mode = Mode.CAMPANA
 				_empezar_partida()
 		State.DEAD:
-			# Se acepta el botón o cualquier parte de la pantalla: el reinicio
-			# instantáneo es lo que sostiene el "una más".
+			# Reintento instantáneo tocando donde sea: es lo que sostiene el
+			# "una más".
 			_empezar_partida()
+		State.WIN:
+			if _nivel + 1 >= Niveles.total():
+				_ir_a(State.FINAL)
+			else:
+				_nivel += 1
+				_empezar_partida()
+		State.FINAL:
+			_ir_a(State.MENU)
 		State.READY:
 			_state = State.PLAYING
-			_tap(event.position)
+			_tap(p)
 		State.PLAYING:
-			_tap(event.position)
+			_tap(p)
 
 
 # --- Escalones ------------------------------------------------------------
 
-## El escalón actual: manda lo que llegue antes, la puntuación o el reloj.
+## El escalón actual: manda lo que llegue antes, la puntuación o el reloj, más
+## el escalón de partida que imponga el nivel.
 ##
-## La puntuación es la vía principal — hace que quien juega bien alcance rápido
-## lo difícil, que es lo que quiere, y que quien juega mal se quede más tiempo
-## en lo fácil, que es lo que necesita. El reloj es solo el techo que impide
-## granjear indefinidamente el escalón más generoso.
+## El reloj es la vía principal. Atar los escalones a la puntuación fue un error
+## medido: es una goma elástica que persigue al buen jugador y le tapa el techo
+## mientras el descuidado granjea el escalón más generoso.
 func _stage() -> int:
 	var por_puntos := floori(float(_score) / float(stage_size)) + 1
 	var por_tiempo := floori(_elapsed / stage_seconds) + 1
-	return maxi(por_puntos, por_tiempo)
+	return maxi(por_puntos, por_tiempo) + _stage_offset
 
 
 func _es_respiro(s: int) -> bool:
@@ -295,7 +271,6 @@ func _pasos_presion(s: int) -> int:
 	return (s - 1) - floori(float(s) / float(rest_every))
 
 
-## Segundos de barra que se pierden por segundo real.
 func _drain_rate() -> float:
 	return drain_base + drain_step * _pasos_presion(_stage())
 
@@ -312,16 +287,13 @@ func _speed_bonus() -> float:
 	return speed_step * (_stage() - 1)
 
 
-## Las detonaciones se calientan de color con los escalones.
-##
-## La rampa era invisible: se veía la barra bajar más rápido sin saber por qué.
-## El color no cambia nada del balance, solo la percepción — que es la palanca
-## más barata que existe para que lo difícil se SIENTA difícil.
-## El margen de fallos se acorta con los escalones.
 func _fallos_permitidos() -> int:
 	return maxi(fallos_min, fallos_base - floori(fallos_step * (_stage() - 1)))
 
 
+## Las detonaciones se calientan de color con los escalones. No cambia nada del
+## balance, solo la percepción — la palanca más barata para que lo difícil se
+## SIENTA difícil.
 func _stage_color() -> Color:
 	var t := clampf(float(_stage() - 1) / STAGE_COLOR_TOPE, 0.0, 1.0)
 	return Explosion.COLOR_ACTIVA.lerp(Color("ff2020"), t)
@@ -333,24 +305,28 @@ func _check_stage() -> void:
 		_stage_shown = s
 		return
 	_stage_shown = s
-	if _es_respiro(s):
-		_flash("ESCALÓN %d   ·   RESPIRO" % s)
-	else:
-		_flash("ESCALÓN %d" % s)
+	_flash("ESCALÓN %d%s" % [s, "   ·   RESPIRO" if _es_respiro(s) else ""])
+
+
+func _objetivo_cumplido() -> bool:
+	return Niveles.cumplido(_nivel, _score, _best_cascade, _limpias, _elapsed)
 
 
 # --- Partida --------------------------------------------------------------
 
-## El tap cuesta tiempo ACIERTE O NO. Si no costara al fallar se podría
-## machacar la pantalla hasta acertar y la puntería dejaría de ser una decisión.
+## El tap acertado cuesta `tap_cost`; el fallado cuesta menos pero suma al
+## contador de fallos, que es su castigo principal.
 func _tap(pos: Vector2) -> void:
 	var objetivo := _dot_mas_cercano(pos)
+
 	if objetivo == null:
 		_time_left -= miss_cost
 		_spawn_effect(pos)
 		_fallos += 1
-		if _fallos >= _fallos_permitidos():
-			_die("DEMASIADOS FALLOS")
+		if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):
+			_perder("UN FALLO Y SE ACABÓ")
+		elif _fallos >= _fallos_permitidos():
+			_perder("DEMASIADOS FALLOS")
 		else:
 			_flash("fallo  %d / %d" % [_fallos, _fallos_permitidos()])
 		return
@@ -362,8 +338,7 @@ func _tap(pos: Vector2) -> void:
 	#
 	# Sin esto, tocar a media cascada regalaba multiplicador: el contador seguía
 	# subiendo desde donde estaba y pulsar más rendía igual que dejar propagar.
-	# Con el reinicio, interrumpir una cadena viva cuesta todo lo acumulado, y
-	# esperar a que termine pasa a ser una decisión de verdad.
+	# Con el reinicio, interrumpir una cadena viva cuesta todo lo acumulado.
 	if _cascade_len >= 3:
 		_flash("cadena cortada  ×%d" % _cascade_len)
 	_cascade_len = 0
@@ -389,17 +364,11 @@ func _dot_mas_cercano(pos: Vector2) -> Dot:
 
 ## El punto N de una cascada vale N, no 1.
 ##
-## Solo la PROPAGACIÓN sube el contador: el círculo que tocas siempre vale x1 y
+## Solo la PROPAGACIÓN sube el contador: el círculo que tocas siempre vale ×1 y
 ## a partir de ahí suman los que alcanza la onda. El multiplicador mide la
-## cadena, no cuántas veces has pulsado.
-##
-## Es lo que convierte el objetivo en ENCADENAR en vez de en pulsar. Una cadena
-## de 8 da 1+2+..+8 = 36 puntos, contra los 8 que darían ocho taps sueltos: 4.5x
-## por la misma cantidad de círculos reventados. Con puntuación plana la
-## frecuencia compensaba la calidad y tocar mal mucho rendía como tocar bien
-## poco; con el multiplicador, no hay forma de igualar la paciencia a base de
-## volumen. De paso frena el ritmo, que era el otro objetivo: compensa pensar
-## qué círculo tocar.
+## cadena, no cuántas veces has pulsado. Es lo que convierte el objetivo en
+## encadenar en vez de en pulsar, y lo que impide que la frecuencia compense la
+## calidad.
 func _cobrar_punto() -> void:
 	_cascade_len += 1
 	_score += _cascade_len
@@ -409,11 +378,8 @@ func _cobrar_punto() -> void:
 		_combo_pop = 1.0
 
 
-## Detección de contagios por distancia, no con Area2D.
-##
-## Con ~25 puntos esto es trivial en coste y, sobre todo, es determinista y se
-## lee de un vistazo. La física traería capas, máscaras y un frame de retraso
-## sin aportar nada a esta escala.
+## Detección de contagios por distancia, no con Area2D: con ~25 puntos el coste
+## es irrelevante y a cambio es determinista y se lee de un vistazo.
 func _check_catches() -> void:
 	var caught_at: Array[Vector2] = []
 	var survivors: Array[Dot] = []
@@ -440,22 +406,18 @@ func _check_catches() -> void:
 		_spawn_explosion(pos, _chain_radius())
 
 
-## Vaciar la pantalla entera es lo más parecido a ganar que tiene un endless.
-## Antes no producía absolutamente nada y el jugador se quedaba mirando un campo
-## vacío sin saber si había hecho algo bien.
+## Vaciar la pantalla es lo más parecido a ganar que tiene una partida sin fin.
 func _check_cleared() -> void:
 	var vacio := _dots.is_empty()
 	if vacio and not _field_was_empty and _state == State.PLAYING:
+		_limpias += 1
 		_time_left = minf(time_max, _time_left + clear_bonus)
 		_flash("PANTALLA LIMPIA   +%d s" % int(clear_bonus))
 	_field_was_empty = vacio
 
 
-## Los puntos entran desde fuera de la pantalla, nunca aparecen en medio.
-##
-## Un punto que se materializa dentro del campo es injusto de dos maneras: se
-## pierde la lectura de trayectorias, que es toda la habilidad del juego, y
-## puede nacer dentro de una detonación activa y regalar un contagio.
+## Los puntos entran desde fuera de la pantalla, nunca aparecen en medio: eso
+## rompería la lectura de trayectorias y podría regalar un contagio.
 func _refill_field(delta: float) -> void:
 	if _dots.size() >= target_dots:
 		return
@@ -475,14 +437,13 @@ func _refill_field(delta: float) -> void:
 		2: d.position = Vector2(-fuera, randf() * rect.y)
 		_: d.position = Vector2(rect.x + fuera, randf() * rect.y)
 
-	# Apunta al tercio central para que cruce el campo, en vez de rozar el
-	# borde y volver a salir sin haber estado nunca en juego.
+	# Apunta al tercio central para que cruce el campo en vez de rozar el borde.
 	var objetivo := Vector2(
 		randf_range(rect.x * 0.33, rect.x * 0.67),
 		randf_range(rect.y * 0.33, rect.y * 0.67))
 	var bonus := _speed_bonus()
-	var rapidez := randf_range(dot_speed_min + bonus, dot_speed_max + bonus)
-	d.velocity = (objetivo - d.position).normalized() * rapidez
+	d.velocity = (objetivo - d.position).normalized() \
+		* randf_range(dot_speed_min + bonus, dot_speed_max + bonus)
 
 	_dots_root.add_child(d)
 	_dots.append(d)
@@ -522,47 +483,53 @@ func _flash(texto: String) -> void:
 	_flash_left = FLASH_TIME
 
 
-## Al morir se congela el mundo entero.
+# --- Fin de partida -------------------------------------------------------
+
+## Al terminar se congela el mundo entero.
 ##
 ## Antes solo se detenía la lógica de partida, pero cada punto mueve su propia
 ## posición en su _process, así que seguían rebotando y la muerte era
 ## literalmente invisible: el juego "continuaba".
-func _die(motivo: String = "SE ACABÓ EL TIEMPO") -> void:
-	_over_title.text = motivo
-	_state = State.DEAD
+func _congelar() -> void:
 	_dots_root.process_mode = Node.PROCESS_MODE_DISABLED
-	_record_nuevo = _score > _best
-	if _record_nuevo:
-		_best = _score
-		_guardar_record()
-	_over_screen.visible = true
-	_set_hud_visible(false)
 
 
-func _ir_a_inicio() -> void:
-	_state = State.START
-	_start_screen.visible = true
-	_over_screen.visible = false
-	_set_hud_visible(false)
+func _perder(motivo: String) -> void:
+	_over_title.text = motivo
+	_congelar()
+	if _mode == Mode.SIN_FIN:
+		_record_nuevo = _score > _best
+		if _record_nuevo:
+			_best = _score
+			_guardar()
+	_ir_a(State.DEAD)
+
+
+func _ganar() -> void:
+	_congelar()
+	if _nivel + 1 > _nivel_max:
+		_nivel_max = mini(_nivel + 1, Niveles.total() - 1)
+		_guardar()
+	_ir_a(State.WIN)
 
 
 func _empezar_partida() -> void:
+	_stage_offset = int(Niveles.nivel(_nivel)["escalon"]) if _mode == Mode.CAMPANA else 0
 	_poblar_campo()
-	_start_screen.visible = false
-	_over_screen.visible = false
-	_set_hud_visible(true)
-	_state = State.READY
+
 	_time_left = time_start
 	_score = 0
 	_elapsed = 0.0
 	_cascade_len = 0
-	_stage_shown = 1
-	_fallos = 0
 	_best_cascade = 0
+	_limpias = 0
+	_fallos = 0
 	_combo_pop = 0.0
 	_respawn_timer = _respawn_interval()
 	_field_was_empty = false
 	_flash_left = 0.0
+	_stage_shown = _stage()
+	_ir_a(State.READY)
 
 
 func _poblar_campo() -> void:
@@ -591,33 +558,88 @@ func _poblar_campo() -> void:
 		_dots.append(d)
 
 
-func _set_hud_visible(v: bool) -> void:
+# --- Pantallas ------------------------------------------------------------
+
+func _ir_a(s: State) -> void:
+	_state = s
+	_menu_screen.visible = s == State.MENU
+	_select_screen.visible = s == State.SELECT
+	_over_screen.visible = s == State.DEAD
+	_win_screen.visible = s == State.WIN or s == State.FINAL
+	var jugando := s == State.READY or s == State.PLAYING
 	for nodo in _hud:
-		nodo.visible = v
+		nodo.visible = jugando
+
+	if s == State.WIN:
+		_win_title.text = "NIVEL %d SUPERADO" % (_nivel + 1)
+		_win_detail.text = "%d puntos  ·  mejor cadena ×%d" % [_score, _best_cascade]
+		_win_seguir_text.text = "SIGUE"
+	elif s == State.FINAL:
+		_win_title.text = "CAMPAÑA COMPLETA"
+		_win_detail.text = "terminaste los %d niveles de Campo abierto.\nel modo sin fin te espera." % Niveles.total()
+		_win_seguir_text.text = "FIN"
+	elif s == State.DEAD:
+		_over_score.text = str(_score)
+		var m := int(_elapsed) / 60
+		var seg := int(_elapsed) % 60
+		if _mode == Mode.CAMPANA:
+			_over_detail.text = "%s\nnivel %d  ·  toca para reintentar" % [
+				Niveles.describir(_nivel), _nivel + 1]
+		elif _record_nuevo:
+			_over_detail.text = "¡NUEVO RÉCORD!\ncadena ×%d  ·  %d:%02d" % [_best_cascade, m, seg]
+		else:
+			_over_detail.text = "mejor  %d\ncadena ×%d  ·  %d:%02d" % [_best, _best_cascade, m, seg]
 
 
-func _cargar_record() -> void:
+func _cargar() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(SAVE_PATH) == OK:
-		_best = int(cfg.get_value("progreso", "mejor", 0))
+	if cfg.load(SAVE_PATH) != OK:
+		return
+	_best = int(cfg.get_value("progreso", "mejor", 0))
+	_nivel_max = clampi(int(cfg.get_value("progreso", "nivel_max", 0)), 0, Niveles.total() - 1)
 
 
-func _guardar_record() -> void:
+func _guardar() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("progreso", "mejor", _best)
+	cfg.set_value("progreso", "nivel_max", _nivel_max)
 	cfg.save(SAVE_PATH)
 
 
 func _update_ui() -> void:
+	_menu_best.text = "mejor sin fin  %d" % _best
+
+	if _state == State.SELECT:
+		_sel_num.text = "NIVEL %d" % (_nivel + 1)
+		_sel_meta.text = Niveles.describir(_nivel)
+		_sel_pista.text = str(Niveles.nivel(_nivel)["pista"])
+		_btn_prev.modulate.a = 1.0 if _nivel > 0 else 0.25
+		_btn_next.modulate.a = 1.0 if _nivel < mini(_nivel_max, Niveles.total() - 1) else 0.25
+		return
+
+	if _state != State.READY and _state != State.PLAYING:
+		return
+
 	_score_label.text = str(_score)
-	_best_label.text = "mejor  %d" % _best
-	_start_best.text = "mejor  %d" % _best
 	_hint_label.visible = _state == State.READY
+
+	if _mode == Mode.CAMPANA:
+		_best_label.text = "nivel %d" % (_nivel + 1)
+		_objetivo_label.text = "%s   —   %s" % [
+			Niveles.describir(_nivel),
+			Niveles.progreso(_nivel, _score, _best_cascade, _limpias, _elapsed)]
+	else:
+		_best_label.text = "mejor  %d" % _best
+		_objetivo_label.text = ""
 
 	var s := _stage()
 	_stage_label.text = "escalón %d%s" % [s, "  ·  respiro" if _es_respiro(s) else ""]
 	_fallos_label.text = "fallos  %d / %d" % [_fallos, _fallos_permitidos()]
 	_fallos_label.modulate = Color("ff5470") if _fallos > 0 else Color(0.45, 0.45, 0.55)
+
+	var frac := clampf(_time_left / time_max, 0.0, 1.0)
+	_bar_fill.size = Vector2(_bar_bg.size.x * frac, _bar_bg.size.y)
+	_bar_fill.color = Color("ff5470") if _time_left < WARN_TIME else Color("6de3a0")
 
 	# El multiplicador solo existe mientras la cascada está viva.
 	if _cascade_len >= 2:
@@ -625,24 +647,8 @@ func _update_ui() -> void:
 		_combo_label.modulate.a = 1.0
 	else:
 		_combo_label.modulate.a = maxf(0.0, _combo_label.modulate.a - 0.06)
-	# El golpe de escala es lo que da la sensación de que algo se acumula.
 	_combo_label.pivot_offset = _combo_label.size * 0.5
 	var golpe := 1.0 + 0.45 * _combo_pop * _combo_pop
 	_combo_label.scale = Vector2(golpe, golpe)
 
-	var frac := clampf(_time_left / time_max, 0.0, 1.0)
-	_bar_fill.size = Vector2(_bar_bg.size.x * frac, _bar_bg.size.y)
-	# El aviso tiene que llegar mientras todavía hay algo que hacer, no cuando
-	# ya está perdido.
-	_bar_fill.color = Color("ff5470") if _time_left < WARN_TIME else Color("6de3a0")
-
 	_flash_label.modulate.a = clampf(_flash_left / (FLASH_TIME * 0.5), 0.0, 1.0)
-
-	if _state == State.DEAD:
-		_over_score.text = str(_score)
-		var m := int(_elapsed) / 60
-		var seg := int(_elapsed) % 60
-		if _record_nuevo:
-			_over_detail.text = "¡NUEVO RÉCORD!\nescalón %d  ·  aguantaste %d:%02d" % [s, m, seg]
-		else:
-			_over_detail.text = "mejor  %d\nescalón %d  ·  aguantaste %d:%02d" % [_best, s, m, seg]

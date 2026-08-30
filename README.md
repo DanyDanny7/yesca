@@ -14,10 +14,13 @@ una apuesta entre detonar ya o esperar a que se junten más.
 
 ## Estado
 
-**Fase v3** — curva de dificultad por escalones, multiplicador de cadena que
-puntúa (el punto N de una cascada vale N) y medidor de fallos consecutivos.
-Falta todo el game feel: impacto, vibración, partículas, sonido. Ver
-`contexto/07-escalones-y-combo.md` y `contexto/03-concepto-cadena.md`.
+**Fase v4** — dos modos. **Campaña**: ocho niveles con objetivo, que es donde
+vive el cierre (un juego de supervivencia no tiene victoria por naturaleza; para
+que exista un "ganaste" la partida tiene que ser finita). **Sin fin**: la caza
+del récord.
+
+Falta todo el game feel — impacto, vibración, partículas, sonido — y los biomas
+con reglas propias de movimiento. Ver `contexto/08-campana.md`.
 
 ## Cómo correrlo
 
@@ -49,7 +52,10 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
   del proyecto: se lee antes de tocar código.
 - `main.tscn` — escena principal, con los contenedores de puntos y
   detonaciones más la UI.
-- `scripts/main.gd` — bucle, input, detección de contagios y estado de ronda.
+- `scripts/main.gd` — bucle, input, detección de contagios, escalones de
+  dificultad y máquina de estados de pantallas.
+- `scripts/niveles.gd` — la campaña como tabla de datos: un nivel es un
+  objetivo más un escalón de partida, no contenido dibujado a mano.
 - `scripts/dot.gd`, `scripts/explosion.gd`, `scripts/circle_button.gd` — nodos
   que se dibujan solos con `_draw()`. Sin sprites ni escenas: para formas
   geométricas no hacen falta.
