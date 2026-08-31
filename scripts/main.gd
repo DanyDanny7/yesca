@@ -53,7 +53,9 @@ extends Node2D
 @export var hitstop_por_eslabon: float = 0.035
 @export var hitstop_max: float = 0.10
 @export var sonido: bool = true
+@export var musica: bool = true
 @export var vibracion: bool = true
+@export var volumen_musica: float = -13.0
 
 @export_group("Pruebas")
 @export var forzar_movimiento: bool = false
@@ -136,6 +138,7 @@ const SND_POP := preload("res://audio/pop.wav")
 const SND_FALLO := preload("res://audio/fallo.wav")
 const SND_CADENA := preload("res://audio/cadena.wav")
 const SND_FIN := preload("res://audio/fin.wav")
+const MUS_CAMPO := preload("res://audio/musica_campo.wav")
 ## Voces de audio. Una sola cortaría el sonido anterior en cada eslabón, que es
 ## justo lo contrario de lo que se quiere en una cascada.
 const VOCES := 8
@@ -168,6 +171,9 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _btn_mov_prev: CircleButton = $UI/PauseScreen/MovPrev
 @onready var _btn_mov_next: CircleButton = $UI/PauseScreen/MovNext
 @onready var _mov_nombre: Label = $UI/PauseScreen/MovNombre
+@onready var _opt_sonido: CircleButton = $UI/PauseScreen/OptSonido
+@onready var _opt_musica: CircleButton = $UI/PauseScreen/OptMusica
+@onready var _opt_vibra: CircleButton = $UI/PauseScreen/OptVibra
 @onready var _bar_bg: ColorRect = $UI/BarBg
 @onready var _bar_fill: ColorRect = $UI/BarBg/BarFill
 
@@ -246,6 +252,7 @@ var _explosiones_pausadas: bool = false
 var _score_pop: float = 0.0
 var _audio: Array[AudioStreamPlayer] = []
 var _voz: int = 0
+var _musica_player: AudioStreamPlayer
 ## Estado al que se vuelve al despausar.
 var _antes_de_pausar: State = State.PLAYING
 ## Selección del menú de pausa: 0..6 son los modos, AUTO_MOV es "el del nivel".
@@ -260,9 +267,25 @@ func _ready() -> void:
 		var voz := AudioStreamPlayer.new()
 		add_child(voz)
 		_audio.append(voz)
+	_musica_player = AudioStreamPlayer.new()
+	add_child(_musica_player)
 	_cargar()
+	_sonar_musica()
 	_poblar_campo()
 	_ir_a(State.MENU)
+
+
+## Al cerrar hay que parar el audio a mano.
+##
+## Una reproducción en curso mantiene viva la pista y Godot avisa de instancias
+## filtradas al salir. No es un fallo real, pero un log ruidoso esconde los que
+## sí lo son, y este proyecto ha cazado varios errores justo porque el log
+## estaba limpio.
+func _exit_tree() -> void:
+	if _musica_player:
+		_musica_player.stop()
+	for voz in _audio:
+		voz.stop()
 
 
 func _process(delta: float) -> void:
@@ -366,6 +389,17 @@ func _unhandled_input(event: InputEvent) -> void:
 				_elegir_movimiento(_mov_sel - 1)
 			elif _btn_mov_next.contiene(p):
 				_elegir_movimiento(_mov_sel + 1)
+			elif _opt_sonido.contiene(p):
+				sonido = not sonido
+				_guardar()
+			elif _opt_musica.contiene(p):
+				musica = not musica
+				_sonar_musica()
+				_guardar()
+			elif _opt_vibra.contiene(p):
+				vibracion = not vibracion
+				_vibrar(40)
+				_guardar()
 		State.READY:
 			if _btn_pausa.contiene(p):
 				_pausar()
@@ -835,6 +869,48 @@ func _sonar(stream: AudioStream, pitch: float = 1.0, volumen: float = 0.0) -> vo
 	voz.play()
 
 
+## El bucle se activa AQUÍ y no en el .import.
+##
+## `edit/loop_mode=1` en el archivo de importación no llega al recurso en esta
+## versión de Godot: el .import lo dice y el AudioStreamWAV cargado sigue
+## reportando 0. Ponerlo en código es explícito y además deja el motivo escrito.
+## Requiere que la pista se importe sin comprimir, o `data` no sería PCM plano y
+## la cuenta de fotogramas no saldría.
+func _preparar_bucle(pista: AudioStreamWAV) -> void:
+	if pista.loop_mode == AudioStreamWAV.LOOP_FORWARD:
+		return
+	pista.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	pista.loop_begin = 0
+	pista.loop_end = pista.data.size() / 2  # 16 bits mono: 2 bytes por muestra
+
+
+## Pista por bioma. De momento una sola.
+##
+## Va como match y no como diccionario constante: un `const Dictionary` con
+## recursos precargados dentro hace que Godot los libere tarde y suelte avisos
+## de fuga al cerrar. Cuando cada bioma tenga su pista, se añaden ramas aquí y
+## funciones en tools/generar_audio.py.
+func _musica_de_bioma(bioma: String) -> AudioStreamWAV:
+	match bioma:
+		_:
+			return MUS_CAMPO
+
+
+func _sonar_musica() -> void:
+	if not musica:
+		_musica_player.stop()
+		return
+	var bioma := "Campo abierto"
+	if _mode == Mode.CAMPANA:
+		bioma = str(Niveles.nivel(_nivel)["bioma"])
+	var pista := _musica_de_bioma(bioma)
+	_preparar_bucle(pista)
+	_musica_player.volume_db = volumen_musica
+	if _musica_player.stream != pista or not _musica_player.playing:
+		_musica_player.stream = pista
+		_musica_player.play()
+
+
 func _vibrar(ms: int) -> void:
 	if vibracion:
 		Input.vibrate_handheld(ms)
@@ -900,6 +976,7 @@ func _empezar_partida() -> void:
 	_hitstop = 0.0
 	_score_pop = 0.0
 	_stage_shown = _stage()
+	_sonar_musica()
 	_ir_a(State.READY)
 
 
@@ -1009,12 +1086,18 @@ func _cargar() -> void:
 		return
 	_best = int(cfg.get_value("progreso", "mejor", 0))
 	_nivel_max = clampi(int(cfg.get_value("progreso", "nivel_max", 0)), 0, Niveles.total() - 1)
+	sonido = bool(cfg.get_value("opciones", "sonido", true))
+	musica = bool(cfg.get_value("opciones", "musica", true))
+	vibracion = bool(cfg.get_value("opciones", "vibracion", true))
 
 
 func _guardar() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("progreso", "mejor", _best)
 	cfg.set_value("progreso", "nivel_max", _nivel_max)
+	cfg.set_value("opciones", "sonido", sonido)
+	cfg.set_value("opciones", "musica", musica)
+	cfg.set_value("opciones", "vibracion", vibracion)
 	cfg.save(SAVE_PATH)
 
 
@@ -1023,6 +1106,11 @@ func _update_ui() -> void:
 
 	if _state == State.PAUSA:
 		_mov_nombre.text = "según el nivel" if _mov_sel == AUTO_MOV else NOMBRES_MOV[_mov_sel]
+		# Apagado = apagado a la vista: el círculo se atenúa. Un interruptor que
+		# no dice en qué estado está no es un interruptor.
+		_opt_sonido.modulate.a = 1.0 if sonido else 0.28
+		_opt_musica.modulate.a = 1.0 if musica else 0.28
+		_opt_vibra.modulate.a = 1.0 if vibracion else 0.28
 		return
 
 	if _state == State.SELECT:

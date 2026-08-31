@@ -27,18 +27,18 @@ def envolvente(t, dur, ataque=0.005):
     return math.exp(-5.0 * (t - ataque) / max(dur - ataque, 1e-6))
 
 
-def escribir(nombre, muestras):
+def escribir(nombre, muestras, tasa=TASA):
     os.makedirs(SALIDA, exist_ok=True)
     ruta = os.path.join(SALIDA, nombre)
     with wave.open(ruta, "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
-        w.setframerate(TASA)
+        w.setframerate(tasa)
         datos = b"".join(
             struct.pack("<h", int(max(-1.0, min(1.0, v)) * 32000)) for v in muestras
         )
         w.writeframes(datos)
-    print("  %-14s %5.0f ms  %6d bytes" % (nombre, len(muestras) / TASA * 1000, len(datos)))
+    print("  %-18s %6.0f ms  %8d bytes" % (nombre, len(muestras) / tasa * 1000, len(datos)))
 
 
 def pop(dur=0.09):
@@ -87,6 +87,73 @@ def fin(dur=0.6):
     return out
 
 
+# --- música ----------------------------------------------------------------
+#
+# 22050 Hz basta: un pad y un bajo no tienen contenido agudo que perder, y a
+# 44100 el fichero pesaría el doble por nada.
+TASA_MUS = 22050
+
+# La (menor). Do sostenido nada, todo natural.
+NOTAS = {"A2": 110.00, "C3": 130.81, "E3": 164.81, "F2": 87.31, "G2": 98.00,
+         "A3": 220.00, "B3": 246.94, "C4": 261.63, "D4": 293.66, "E4": 329.63,
+         "F4": 349.23, "G4": 392.00, "A4": 440.00, "C5": 523.25}
+
+# Am - F - C - G. La progresión más manida que existe, y por eso funciona de
+# fondo: nadie le presta atención, que es justo lo que se le pide a la música
+# de un juego donde el sonido importante son los eslabones de la cadena.
+PROGRESION = [
+    ("A2", ["C4", "E4", "A4"]),
+    ("F2", ["A3", "C4", "F4"]),
+    ("C3", ["E4", "G4", "C5"]),
+    ("G2", ["B3", "D4", "G4"]),
+]
+
+
+def musica(bpm=80.0, compases=4):
+    """Bucle de fondo, sin batería y en volumen bajo.
+
+    Tiene que caber por debajo de los efectos sin pelearse con ellos: los pops
+    del juego son agudos y con ataque seco, así que la música es grave, de
+    ataque lento y sin nada que compita en esa banda.
+
+    La duración sale exacta a propósito (80 bpm, 4 tiempos por compás = 3 s por
+    compás) para que el bucle cierre sin salto. Y todas las envolventes mueren
+    dentro de su compás, o al empalmar el final con el principio se oiría un
+    chasquido.
+    """
+    dur_compas = 60.0 / bpm * 4.0
+    n_compas = int(TASA_MUS * dur_compas)
+    out = []
+    for c in range(compases):
+        raiz, triada = PROGRESION[c % len(PROGRESION)]
+        f_raiz = NOTAS[raiz]
+        for i in range(n_compas):
+            t = i / TASA_MUS
+            v = 0.0
+
+            # Bajo: una nota por compás, con cuerpo y caída lenta.
+            env_bajo = math.exp(-2.2 * t / dur_compas) * (1.0 - math.exp(-t * 40.0))
+            v += math.sin(TAU * f_raiz * t) * 0.30 * env_bajo
+
+            # Pad: la tríada con ataque lento. Dos osciladores por nota,
+            # ligeramente desafinados, que es lo que le da anchura.
+            env_pad = math.sin(math.pi * min(t / dur_compas, 1.0)) ** 1.4
+            for f in (NOTAS[n] for n in triada):
+                v += math.sin(TAU * f * t) * 0.055 * env_pad
+                v += math.sin(TAU * f * 1.004 * t) * 0.045 * env_pad
+
+            # Pulso: una nota pulsada por tiempo, subiendo por la tríada. Es lo
+            # único que marca el ritmo.
+            tiempo = dur_compas / 4.0
+            k = int(t / tiempo)
+            tt = t - k * tiempo
+            f_arp = NOTAS[triada[k % len(triada)]] * 2.0
+            v += math.sin(TAU * f_arp * tt) * 0.10 * math.exp(-9.0 * tt / tiempo)
+
+            out.append(v * 0.85)
+    return out
+
+
 TAU = math.pi * 2.0
 
 if __name__ == "__main__":
@@ -95,3 +162,6 @@ if __name__ == "__main__":
     escribir("fallo.wav", fallo())
     escribir("cadena.wav", cadena())
     escribir("fin.wav", fin())
+    # Nombrada por bioma desde ya: cuando cada bioma tenga su pista, basta con
+    # añadir funciones al lado y una entrada en el diccionario de main.gd.
+    escribir("musica_campo.wav", musica(), TASA_MUS)

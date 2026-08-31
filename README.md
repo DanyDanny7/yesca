@@ -21,8 +21,9 @@ del récord.
 
 Siete reglas de movimiento (rebote, abeja, nieve, choque, corriente, enjambre,
 huida) que son el cimiento de los biomas, con un nivel por regla para probarlas.
-Primera capa de game feel: hit stop, sacudida, esquirlas, sonido sintetizado y
-vibración. Corriendo ya en un teléfono real. Ver `contexto/08-campana.md`,
+Primera capa de game feel: hit stop, sacudida, esquirlas, sonido y música
+sintetizados, y vibración. Opciones de sonido, música y vibración desde la
+pausa. Corriendo ya en un teléfono real. Ver `contexto/08-campana.md`,
 `contexto/09-movimientos.md` y `contexto/10-game-feel.md`.
 
 ## Cómo correrlo
@@ -65,7 +66,7 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
 - `scripts/explosion.gd`, `scripts/circle_button.gd` — nodos que se dibujan
   solos con `_draw()`. Sin sprites ni escenas: para formas geométricas no hacen
   falta.
-- `audio/` — los cuatro efectos, generados por síntesis con
+- `audio/` — los efectos y la música, generados por síntesis con
   `tools/generar_audio.py`. Se versionan como código, no como binarios opacos:
   cambiar el timbre es editar una fórmula.
 - `tools/` — utilidades de desarrollo, fuera del juego. `calibracion.gd` mide

@@ -85,11 +85,65 @@ Tras cerrar la fuga del hit stop, 2 partidas por perfil con tope de 150 s:
 Separación de 9.6x en puntuación. El perfil bueno ya no muere dentro del tope,
 así que para volver a medir su techo habrá que alargarlo.
 
+## La vibración no existía
+
+Feedback: *"lo que sí no percibí fue la vibración, de ninguna forma"*.
+
+`Input.vibrate_handheld()` **no hace nada en Android sin el permiso
+`android.permission.VIBRATE`, y falla en silencio**: ni error, ni aviso, ni
+excepción. El teléfono simplemente no vibra. Se generaron tres APK sin el
+permiso antes de que nadie lo notara, y el `aapt2 dump permissions` del APK
+salía con cero permisos declarados.
+
+De paso apareció otra trampa: `ConfigFile` de Godot, que es lo que parsea
+`export_presets.cfg`, usa `;` para comentar, **no `#`**. Un comentario con `#`
+rompe el resto de la sección en silencio, así que la primera corrección tampoco
+llegó a aplicarse.
+
+## Música
+
+Un bucle de 12 s generado por síntesis (`tools/generar_audio.py`), en Am–F–C–G
+a 80 bpm, con bajo, pad y un pulso. Grave, de ataque lento y sin nada en la
+banda de los efectos: los pops del juego son agudos y secos, y la música tiene
+que caber por debajo sin pelearse.
+
+La duración sale exacta a propósito (4 compases de 3 s) para que el bucle cierre
+sin salto, y todas las envolventes mueren dentro de su compás, o al empalmar el
+final con el principio se oiría un chasquido.
+
+**El bucle se activa en código, no en el `.import`.** `edit/loop_mode=1` en el
+archivo de importación no llega al recurso en esta versión de Godot: el
+`.import` lo dice y el `AudioStreamWAV` cargado sigue reportando 0. Ponerlo en
+código requiere que la pista se importe sin comprimir, o `data` no sería PCM
+plano y la cuenta de fotogramas no saldría.
+
+Está preparada **por bioma** desde ya: `_musica_de_bioma()` es un `match` con
+una sola rama. Va como función y no como `const Dictionary` porque un
+diccionario constante con recursos precargados dentro hace que Godot los libere
+tarde.
+
+## Opciones en la pausa
+
+Tres interruptores — sonido, música y vibración — que se guardan en
+`user://cadena.cfg` junto al progreso. Apagado se ve apagado: el círculo se
+atenúa, porque un interruptor que no dice en qué estado está no es un
+interruptor.
+
+## Aviso conocido y benigno
+
+Al cerrar en headless, Godot informa de dos instancias filtradas y un recurso
+en uso. El `--verbose` es concluyente: son la pista de música y su
+`AudioStreamPlaybackWAV`, vivas porque la música sigue sonando en el momento
+del apagado. Es orden de destrucción, no una fuga real, y no afecta al juego en
+el teléfono. Queda anotado para que nadie lo persiga otra vez.
+
 ## Pendiente
 
 - Ajustar a oído en el teléfono: `shake_por_eslabon`, `hitstop_por_eslabon` y el
   volumen están en el inspector, grupo **Game feel**.
 - El hit stop congela el 10% de los frames durante una cascada larga. Puede ser
   demasiado; se sabrá jugando.
-- Falta música, y falta el sonido de "pantalla limpia".
+- Falta el sonido de "pantalla limpia".
+- **Sonido y música por bioma**: pedido explícitamente para más adelante. La
+  música ya está estructurada para ello; los efectos de acción todavía no.
 - Sigue sin haber icono propio de la app.
