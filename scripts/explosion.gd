@@ -12,6 +12,10 @@ extends Node2D
 
 const COLOR_ACTIVA := Color("ff5470")
 const COLOR_FALLO := Color("6a6a7a")
+## Esquirlas que salen despedidas. Se dibujan dentro de la propia detonación en
+## vez de como nodos aparte: son siete círculos, no merecen un sistema de
+## partículas ni la basura de nodos que traería en cada eslabón de una cascada.
+const ESQUIRLAS := 7
 
 @export var max_radius: float = 90.0
 @export var grow_time: float = 0.3
@@ -32,6 +36,13 @@ var radius: float = 0.0
 var finished: bool = false
 
 var _t: float = 0.0
+## Desfase propio: sin esto todas las detonaciones lanzarían las esquirlas en
+## los mismos ángulos y la pantalla se vería como un patrón repetido.
+var _semilla: float = 0.0
+
+
+func _ready() -> void:
+	_semilla = randf() * TAU
 
 
 func _process(delta: float) -> void:
@@ -61,3 +72,10 @@ func _draw() -> void:
 
 	draw_circle(Vector2.ZERO, radius, Color(color, 0.16 * fade))
 	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, Color(color, fade), 3.0, true)
+
+	# Las esquirlas adelantan al anillo y se encogen: dan la lectura de que algo
+	# ha salido despedido, no solo de que un círculo ha crecido.
+	var avance := radius * (1.0 + 0.28 * (_t / (grow_time + hold_time + decay_time)))
+	for i in ESQUIRLAS:
+		var ang := _semilla + TAU * float(i) / float(ESQUIRLAS)
+		draw_circle(Vector2.from_angle(ang) * avance, 3.5 * fade, Color(color, fade * 0.9))

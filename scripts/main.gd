@@ -35,6 +35,26 @@ extends Node2D
 
 ## Movimiento con el que probar, ignorando el del nivel. Es la palanca para
 ## cachear biomas en vivo desde el inspector con el juego corriendo.
+## El game feel no es maquillaje: es donde vive lo pegajoso. Dos juegos con la
+## misma mecánica, uno adictivo y otro muerto, se diferencian solo aquí.
+@export_group("Game feel")
+## Sacudida que añade cada eslabón, y tope para que una cascada larga no
+## convierta la pantalla en una batidora.
+@export var shake_por_eslabon: float = 3.0
+@export var shake_max: float = 20.0
+@export var shake_amortiguacion: float = 9.0
+## Congelación en el impacto, en segundos. Es lo que se lee como "golpe": sin
+## ella la cascada se ve fluida y blanda.
+##
+## El valor tiene un suelo que no es negociable: por debajo de un frame no
+## existe. La primera versión usaba 0.010 s, que a 60 fps es menos de un frame
+## (16.7 ms), así que se consumía entera antes de dibujar nada y no congelaba
+## absolutamente nada. Lo habitual son 2-4 frames por impacto, de ahí 0.035.
+@export var hitstop_por_eslabon: float = 0.035
+@export var hitstop_max: float = 0.10
+@export var sonido: bool = true
+@export var vibracion: bool = true
+
 @export_group("Pruebas")
 @export var forzar_movimiento: bool = false
 @export var movimiento_prueba: Dot.Movimiento = Dot.Movimiento.REBOTE
@@ -43,9 +63,13 @@ extends Node2D
 ## Radio de la detonación del círculo que tocas, mayor que el de las
 ## detonaciones en cadena: es el valor de haber apuntado bien.
 @export var tap_radius: float = 150.0
-## Cuánto se perdona la puntería. Un círculo mide 9 px y se mueve; un dedo tapa
-## más de 50. La habilidad a premiar es elegir QUÉ círculo, no la precisión.
-@export var tap_tolerance: float = 60.0
+## Cuánto se perdona la puntería.
+##
+## Empezó en 60 px, calculado para que el dedo no fuera el enemigo. Probado en
+## un teléfono real resultó demasiado indulgente: acertabas sin mirar. A 30 px
+## sigue siendo mayor que el círculo (9 px de radio) pero ya exige apuntar, y
+## el margen de fallos deja de ser decorativo.
+@export var tap_tolerance: float = 30.0
 
 @export_group("Economía de tiempo")
 @export var time_start: float = 10.0
@@ -107,6 +131,17 @@ const HUIDA_MARGEN := 120.0
 const HUIDA_FUERZA := 420.0
 ## Índice del selector de pausa que devuelve el control al nivel.
 const AUTO_MOV := 7
+
+const SND_POP := preload("res://audio/pop.wav")
+const SND_FALLO := preload("res://audio/fallo.wav")
+const SND_CADENA := preload("res://audio/cadena.wav")
+const SND_FIN := preload("res://audio/fin.wav")
+## Voces de audio. Una sola cortaría el sonido anterior en cada eslabón, que es
+## justo lo contrario de lo que se quiere en una cascada.
+const VOCES := 8
+## Cada cuántos eslabones suena el premio y vibra el teléfono. Hacerlo en todos
+## sería un zumbido continuo.
+const HITO_CADENA := 5
 
 ## PAUSA va al FINAL a propósito. Insertar un estado en medio desplaza los
 ## índices y rompe tools/simulacion.gd, que ya se quedó girando en vacío una vez
@@ -204,6 +239,13 @@ var _flash_left: float = 0.0
 var _record_nuevo: bool = false
 var _fallos: int = 0
 var _stage_shown: int = 1
+var _shake: float = 0.0
+## Congelación pendiente, en segundos.
+var _hitstop: float = 0.0
+var _explosiones_pausadas: bool = false
+var _score_pop: float = 0.0
+var _audio: Array[AudioStreamPlayer] = []
+var _voz: int = 0
 ## Estado al que se vuelve al despausar.
 var _antes_de_pausar: State = State.PLAYING
 ## Selección del menú de pausa: 0..6 son los modos, AUTO_MOV es "el del nivel".
@@ -214,6 +256,10 @@ func _ready() -> void:
 	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _fallos_label, _score_label,
 			_best_label, _objetivo_label, _hint_label, _flash_label, _combos_root,
 			_btn_pausa]
+	for i in VOCES:
+		var voz := AudioStreamPlayer.new()
+		add_child(voz)
+		_audio.append(voz)
 	_cargar()
 	_poblar_campo()
 	_ir_a(State.MENU)
@@ -225,6 +271,11 @@ func _process(delta: float) -> void:
 
 	_prune_cadenas()
 
+	# El reloj sigue corriendo durante el hit stop. Congelarlo también parecía
+	# lo natural, pero convertía un recurso visual en una mecánica: cada cascada
+	# larga regalaba tiempo y la supervivencia del jugador descuidado subía de
+	# 98 s a 135 s. Sesenta milisegundos de desagüe son imperceptibles; el regalo
+	# no lo era.
 	if _state == State.PLAYING:
 		_elapsed += delta
 		_time_left -= delta * _drain_rate()
@@ -232,8 +283,15 @@ func _process(delta: float) -> void:
 	# En MENU y SELECT el campo sigue vivo de fondo: una pantalla de inicio con
 	# el juego moviéndose detrás se siente despierta, y además enseña la
 	# mecánica antes de que el jugador toque nada.
+	# El hit stop congela el mundo unos frames en el impacto. Se pausan también
+	# las detonaciones, o seguirían creciendo durante la congelación y el golpe
+	# se perdería.
+	if _hitstop > 0.0:
+		_hitstop -= delta
+	_sincronizar_congelacion()
+
 	# En pausa el mundo se congela igual que al morir: no se llama a _mover_dots.
-	if _mundo_activo():
+	if _mundo_activo() and _hitstop <= 0.0:
 		_mover_dots(delta)
 		_check_catches()
 		_check_cleared()
@@ -250,6 +308,9 @@ func _process(delta: float) -> void:
 			# La muerte solo ocurre con el tablero quieto, así que un último tap
 			# desesperado todavía puede salvarte si atrapa algo.
 			_perder("SE ACABÓ EL TIEMPO")
+
+	_aplicar_shake(delta)
+	_score_pop = maxf(0.0, _score_pop - delta * 4.0)
 
 	if _flash_left > 0.0:
 		_flash_left -= delta
@@ -389,11 +450,17 @@ func _objetivo_cumplido() -> bool:
 ## El tap acertado cuesta `tap_cost`; el fallado cuesta menos pero suma al
 ## contador de fallos, que es su castigo principal.
 func _tap(pos: Vector2) -> void:
-	var objetivo := _dot_mas_cercano(pos)
+	# El campo se desplaza con la sacudida, así que el dedo hay que llevarlo al
+	# mismo sistema de coordenadas. Sin esto, en plena cascada fallarías taps
+	# que visualmente eran buenos.
+	var mundo := pos - _dots_root.position
+	var objetivo := _dot_mas_cercano(mundo)
 
 	if objetivo == null:
 		_time_left -= miss_cost
-		_spawn_effect(pos)
+		_spawn_effect(mundo)
+		_sonar(SND_FALLO)
+		_vibrar(45)
 		_fallos += 1
 		if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):
 			_perder("UN FALLO Y SE ACABÓ")
@@ -405,6 +472,7 @@ func _tap(pos: Vector2) -> void:
 
 	_time_left -= tap_cost
 	_fallos = 0
+	_vibrar(12)
 
 	# Un tap ARRANCA su propia cadena. No continúa la que hubiera en curso ni la
 	# corta: las dos conviven y se propagan en paralelo, cada una con su
@@ -451,6 +519,17 @@ func _cobrar_punto(id: int, pos: Vector2) -> void:
 	_score += n
 	_best_cascade = maxi(_best_cascade, n)
 	_time_left = minf(time_max, _time_left + reward_base + reward_step * (n - 1))
+
+	_shake = minf(shake_max, _shake + shake_por_eslabon)
+	_hitstop = minf(hitstop_max, _hitstop + hitstop_por_eslabon)
+	_score_pop = 1.0
+	# El tono sube con cada eslabón. Es el truco más viejo del género y sigue
+	# siendo el que más se nota: convierte una ráfaga de clics en una escala que
+	# va subiendo, y da ganas de alargarla solo por oírla.
+	_sonar(SND_POP, clampf(0.85 + 0.075 * float(n - 1), 0.85, 2.4))
+	if n % HITO_CADENA == 0:
+		_sonar(SND_CADENA, 1.0, -4.0)
+		_vibrar(30)
 
 
 ## Detección de contagios por distancia, no con Area2D: con ~25 puntos el coste
@@ -723,6 +802,44 @@ func _prune(lista: Array[Explosion]) -> Array[Explosion]:
 	return alive
 
 
+## La sacudida se aplica moviendo los contenedores del campo, no una cámara.
+##
+## Así el HUD se queda quieto, que es lo correcto: sacudir los números los hace
+## ilegibles justo en el momento en que el jugador quiere leerlos.
+func _aplicar_shake(delta: float) -> void:
+	_shake = maxf(0.0, _shake - _shake * shake_amortiguacion * delta - 0.4 * delta)
+	var off := Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * _shake
+	_dots_root.position = off
+	_explosions_root.position = off
+
+
+func _sincronizar_congelacion() -> void:
+	var congelado := _hitstop > 0.0
+	if congelado == _explosiones_pausadas:
+		return
+	_explosiones_pausadas = congelado
+	_explosions_root.process_mode = Node.PROCESS_MODE_DISABLED if congelado 		else Node.PROCESS_MODE_INHERIT
+
+
+## Reparte los sonidos entre varias voces por turnos. Con una sola, cada eslabón
+## cortaría al anterior y la cascada sonaría a un único clic en vez de a una
+## ráfaga.
+func _sonar(stream: AudioStream, pitch: float = 1.0, volumen: float = 0.0) -> void:
+	if not sonido or _audio.is_empty():
+		return
+	var voz := _audio[_voz]
+	_voz = (_voz + 1) % _audio.size()
+	voz.stream = stream
+	voz.pitch_scale = pitch
+	voz.volume_db = volumen
+	voz.play()
+
+
+func _vibrar(ms: int) -> void:
+	if vibracion:
+		Input.vibrate_handheld(ms)
+
+
 func _flash(texto: String) -> void:
 	_flash_label.text = texto
 	_flash_left = FLASH_TIME
@@ -739,6 +856,9 @@ func _congelar() -> void:
 
 
 func _perder(motivo: String) -> void:
+	_sonar(SND_FIN)
+	_vibrar(160)
+	_shake = shake_max
 	_over_title.text = motivo
 	_congelar()
 	if _mode == Mode.SIN_FIN:
@@ -750,6 +870,8 @@ func _perder(motivo: String) -> void:
 
 
 func _ganar() -> void:
+	_sonar(SND_CADENA, 1.25)
+	_vibrar(60)
 	_congelar()
 	if _nivel + 1 > _nivel_max:
 		_nivel_max = mini(_nivel + 1, Niveles.total() - 1)
@@ -774,6 +896,9 @@ func _empezar_partida() -> void:
 	_respawn_timer = _respawn_interval()
 	_field_was_empty = false
 	_flash_left = 0.0
+	_shake = 0.0
+	_hitstop = 0.0
+	_score_pop = 0.0
 	_stage_shown = _stage()
 	_ir_a(State.READY)
 
@@ -913,6 +1038,11 @@ func _update_ui() -> void:
 		return
 
 	_score_label.text = str(_score)
+	# El marcador da un golpe de escala en cada punto. Es lo que hace que subir
+	# se sienta como algo que pasa, y no como un número que cambia.
+	_score_label.pivot_offset = _score_label.size * 0.5
+	var punch := 1.0 + 0.18 * _score_pop * _score_pop
+	_score_label.scale = Vector2(punch, punch)
 	_hint_label.visible = _state == State.READY
 
 	if _mode == Mode.CAMPANA:
