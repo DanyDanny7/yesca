@@ -143,3 +143,41 @@ antes de que aparezca la pantalla de resultado. Dos decisiones:
   campo justo cuando el jugador quiere ver qué acaba de conseguir.
 - Los anillos se registran como **efectos y no como detonaciones**: adornan, no
   contagian. Si contagiaran, la celebración cambiaría la puntuación final.
+
+## La celebración sale del campo
+
+Los anillos de victoria salían de posiciones al azar. Ahora **revientan los
+círculos que quedaron vivos**, uno a uno, en cascada por toda la pantalla.
+
+La diferencia es de sentido: la celebración pertenece a la partida que acabas de
+jugar en vez de ser un adorno pegado encima. El campo entero se despide contigo.
+
+Detalles:
+
+- El reventón se reparte por la ventana de cámara lenta **medida en tiempo de
+  juego**. Con un intervalo fijo, la cámara lenta haría que la mitad de los
+  círculos se quedaran sin salir.
+- El tono sube con la ristra, igual que en una cadena.
+- Los anillos van a efectos y no a detonaciones: adornan, no contagian. Si
+  contagiaran, la celebración cambiaría la puntuación final.
+- Con la partida ya decidida no se repuebla el campo ni se cobra el bonus de
+  pantalla limpia. Sin esa guarda, la celebración dispararía el aviso de campo
+  vacío y traería círculos nuevos justo mientras se despide de los viejos.
+- Si se gana con el campo ya vacío, se lanzan seis anillos sueltos para que la
+  victoria no pase en silencio.
+
+## La victoria pone el número por delante
+
+El título era lo grande y la puntuación una línea de detalle, cuando el logro es
+justo al revés. Ahora el número ocupa el centro a tamaño 132, con el título
+reducido a 34 encima como apoyo y la mejor cadena debajo.
+
+## Textos capitalizados
+
+Todo el texto pasa a mayúscula inicial: nada de frases en minúscula ni de
+botones gritando en mayúsculas.
+
+Los objetivos y las pistas de los niveles se capitalizan **al mostrarlos**, con
+`Niveles.capitalizar()`, y no en los datos. Así las cuarenta frases de la tabla
+se escriben una sola vez y con naturalidad, sin tener que acordarse de
+capitalizar cada una.

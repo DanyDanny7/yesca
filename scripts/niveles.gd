@@ -120,6 +120,15 @@ static func nivel(i: int) -> Dictionary:
 	return LISTA[clampi(i, 0, LISTA.size() - 1)]
 
 
+## Primera letra en mayúscula. Se hace al mostrar y no en los datos: así las
+## frases se escriben una sola vez y con naturalidad, y no hay que acordarse de
+## capitalizar cada una de las cuarenta que hay en la tabla.
+static func capitalizar(t: String) -> String:
+	if t.is_empty():
+		return t
+	return t.substr(0, 1).to_upper() + t.substr(1)
+
+
 ## El objetivo en una línea, para la tarjeta de inicio y el HUD.
 static func describir(i: int) -> String:
 	var n := nivel(i)

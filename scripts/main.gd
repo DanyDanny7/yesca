@@ -136,6 +136,12 @@ const COLOR_BARRA_PELIGRO := Color("ff5470")
 ## Separación entre pitidos de alarma: se acorta según se acaba el tiempo.
 const ALARMA_LENTA := 0.60
 const ALARMA_RAPIDA := 0.22
+## Cuánta parte de la cámara lenta ocupa el reventón de los supervivientes.
+## No toda: hay que dejar un respiro con el campo vacío antes del resultado.
+const CELEBRA_VENTANA := 0.7
+## Si no queda ningún círculo vivo, se lanzan estos anillos sueltos para que la
+## victoria no pase en silencio.
+const CELEBRA_MINIMO := 6
 ## Cuánto tarda en apagarse el fogonazo de victoria.
 const DESTELLO_CAIDA := 1.5
 ## Opacidad máxima del fogonazo. Un blanco pleno taparía el campo justo cuando
@@ -266,6 +272,8 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _win_screen: Control = $UI/WinScreen
 @onready var _win_title: Label = $UI/WinScreen/Title
 @onready var _win_detail: Label = $UI/WinScreen/Detail
+@onready var _win_puntos: Label = $UI/WinScreen/Puntos
+@onready var _win_caption: Label = $UI/WinScreen/PuntosCaption
 @onready var _win_seguir_text: Label = $UI/WinScreen/Seguir/Text
 
 var _hud: Array[Control] = []
@@ -341,6 +349,12 @@ var _marca_muerte: Explosion
 var _t_alarma: float = 0.0
 ## Fogonazo de victoria, de 1 a 0.
 var _destello: float = 0.0
+## Círculos supervivientes esperando su turno para reventar en la celebración.
+var _celebra_cola: Array[Dot] = []
+var _celebra_intervalo: float = 0.03
+var _t_celebra: float = 0.0
+## Cuántos van reventados, para que el tono suba con la ristra.
+var _celebra_hechos: int = 0
 ## Estado al que se vuelve al despausar.
 var _antes_de_pausar: State = State.PLAYING
 
@@ -408,9 +422,13 @@ func _process(delta: float) -> void:
 	if _mundo_activo() and _hitstop <= 0.0:
 		_mover_dots(delta)
 		_check_catches()
-		_check_cleared()
-		_check_stage()
-		_refill_field(delta)
+		# Con la partida ya decidida no se repuebla ni se cobra pantalla limpia:
+		# si no, la celebración dispararía el aviso de campo vacío y traería
+		# círculos nuevos justo mientras se despide de los viejos.
+		if _final_pendiente < 0:
+			_check_cleared()
+			_check_stage()
+			_refill_field(delta)
 
 	if _final_pendiente >= 0 and Time.get_ticks_msec() >= _slowmo_hasta:
 		_rematar()
@@ -426,8 +444,9 @@ func _process(delta: float) -> void:
 		elif _time_left <= 0.0 and _explosions.is_empty():
 			# La muerte solo ocurre con el tablero quieto, así que un último tap
 			# desesperado todavía puede salvarte si atrapa algo.
-			_perder("SE ACABÓ EL TIEMPO")
+			_perder("Se acabó el tiempo")
 
+	_tick_celebracion(delta)
 	_alarma_tiempo(delta)
 	_destello = maxf(0.0, _destello - delta * DESTELLO_CAIDA)
 	# Un velo verde muy tenue mientras se anticipa: sin él, el frenazo se siente
@@ -584,7 +603,7 @@ func _check_stage() -> void:
 	_stage_shown = s
 	_diag.evento("escalon %d  desague=%.2f radio=%.0f repo=%.2f" % [
 		s, _drain_rate(), _chain_radius(), _respawn_interval()])
-	_flash("ESCALÓN %d%s" % [s, "   ·   RESPIRO" if _es_respiro(s) else ""])
+	_flash("Escalón %d%s" % [s, "   ·   Respiro" if _es_respiro(s) else ""])
 
 
 func _objetivo_cumplido() -> bool:
@@ -610,12 +629,12 @@ func _tap(pos: Vector2) -> void:
 		_fallos += 1
 		if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):
 			_marcar_muerte(mundo)
-			_perder("FALLASTE EL TOQUE")
+			_perder("Fallaste el toque")
 		elif _fallos >= _fallos_permitidos():
 			_marcar_muerte(mundo)
-			_perder("DEMASIADOS FALLOS")
+			_perder("Demasiados fallos")
 		else:
-			_flash("fallo  %d / %d" % [_fallos, _fallos_permitidos()])
+			_flash("Fallo  %d / %d" % [_fallos, _fallos_permitidos()])
 		return
 
 	_time_left -= tap_cost
@@ -729,7 +748,7 @@ func _check_cleared() -> void:
 	if vacio and not _field_was_empty and _state == State.PLAYING:
 		_limpias += 1
 		_time_left = minf(time_max, _time_left + clear_bonus)
-		_flash("PANTALLA LIMPIA   +%d s" % int(clear_bonus))
+		_flash("Pantalla limpia   +%d s" % int(clear_bonus))
 	_field_was_empty = vacio
 
 
@@ -1122,25 +1141,69 @@ func _alarma_tiempo(delta: float) -> void:
 	_sonar(SND_ALARMA, lerpf(1.3, 1.0, margen), -7.0)
 
 
-## Fogonazo, anillos por toda la pantalla y fanfarria.
+## Fogonazo, fanfarria y reventón de los supervivientes.
 ##
-## Se lanza al ganar y coincide con la cámara lenta, así que la celebración se
-## ve entera antes de que aparezca la pantalla de resultado. Los anillos se
-## registran como efectos y no como detonaciones: adornan, no contagian.
+## Los anillos salen de los círculos que quedaron vivos, no de sitios al azar:
+## así la celebración pertenece a la partida que acabas de jugar en vez de ser
+## un adorno pegado encima. El campo entero se despide contigo.
+##
+## Se lanza al ganar y coincide con la cámara lenta, así que se ve entera antes
+## de que aparezca el resultado.
 func _celebrar() -> void:
 	_destello = 1.0
-	var rect := get_viewport_rect().size
-	for i in 9:
-		var e := Explosion.new()
-		e.position = Vector2(randf() * rect.x, randf() * rect.y)
-		e.max_radius = randf_range(80.0, 190.0)
-		e.color = COLOR_BARRA_OK
-		e.grow_time = randf_range(0.25, 0.6)
-		e.hold_time = 0.25
-		e.decay_time = 0.5
-		_explosions_root.add_child(e)
-		_effects.append(e)
 	_sonar(SND_EXITO)
+
+	_celebra_cola.clear()
+	_celebra_hechos = 0
+	_t_celebra = 0.0
+	for d in _dots:
+		_celebra_cola.append(d)
+	_celebra_cola.shuffle()
+	_dots.clear()
+
+	if _celebra_cola.is_empty():
+		# Campo vacío al ganar: anillos sueltos para que no pase en silencio.
+		var rect := get_viewport_rect().size
+		for i in CELEBRA_MINIMO:
+			_anillo_fiesta(Vector2(randf() * rect.x, randf() * rect.y), i)
+		return
+
+	# El reventón se reparte por la ventana de cámara lenta disponible, medida
+	# en tiempo de juego: si se usara un intervalo fijo, con la cámara lenta
+	# activa la mitad de los círculos se quedarían sin salir.
+	var ventana := SLOWMO_DUR_VICTORIA * SLOWMO_FACTOR * CELEBRA_VENTANA
+	_celebra_intervalo = maxf(0.008, ventana / float(_celebra_cola.size()))
+
+
+## Uno de los anillos de la fiesta. Va a _effects y no a _explosions: adorna,
+## no contagia. Si contagiara, la celebración cambiaría la puntuación final.
+func _anillo_fiesta(pos: Vector2, indice: int) -> void:
+	var e := Explosion.new()
+	e.position = pos
+	e.max_radius = randf_range(90.0, 170.0)
+	e.color = COLOR_BARRA_OK
+	e.grow_time = randf_range(0.2, 0.45)
+	e.hold_time = 0.2
+	e.decay_time = 0.45
+	_explosions_root.add_child(e)
+	_effects.append(e)
+	# El tono sube con la ristra, igual que en una cadena.
+	_sonar(SND_POP, clampf(1.0 + 0.06 * float(indice), 1.0, 2.4), -9.0)
+
+
+## Va reventando la cola de supervivientes, uno cada tantos.
+func _tick_celebracion(delta: float) -> void:
+	if _celebra_cola.is_empty():
+		return
+	_t_celebra -= delta
+	if _t_celebra > 0.0:
+		return
+	_t_celebra = _celebra_intervalo
+	var d: Dot = _celebra_cola.pop_back()
+	if d and is_instance_valid(d):
+		_anillo_fiesta(d.position, _celebra_hechos)
+		_celebra_hechos += 1
+		d.queue_free()
 
 
 func _flash(texto: String) -> void:
@@ -1295,6 +1358,10 @@ func _poblar_campo() -> void:
 	for e in _effects:
 		e.queue_free()
 	_effects.clear()
+	for d in _celebra_cola:
+		if d and is_instance_valid(d):
+			d.queue_free()
+	_celebra_cola.clear()
 	if _marca_muerte and is_instance_valid(_marca_muerte):
 		_marca_muerte.queue_free()
 		_marca_muerte = null
@@ -1351,40 +1418,49 @@ func _ir_a(s: State) -> void:
 	_pause_screen.visible = s == State.PAUSA
 	_brief_screen.visible = s == State.BRIEFING
 	if s == State.BRIEFING:
-		_brief_bioma.text = str(Niveles.nivel(_nivel)["bioma"]).to_upper()
-		_brief_num.text = "NIVEL %d" % (_nivel + 1)
-		_brief_meta.text = Niveles.describir(_nivel)
-		_brief_pista.text = str(Niveles.nivel(_nivel)["pista"])
+		_brief_bioma.text = str(Niveles.nivel(_nivel)["bioma"])
+		_brief_num.text = "Nivel %d" % (_nivel + 1)
+		_brief_meta.text = Niveles.capitalizar(Niveles.describir(_nivel))
+		_brief_pista.text = Niveles.capitalizar(str(Niveles.nivel(_nivel)["pista"]))
 	_log_screen.visible = s == State.LOG
 	if s == State.LOG:
-		_log_estado.text = "la sesión anterior se cerró SOLA" if _diag.hubo_cierre_brusco 			else "la sesión anterior cerró con normalidad"
+		_log_estado.text = "La sesión anterior se cerró sola" if _diag.hubo_cierre_brusco 			else "La sesión anterior cerró con normalidad"
 		var motor := _diag.errores_del_motor(10)
 		if motor.is_empty():
 			_log_texto.text = _diag.ultimas_lineas(LOG_LINEAS)
 		else:
 			# Si el motor registró errores, van ARRIBA: pesan más que cualquier
 			# instantánea del juego para saber qué tumbó el proceso.
-			_log_texto.text = "-- ERRORES DEL MOTOR --\n%s\n\n-- ESTADO --\n%s" % [
+			_log_texto.text = "-- Errores del motor --\n%s\n\n-- Estado --\n%s" % [
 				motor, _diag.ultimas_lineas(LOG_LINEAS - 12)]
 	var jugando := s == State.READY or s == State.PLAYING
 	for nodo in _hud:
 		nodo.visible = jugando
 
 	if s == State.WIN:
-		_win_title.text = "NIVEL %d SUPERADO" % (_nivel + 1)
-		_win_detail.text = "%d puntos  ·  mejor cadena ×%d" % [_score, _best_cascade]
-		_win_seguir_text.text = "SIGUE"
+		# El número manda: es el logro. El título queda de apoyo encima.
+		_win_title.text = "Nivel %d superado" % (_nivel + 1)
+		_win_puntos.text = str(_score)
+		_win_caption.text = "Puntos"
+		_win_puntos.visible = true
+		_win_caption.visible = true
+		_win_detail.text = "Mejor cadena  ×%d" % _best_cascade
+		_win_seguir_text.text = "Sigue"
 	elif s == State.FINAL:
-		_win_title.text = "CAMPAÑA COMPLETA"
-		_win_detail.text = "terminaste los %d niveles de Campo abierto.\nel modo sin fin te espera." % Niveles.total()
-		_win_seguir_text.text = "FIN"
+		_win_title.text = "Campaña completa"
+		_win_puntos.text = str(Niveles.total())
+		_win_caption.text = "Niveles superados"
+		_win_puntos.visible = true
+		_win_caption.visible = true
+		_win_detail.text = "El modo sin fin te espera."
+		_win_seguir_text.text = "Fin"
 	elif s == State.DEAD:
 		_over_score.text = str(_score)
 		var m := int(_elapsed) / 60
 		var seg := int(_elapsed) % 60
 		if _mode == Mode.CAMPANA:
-			_over_detail.text = "%s\nnivel %d  ·  toca para reintentar" % [
-				Niveles.describir(_nivel), _nivel + 1]
+			_over_detail.text = "%s\nNivel %d  ·  toca para reintentar" % [
+				Niveles.capitalizar(Niveles.describir(_nivel)), _nivel + 1]
 		elif _record_nuevo:
 			_over_detail.text = "¡NUEVO RÉCORD!\ncadena ×%d  ·  %d:%02d" % [_best_cascade, m, seg]
 		else:
@@ -1421,7 +1497,7 @@ func _guardar() -> void:
 
 
 func _update_ui() -> void:
-	_menu_best.text = "mejor sin fin  %d" % _best
+	_menu_best.text = "Mejor sin fin  %d" % _best
 	# El botón se pone en rojo si la sesión anterior murió sin avisar: si no, el
 	# registro estaría ahí y nadie lo miraría nunca.
 	_btn_log.color = Color("ff5470") if _diag != null and _diag.hubo_cierre_brusco 		else Color(0.25, 0.25, 0.32)
@@ -1435,10 +1511,10 @@ func _update_ui() -> void:
 		return
 
 	if _state == State.SELECT:
-		_sel_bioma.text = str(Niveles.nivel(_nivel)["bioma"]).to_upper()
-		_sel_num.text = "NIVEL %d" % (_nivel + 1)
-		_sel_meta.text = Niveles.describir(_nivel)
-		_sel_pista.text = str(Niveles.nivel(_nivel)["pista"])
+		_sel_bioma.text = str(Niveles.nivel(_nivel)["bioma"])
+		_sel_num.text = "Nivel %d" % (_nivel + 1)
+		_sel_meta.text = Niveles.capitalizar(Niveles.describir(_nivel))
+		_sel_pista.text = Niveles.capitalizar(str(Niveles.nivel(_nivel)["pista"]))
 		_btn_prev.modulate.a = 1.0 if _nivel > 0 else 0.25
 		_btn_next.modulate.a = 1.0 if _nivel < mini(_nivel_max, Niveles.total() - 1) else 0.25
 		return
@@ -1455,23 +1531,23 @@ func _update_ui() -> void:
 	_hint_label.visible = _state == State.READY
 
 	if _mode == Mode.CAMPANA:
-		_best_label.text = "nivel %d" % (_nivel + 1)
+		_best_label.text = "Nivel %d" % (_nivel + 1)
 		_objetivo_label.text = "%s   —   %s" % [
-			Niveles.describir(_nivel),
+			Niveles.capitalizar(Niveles.describir(_nivel)),
 			Niveles.progreso(_nivel, _score, _best_cascade, _limpias, _elapsed)]
 	else:
-		_best_label.text = "mejor  %d" % _best
+		_best_label.text = "Mejor  %d" % _best
 		_objetivo_label.text = ""
 
 	var s := _stage()
-	_stage_label.text = "escalón %d  ·  %s" % [s, NOMBRES_MOV[_movimiento_actual()]]
+	_stage_label.text = "Escalón %d  ·  %s" % [s, NOMBRES_MOV[_movimiento_actual()]]
 	# En los niveles que se pierden al primer fallo, un contador 0 / 5 sería
 	# mentira: no hay margen que gastar.
 	if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):
-		_fallos_label.text = "sin fallos permitidos"
+		_fallos_label.text = "Sin fallos permitidos"
 		_fallos_label.modulate = Color("ff5470")
 	else:
-		_fallos_label.text = "fallos  %d / %d" % [_fallos, _fallos_permitidos()]
+		_fallos_label.text = "Fallos  %d / %d" % [_fallos, _fallos_permitidos()]
 		_fallos_label.modulate = Color("ff5470") if _fallos > 0 else Color(0.45, 0.45, 0.55)
 
 	var frac := clampf(_time_left / time_max, 0.0, 1.0)
