@@ -182,6 +182,13 @@ const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
 		"enjambre", "huida", "brasa", "circuito", "planeo", "misil", "bombardeo"]
 ## Franja de abajo que cuenta como ciudad en los biomas de defensa.
 const ALTURA_CIUDAD := 150.0
+## Franja de arriba reservada al HUD.
+##
+## El campo de juego empieza por debajo de la barra de tiempo. Sin esto, en los
+## biomas que van de arriba abajo se formaban cadenas en la franja del HUD:
+## estaba pasando algo y el jugador no podía verlo, que es la peor forma de
+## perder información.
+const MARGEN_SUPERIOR := 150.0
 ## Fuerzas de los modos que Main dirige. Bajas a propósito: el movimiento tiene
 ## que seguir siendo legible, no convertirse en una sopa.
 const ENJAMBRE_VISTA := 220.0
@@ -809,13 +816,46 @@ func _tick_transicion(delta: float) -> void:
 		d.color = Color(str(nueva.get("punto", "e8e8f0")))
 		d.radius = float(nueva.get("radio", 9.0))
 		d.modo = modo
-		d.numero = randi_range(1, 15) if d.forma == Dot.Forma.BOLA else 0
+		d.numero = _numero_de(d.forma)
 		d.queue_redraw()
 
 	if _transicion >= 1.0:
 		_transicion = -1.0
 		_barrido.visible = false
 		_barrido_halo.visible = false
+
+
+## Los cuatro niveles que componen la dificultad, cada uno con su tope.
+##
+## Se cuentan por separado porque no todos suben para siempre: la generosidad y
+## la escasez topan, y a partir de ahí la dificultad crece solo por presión y
+## legibilidad. Sumarlos da un número que significa algo — un 8 es de verdad el
+## doble de duro que un 4 — en vez de un ordinal que solo dice cuántos saltos
+## han pasado.
+func _nivel_presion() -> int:
+	return _pasos_presion(_stage())
+
+
+func _nivel_escasez() -> int:
+	var topes := int(floor((respawn_max - respawn_base) / maxf(0.001, respawn_step)))
+	return clampi(_stage() - 1, 0, topes)
+
+
+func _nivel_generosidad() -> int:
+	var topes := int(floor((chain_radius_base - chain_radius_min) / maxf(0.001, chain_radius_step)))
+	return clampi(_stage() - 1, 0, topes)
+
+
+func _nivel_legibilidad() -> int:
+	return maxi(0, _stage() - 1)
+
+
+## La dificultad que ve el jugador: la suma de los cuatro, desde 1.
+##
+## Empieza en 1 y no en 0 porque una "dificultad 0" se lee como que algo está
+## roto, no como que el nivel es fácil.
+func _dificultad() -> int:
+	return 1 + _nivel_presion() + _nivel_escasez() + _nivel_generosidad() 			+ _nivel_legibilidad()
 
 
 func _check_stage() -> void:
@@ -828,9 +868,10 @@ func _check_stage() -> void:
 		if (s - 1) / escalones_por_bioma > _bioma_sinfin:
 			_empezar_transicion()
 	_stage_shown = s
-	_diag.evento("escalon %d  desague=%.2f radio=%.0f repo=%.2f" % [
-		s, _drain_rate(), _chain_radius(), _respawn_interval()])
-	_flash("Escalón %d%s" % [s, "   ·   Respiro" if _es_respiro(s) else ""])
+	_diag.evento("dificultad %d (esc %d) presion=%d escasez=%d generosidad=%d legibilidad=%d" % [
+		_dificultad(), s, _nivel_presion(), _nivel_escasez(),
+		_nivel_generosidad(), _nivel_legibilidad()])
+	_flash("Dificultad %d%s" % [_dificultad(), "   ·   Respiro" if _es_respiro(s) else ""])
 
 
 func _objetivo_cumplido() -> bool:
@@ -1029,7 +1070,8 @@ func _refill_field(delta: float) -> void:
 		return
 	_respawn_timer = _respawn_interval()
 
-	var rect := get_viewport_rect().size
+	var area := _area_juego()
+	var rect := area.size
 	var d := Dot.new()
 	var fuera := d.radius * 2.0
 	var modo := _movimiento_actual()
@@ -1087,6 +1129,8 @@ func _refill_field(delta: float) -> void:
 			randf_range(rect.x * 0.33, rect.x * 0.67),
 			randf_range(rect.y * 0.33, rect.y * 0.67))
 		rumbo = (objetivo - d.position).normalized()
+	# Todo lo de arriba se calculó en coordenadas del área; se traslada.
+	d.position.y += area.position.y
 
 	_preparar_dot(d, modo, rumbo)
 	# Los que llegan durante la partida entran creciendo: se leen como que venían
@@ -1111,6 +1155,12 @@ func _movimiento_actual() -> int:
 ## Hay modos que necesitan ver a los demás círculos o a las detonaciones, y
 ## además así el orden de actualización es determinista: primero las reglas
 ## globales, después la integración de cada uno, y solo entonces los contagios.
+## El rectángulo donde vive el juego: la pantalla menos la franja del HUD.
+func _area_juego() -> Rect2:
+	var r := get_viewport_rect().size
+	return Rect2(0.0, MARGEN_SUPERIOR, r.x, maxf(1.0, r.y - MARGEN_SUPERIOR))
+
+
 func _mover_dots(delta: float) -> void:
 	match _movimiento_actual():
 		Dot.Movimiento.CHOQUE:
@@ -1120,9 +1170,9 @@ func _mover_dots(delta: float) -> void:
 		Dot.Movimiento.HUIDA:
 			_aplicar_huida(delta)
 
-	var rect := get_viewport_rect().size
+	var area := _area_juego()
 	for d in _dots:
-		d.mover(delta, rect)
+		d.mover(delta, area)
 
 
 ## Choque elástico entre iguales: se intercambia la componente de la velocidad
@@ -1736,7 +1786,8 @@ func _poblar_campo() -> void:
 
 	# El campo arranca lleno y repartido; solo las reposiciones entran por los
 	# bordes. Verlo llenarse punto a punto sería una espera muerta al empezar.
-	var rect := get_viewport_rect().size
+	var area := _area_juego()
+	var rect := area.size
 	var modo := _movimiento_actual()
 	var cuantos := _target_dots()
 	if modo == Dot.Movimiento.BOMBARDEO:
@@ -1753,7 +1804,7 @@ func _poblar_campo() -> void:
 			techo = (rect.y - ALTURA_CIUDAD) * 0.25
 		d.position = Vector2(
 			randf_range(SPAWN_MARGIN, rect.x - SPAWN_MARGIN),
-			randf_range(SPAWN_MARGIN, maxf(SPAWN_MARGIN + 1.0, techo)))
+			area.position.y + randf_range(SPAWN_MARGIN, maxf(SPAWN_MARGIN + 1.0, techo)))
 		var rumbo := Vector2.from_angle(randf() * TAU)
 		if modo == Dot.Movimiento.CORRIENTE:
 			rumbo = Vector2.RIGHT
@@ -1780,14 +1831,24 @@ func _poblar_campo() -> void:
 ## La rapidez base se guarda aparte de la velocidad porque los modos que
 ## reorientan el vector (enjambre, huida, abeja) la necesitan para no acelerar
 ## ni frenar sin querer al cambiar de dirección.
+## Variedad por instancia: número en las bolas de billar, color en los globos.
+##
+## Los dos biomas la necesitan y el mecanismo es el mismo, así que comparten
+## campo. En el resto queda a cero y la forma se dibuja lisa.
+func _numero_de(forma: int) -> int:
+	if forma == Dot.Forma.BOLA:
+		return randi_range(1, 15)
+	if forma == Dot.Forma.GLOBO:
+		return randi_range(1, 8)
+	return 0
+
+
 func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 	d.modo = modo
 	d.color = Color(str(_paleta.get("punto", "e8e8f0")))
 	d.radius = float(_paleta.get("radio", 9.0))
 	d.forma = int(_paleta.get("forma", Dot.Forma.CIRCULO))
-	# En el billar cada bola lleva su número, del 1 al 15. En el resto de biomas
-	# queda a cero y la forma se dibuja lisa.
-	d.numero = randi_range(1, 15) if d.forma == Dot.Forma.BOLA else 0
+	d.numero = _numero_de(d.forma)
 	var bonus := _speed_bonus()
 	var rapidez := randf_range(dot_speed_min + bonus, dot_speed_max + bonus)
 	rapidez *= float(_paleta.get("vel_mult", 1.0))
@@ -1968,7 +2029,7 @@ func _update_ui() -> void:
 		_objetivo_label.text = ""
 
 	var s := _stage()
-	_stage_label.text = "Escalón %d  ·  %s" % [s, NOMBRES_MOV[_movimiento_actual()]]
+	_stage_label.text = "dificultad %d  ·  %s" % [_dificultad(), NOMBRES_MOV[_movimiento_actual()]]
 	# En los niveles que se pierden al primer fallo, un contador 0 / 5 sería
 	# mentira: no hay margen que gastar.
 	if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):

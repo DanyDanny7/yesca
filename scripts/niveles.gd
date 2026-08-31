@@ -154,7 +154,29 @@ const LISTA: Array[Dictionary] = [
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
 		"pista": "abajo la ciudad sigue encendida; aquí solo hay que aguantar"},
 
-	# --- Asedio: aceleran. El unico bioma que castiga la duda --------------
+	# --- Ducha: burbujas que suben. El bioma mas amable de todos -----------
+	{"bioma": "Ducha", "mov": Dot.Movimiento.BRASA,
+		"meta": Meta.PUNTOS, "valor": 320, "escalon": 1,
+		"pista": "suben despacio desde el agua; tómate tu tiempo"},
+	{"bioma": "Ducha", "mov": Dot.Movimiento.BRASA,
+		"meta": Meta.CADENA, "valor": 8, "escalon": 2,
+		"pista": "se apiñan al subir: espera a que la columna se junte"},
+	{"bioma": "Ducha", "mov": Dot.Movimiento.BRASA,
+		"meta": Meta.SEGUNDOS, "valor": 50, "escalon": 2,
+		"pista": "aquí no hay prisa, solo hay que aguantar"},
+
+	# --- Fiesta: globos que chocan entre si --------------------------------
+	{"bioma": "Fiesta", "mov": Dot.Movimiento.CHOQUE,
+		"meta": Meta.PUNTOS, "valor": 420, "escalon": 2,
+		"pista": "rebotan entre ellos: los grupos se hacen y se deshacen solos"},
+	{"bioma": "Fiesta", "mov": Dot.Movimiento.CHOQUE,
+		"meta": Meta.CADENA, "valor": 9, "escalon": 3,
+		"pista": "un choque puede regalarte la cadena o arruinártela"},
+	{"bioma": "Fiesta", "mov": Dot.Movimiento.CHOQUE,
+		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
+		"pista": "el racimo cambia de forma cada segundo; no te enamores de uno"},
+
+	# --- Asedio: caen sobre la ciudad --------------------------------------
 	{"bioma": "Asedio", "mov": Dot.Movimiento.BOMBARDEO,
 		"meta": Meta.SEGUNDOS, "valor": 40, "escalon": 1,
 		"pista": "caen sobre la ciudad: si uno toca el suelo, se acabó"},
@@ -224,6 +246,15 @@ const PALETAS := {
 		"banda": Fondo.Tipo.HORIZONTE, "banda_color": "ffc879",
 		"forma": Dot.Forma.AVION,
 		"fondo": "101a2b", "punto": "fff4e2", "onda": "ffd166", "radio": 10.0},
+	"Ducha": {
+		"telon": Fondo.Tipo.AZULEJOS, "marco": Fondo.Marco.TINA,
+		"forma": Dot.Forma.BURBUJA,
+		"fondo": "0c1d24", "punto": "d9f7ff", "onda": "7fe3ff", "radio": 11.0},
+	"Fiesta": {
+		"telon": Fondo.Tipo.CONFETI,
+		"banda": Fondo.Tipo.BANDERINES, "banda_color": "ffd66b",
+		"forma": Dot.Forma.GLOBO,
+		"fondo": "180f26", "punto": "ff8ad0", "onda": "ff5fd0", "radio": 11.0},
 	"Asedio": {
 		"telon": Fondo.Tipo.ESTELAS,
 		"banda": Fondo.Tipo.HORIZONTE_ROTO, "banda_color": "ff7a3c",

@@ -37,12 +37,15 @@ enum Tipo {
 	HORIZONTE,      ## perfil de ciudad con ventanas encendidas
 	HORIZONTE_ROTO, ## el mismo perfil, roto y ardiendo
 	AURORA,         ## cortinas de luz polar, para la banda de arriba
+	AZULEJOS,       ## alicatado de baño
+	CONFETI,        ## papelillos de colores
+	BANDERINES,     ## guirnalda de fiesta, para la banda de arriba
 }
 
 ## Adornos que NO se repiten: se dibujan una vez sobre el telón porque su sitio
 ## en pantalla importa. Una mesa de billar con las troneras repetidas en mosaico
 ## no sería una mesa.
-enum Marco { NADA, MESA }
+enum Marco { NADA, MESA, TINA }
 
 ## Alto de cada banda, en píxeles.
 ##
@@ -167,6 +170,8 @@ func _draw() -> void:
 
 	if marco == Marco.MESA:
 		_dibujar_mesa(r)
+	elif marco == Marco.TINA:
+		_dibujar_tina(r)
 	if _fugaces and _fugaz_avance < 1.0:
 		_dibujar_fugaz()
 
@@ -197,6 +202,40 @@ func _dibujar_mesa(r: Vector2) -> void:
 			Vector2(margen, r.y - margen), Vector2(r.x - margen, r.y - margen)]:
 		draw_circle(pos, hoyo, negro)
 		draw_arc(pos, hoyo, 0.0, TAU, 24, borde, 2.0, true)
+
+
+## Bañera: silueta redondeada abajo, con patas, grifo y línea de agua.
+##
+## Va como marco y no como mosaico por lo mismo que la mesa de billar: una
+## bañera repetida en baldosas no es una bañera.
+func _dibujar_tina(r: Vector2) -> void:
+	var alto := 190.0
+	var margen := 34.0
+	var arriba := r.y - alto
+	var linea := Color(1, 1, 1, 0.16)
+	var agua := Color(0.45, 0.85, 1.0, 0.1)
+
+	# Cuerpo.
+	draw_rect(Rect2(margen, arriba, r.x - margen * 2.0, alto - 34.0), agua)
+	draw_rect(Rect2(margen, arriba, r.x - margen * 2.0, alto - 34.0), linea, false, 3.0)
+	# Borde superior, más grueso: es el canto de la bañera.
+	draw_line(Vector2(margen - 10.0, arriba), Vector2(r.x - margen + 10.0, arriba),
+			Color(1, 1, 1, 0.28), 6.0)
+
+	# Patas.
+	for x in [margen + 34.0, r.x - margen - 34.0]:
+		draw_rect(Rect2(x - 9.0, r.y - 34.0, 18.0, 26.0), linea)
+
+	# Grifo, arriba a la derecha.
+	var gx := r.x - margen - 54.0
+	draw_line(Vector2(gx, arriba - 46.0), Vector2(gx, arriba - 10.0), linea, 5.0)
+	draw_line(Vector2(gx, arriba - 46.0), Vector2(gx - 26.0, arriba - 46.0), linea, 5.0)
+
+	# Espuma: una hilera de arcos sobre la línea de agua.
+	var x := margen + 12.0
+	while x < r.x - margen - 12.0:
+		draw_arc(Vector2(x, arriba + 6.0), 13.0, PI, TAU, 10, Color(1, 1, 1, 0.14), 2.0, true)
+		x += 21.0
 
 
 ## Una estrella fugaz cada pocos segundos. Cruza en diagonal y deja estela.
@@ -243,10 +282,10 @@ func _mosaico(t: Tipo) -> ImageTexture:
 	if _cache.has(t):
 		return _cache[t]
 
-	var banda := t == Tipo.HORIZONTE or t == Tipo.HORIZONTE_ROTO or t == Tipo.AURORA
+	var banda := t in [Tipo.HORIZONTE, Tipo.HORIZONTE_ROTO, Tipo.AURORA, Tipo.BANDERINES]
 	_wrap_y = not banda
 	var alto := LADO
-	if t == Tipo.AURORA:
+	if t == Tipo.AURORA or t == Tipo.BANDERINES:
 		alto = ALTO_AURORA
 	elif banda:
 		alto = ALTO_CIUDAD
@@ -272,6 +311,9 @@ func _mosaico(t: Tipo) -> ImageTexture:
 		Tipo.HORIZONTE: _gen_horizonte(img, rnd, false)
 		Tipo.HORIZONTE_ROTO: _gen_horizonte(img, rnd, true)
 		Tipo.AURORA: _gen_aurora(img, rnd)
+		Tipo.AZULEJOS: _gen_azulejos(img)
+		Tipo.CONFETI: _gen_confeti(img, rnd)
+		Tipo.BANDERINES: _gen_banderines(img)
 
 	var tex := ImageTexture.create_from_image(img)
 	_cache[t] = tex
@@ -464,6 +506,49 @@ func _gen_aurora(img: Image, rnd: RandomNumberGenerator) -> void:
 			var t := float(y) / borde
 			_px(img, x, y, intensidad * (1.0 - t) * (1.0 - t))
 			y += 1
+
+
+## Alicatado: cuadrícula de baldosas con junta y un brillo en cada una.
+##
+## El brillo desplazado hacia una esquina es lo que lo separa de una rejilla
+## técnica: una baldosa refleja, un cable no.
+func _gen_azulejos(img: Image) -> void:
+	var paso := 32
+	for k in range(0, LADO, paso):
+		_linea(img, Vector2(k, 0), Vector2(k, LADO), 0.07)
+		_linea(img, Vector2(0, k), Vector2(LADO, k), 0.07)
+	for fy in range(0, LADO, paso):
+		for fx in range(0, LADO, paso):
+			_linea(img, Vector2(fx + 5, fy + 6), Vector2(fx + 13, fy + 6), 0.09)
+
+
+## Confeti: papelillos inclinados, de tamaños distintos.
+func _gen_confeti(img: Image, rnd: RandomNumberGenerator) -> void:
+	for i in 22:
+		var c := Vector2(rnd.randf() * LADO, rnd.randf() * LADO)
+		var d := Vector2.from_angle(rnd.randf() * TAU) * rnd.randf_range(2.5, 5.0)
+		_linea(img, c - d, c + d, rnd.randf_range(0.09, 0.16), 2.4)
+
+
+## Banderines: la guirnalda cuelga en curva y de ella salen los triángulos.
+##
+## La curva tiene un periodo entero en el mosaico, así que la cuerda continúa de
+## una repetición a la siguiente sin escalón.
+func _gen_banderines(img: Image) -> void:
+	var cuerda := 26.0
+	var comba := 22.0
+	for x in LADO:
+		var y := cuerda + (1.0 - cos(TAU * float(x) / float(LADO))) * 0.5 * comba
+		_px(img, x, int(y), 0.2)
+		_px(img, x, int(y) + 1, 0.12)
+	var paso := 32
+	for k in range(0, LADO, paso):
+		var cx := float(k) + float(paso) * 0.5
+		var cy := cuerda + (1.0 - cos(TAU * cx / float(LADO))) * 0.5 * comba
+		# Triángulo colgando: dos lados y la base.
+		_linea(img, Vector2(cx - 11.0, cy), Vector2(cx, cy + 30.0), 0.17)
+		_linea(img, Vector2(cx + 11.0, cy), Vector2(cx, cy + 30.0), 0.17)
+		_linea(img, Vector2(cx - 11.0, cy), Vector2(cx + 11.0, cy), 0.17)
 
 
 func _gen_trazas(img: Image, rnd: RandomNumberGenerator) -> void:

@@ -34,7 +34,7 @@ enum Movimiento {
 ## Todas las formas caben en el mismo radio y se dibujan a mano: a nueve píxeles
 ## no hay sitio para detalle, así que lo que las distingue es la silueta.
 enum Forma { CIRCULO, COPO, ABEJA, HOJA, BOLA, DRON, CHISPA, CHIP, AVION, MISIL,
-		PEZ, ESTRELLA, BALA, LLAMA }
+		PEZ, ESTRELLA, BALA, LLAMA, BURBUJA, GLOBO }
 
 ## Color y tamaño los fija el bioma al nacer el círculo, no una constante: es
 ## lo que permite que la ventisca se vea de nieve y el panal de miel sin tocar
@@ -43,6 +43,14 @@ var color: Color = Color("e8e8f0")
 var forma: Forma = Forma.CIRCULO
 ## Número de la bola, del 1 al 15. Cero en el resto de biomas.
 var numero: int = 0
+
+## Colores de globo. Se elige uno por globo con el mismo campo que numera las
+## bolas de billar: dos biomas que necesitan variedad por instancia, un solo
+## mecanismo.
+const COLOR_GLOBO := [
+	Color("ff5f7e"), Color("ffd23f"), Color("5fd1ff"), Color("8affa0"),
+	Color("c98bff"), Color("ff9d54"), Color("ff7ee0"), Color("7ee8d0"),
+]
 
 ## Colores de billar. Ninguno es el negro real de la bola 8: sobre un tapete
 ## oscuro sería invisible, y la legibilidad manda sobre el realismo.
@@ -115,6 +123,8 @@ func _draw() -> void:
 		Forma.ESTRELLA: _estrella(r)
 		Forma.BALA: _bala(r)
 		Forma.LLAMA: _llama(r)
+		Forma.BURBUJA: _burbuja(r)
+		Forma.GLOBO: _globo(r)
 		_: draw_circle(Vector2.ZERO, r, color)
 
 
@@ -267,12 +277,16 @@ func entrar_creciendo() -> void:
 
 ## Todo movimiento va multiplicado por delta. Si no, el juego corre a distinta
 ## velocidad en cada dispositivo según sus FPS.
-func mover(delta: float, rect: Vector2) -> void:
+##
+## El área NO es la pantalla entera: empieza por debajo de la barra de tiempo.
+## En los biomas que van de arriba abajo se formaban cadenas en la franja del
+## HUD, donde el jugador no puede ver lo que pasa aunque esté pasando.
+func mover(delta: float, area: Rect2) -> void:
 	_fase += delta
 	if _entrada < 1.0:
 		_entrada = minf(1.0, _entrada + delta / ENTRADA_DUR)
 		queue_redraw()
-	elif forma in [Forma.ABEJA, Forma.PEZ, Forma.ESTRELLA, Forma.LLAMA]:
+	elif forma in [Forma.ABEJA, Forma.PEZ, Forma.ESTRELLA, Forma.LLAMA, Forma.GLOBO]:
 		# Estas tres se mueven por dentro —alas, cola, titileo— así que hay que
 		# redibujarlas aunque el nodo no cambie de sitio.
 		queue_redraw()
@@ -286,53 +300,54 @@ func mover(delta: float, rect: Vector2) -> void:
 		rotation += delta * 0.9
 	match modo:
 		Movimiento.ABEJA:
-			_mover_abeja(delta, rect)
+			_mover_abeja(delta, area)
 		Movimiento.NIEVE:
-			_mover_nieve(delta, rect)
+			_mover_nieve(delta, area)
 		Movimiento.CORRIENTE:
-			_mover_corriente(delta, rect)
+			_mover_corriente(delta, area)
 		Movimiento.BRASA:
-			_mover_brasa(delta, rect)
+			_mover_brasa(delta, area)
 		Movimiento.CIRCUITO:
-			_mover_circuito(delta, rect)
+			_mover_circuito(delta, area)
 		Movimiento.PLANEO:
-			_mover_planeo(delta, rect)
+			_mover_planeo(delta, area)
 		Movimiento.MISIL:
-			_mover_misil(delta, rect)
+			_mover_misil(delta, area)
 		Movimiento.BOMBARDEO:
-			_mover_bombardeo(delta, rect)
+			_mover_bombardeo(delta, area)
 		_:
 			# REBOTE, CHOQUE, ENJAMBRE y HUIDA comparten integración recta; lo
 			# que los distingue lo aplica Main antes de llamar aquí.
 			position += velocity * delta
-			_rebotar(rect)
+			_rebotar(area)
 
 
 ## Tirones y pausas: la abeja mantiene un rumbo un instante, lo cambia de golpe
 ## y varía mucho de rapidez. Lo que la hace difícil de leer no es la velocidad
 ## media sino lo poco que dura cada tramo recto.
-func _mover_abeja(delta: float, rect: Vector2) -> void:
+func _mover_abeja(delta: float, area: Rect2) -> void:
 	_giro -= delta
 	if _giro <= 0.0:
 		_giro = randf_range(0.15, 0.5)
 		var rumbo := velocity.angle() + randf_range(-1.2, 1.2)
 		velocity = Vector2.from_angle(rumbo) * base_speed * randf_range(0.35, 1.7)
 	position += velocity * delta
-	_rebotar(rect)
+	_rebotar(area)
 
 
 ## Caída lenta con vaivén. No rebota: sale por abajo y vuelve a entrar por
 ## arriba en otra columna, así el campo se renueva sin saltos.
-func _mover_nieve(delta: float, rect: Vector2) -> void:
+func _mover_nieve(delta: float, area: Rect2) -> void:
 	var vaiven := sin(_fase * 1.7 + _semilla) * base_speed * 0.75
 	position += Vector2(vaiven, base_speed * 0.55) * delta
 
-	if position.y > rect.y + radius:
-		position = Vector2(randf() * rect.x, -radius)
-	if position.x < -radius:
-		position.x = rect.x + radius
-	elif position.x > rect.x + radius:
-		position.x = -radius
+	if position.y > area.end.y + radius:
+		position = Vector2(area.position.x + randf() * area.size.x,
+				area.position.y - radius)
+	if position.x < area.position.x - radius:
+		position.x = area.end.x + radius
+	elif position.x > area.end.x + radius:
+		position.x = area.position.x - radius
 
 
 ## Río: todos arrastrados en la misma dirección, con una ondulación suave.
@@ -342,15 +357,15 @@ func _mover_nieve(delta: float, rect: Vector2) -> void:
 ## los que entraban por la derecha iban hacia la izquierda y los de la izquierda
 ## hacia la derecha, así que el "río" corría en dos sentidos a la vez y la pista
 ## del nivel mentía.
-func _mover_corriente(delta: float, rect: Vector2) -> void:
+func _mover_corriente(delta: float, area: Rect2) -> void:
 	var onda := cos(_fase * 1.1 + _semilla) * base_speed * 0.35
 	position += Vector2(velocity.x, onda) * delta
 
-	if position.x < -radius:
-		position.x = rect.x + radius
-	elif position.x > rect.x + radius:
-		position.x = -radius
-	position.y = clampf(position.y, radius, rect.y - radius)
+	if position.x < area.position.x - radius:
+		position.x = area.end.x + radius
+	elif position.x > area.end.x + radius:
+		position.x = area.position.x - radius
+	position.y = clampf(position.y, area.position.y + radius, area.end.y - radius)
 
 
 ## Avión de papel: delta con muesca trasera y pliegue central. La muesca es lo
@@ -489,23 +504,78 @@ func _llama(r: float) -> void:
 	draw_colored_polygon(nucleo, Color(1.0, 1.0, 0.85, 0.9))
 
 
+## Burbuja de jabón: casi transparente, con reflejo y una película iridiscente.
+##
+## Es la forma más difícil de este juego: una burbuja es sobre todo AUSENCIA de
+## color, y aquí el target tiene que verse sí o sí. La solución es el anillo del
+## borde, que va a alfa alta y carga toda la legibilidad; el interior puede
+## permitirse ser casi invisible porque el contorno ya está resuelto.
+func _burbuja(r: float) -> void:
+	draw_circle(Vector2.ZERO, r, Color(color, 0.16))
+	draw_arc(Vector2.ZERO, r * 0.94, 0.0, TAU, 22, Color(color, 0.95), 2.2, true)
+	# Reflejo arriba a la izquierda y un punto de luz: sin ellos parece un aro.
+	draw_arc(Vector2.ZERO, r * 0.66, PI * 0.85, PI * 1.45, 10,
+			Color(1, 1, 1, 0.55), 2.0, true)
+	draw_circle(Vector2(-r * 0.34, -r * 0.36), r * 0.14, Color(1, 1, 1, 0.75))
+	# Tornasol: un arco cálido abajo a la derecha, que es lo que la separa de
+	# una pompa de cristal.
+	draw_arc(Vector2.ZERO, r * 0.8, PI * 0.05, PI * 0.45, 8,
+			Color(1.0, 0.75, 0.95, 0.5), 2.0, true)
+
+
+## Globo: cuerpo ovalado, nudo y cordel ondulado.
+##
+## El cordel es lo que lo convierte en globo y no en un huevo: es la única parte
+## que se sale de la silueta, y por eso se dibuja en color claro aunque el globo
+## sea oscuro.
+func _globo(r: float) -> void:
+	var tinte: Color = color
+	if numero > 0:
+		tinte = COLOR_GLOBO[(numero - 1) % COLOR_GLOBO.size()]
+
+	# Cordel: ondea con la fase propia, así que dos globos nunca coinciden.
+	var pts := PackedVector2Array()
+	for i in 9:
+		var t := float(i) / 8.0
+		pts.append(Vector2(sin(t * 3.4 + _fase * 1.6 + _semilla) * r * 0.42,
+				r * 1.15 + t * r * 1.5))
+	draw_polyline(pts, Color(1, 1, 1, 0.45), 1.6, true)
+
+	# Nudo.
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-r * 0.2, r * 1.0), Vector2(r * 0.2, r * 1.0),
+		Vector2(0.0, r * 1.28)]), tinte)
+
+	# Cuerpo ovalado, más alto que ancho.
+	var cuerpo := PackedVector2Array()
+	var n := 18
+	for i in n:
+		var a := TAU * float(i) / float(n)
+		cuerpo.append(Vector2(cos(a) * r * 0.82, sin(a) * r * 1.0 - r * 0.05))
+	draw_colored_polygon(cuerpo, tinte)
+
+	# Brillo, que es lo que le da volumen de goma.
+	draw_circle(Vector2(-r * 0.3, -r * 0.38), r * 0.2, Color(1, 1, 1, 0.5))
+
+
 ## Brasa: sube y se renueva por abajo. Es la nieve del revés, y eso cambia la
 ## lectura del campo más de lo que parece — se caza hacia arriba.
-func _mover_brasa(delta: float, rect: Vector2) -> void:
+func _mover_brasa(delta: float, area: Rect2) -> void:
 	var vaiven := sin(_fase * 2.2 + _semilla) * base_speed * 0.45
 	position += Vector2(vaiven, -base_speed * 0.5) * delta
-	if position.y < -radius:
-		position = Vector2(randf() * rect.x, rect.y + radius)
-	if position.x < -radius:
-		position.x = rect.x + radius
-	elif position.x > rect.x + radius:
-		position.x = -radius
+	if position.y < area.position.y - radius:
+		position = Vector2(area.position.x + randf() * area.size.x,
+				area.end.y + radius)
+	if position.x < area.position.x - radius:
+		position.x = area.end.x + radius
+	elif position.x > area.end.x + radius:
+		position.x = area.position.x - radius
 
 
 ## Planeo: vira despacio y cabecea. Ningún tramo es recto del todo, así que
 ## adivinar dónde estará un avión exige mirarlo un segundo entero, no un
 ## instante. Es lo contrario del circuito.
-func _mover_planeo(delta: float, rect: Vector2) -> void:
+func _mover_planeo(delta: float, area: Rect2) -> void:
 	_giro -= delta
 	if _giro <= 0.0:
 		_giro = randf_range(1.1, 2.4)
@@ -513,7 +583,7 @@ func _mover_planeo(delta: float, rect: Vector2) -> void:
 	velocity = Vector2.from_angle(velocity.angle() + _vira * delta) * base_speed
 	var cabeceo := Vector2(0.0, sin(_fase * 2.1 + _semilla) * base_speed * 0.2)
 	position += (velocity + cabeceo) * delta
-	_rebotar(rect)
+	_rebotar(area)
 
 
 ## Misil: acelera en su rumbo hasta un tope.
@@ -524,12 +594,12 @@ func _mover_planeo(delta: float, rect: Vector2) -> void:
 const MISIL_ACEL := 0.85
 const MISIL_TOPE := 2.4
 
-func _mover_misil(delta: float, rect: Vector2) -> void:
+func _mover_misil(delta: float, area: Rect2) -> void:
 	var v := velocity.length()
 	if v < base_speed * MISIL_TOPE:
 		velocity = velocity.normalized() * (v + base_speed * MISIL_ACEL * delta)
 	position += velocity * delta
-	_rebotar(rect)
+	_rebotar(area)
 
 
 ## Bombardeo: cae de arriba abajo trazando eses.
@@ -541,40 +611,40 @@ func _mover_misil(delta: float, rect: Vector2) -> void:
 ##
 ## No rebota abajo a propósito: llegar al suelo es perder, y de eso se encarga
 ## main.gd.
-func _mover_bombardeo(delta: float, rect: Vector2) -> void:
+func _mover_bombardeo(delta: float, area: Rect2) -> void:
 	var lateral := sin(_fase * 1.5 + _semilla) * 0.8 + sin(_fase * 2.9 + _semilla * 1.7) * 0.35
 	var v := Vector2(lateral * base_speed * 0.75, base_speed)
 	position += v * delta
 	rotation = v.angle()
 	# Los lados sí rebotan: un proyectil que se va por un costado no habría
 	# amenazado nada y el jugador se quedaría esperándolo.
-	if position.x < radius:
-		position.x = radius
-	elif position.x > rect.x - radius:
-		position.x = rect.x - radius
+	if position.x < area.position.x + radius:
+		position.x = area.position.x + radius
+	elif position.x > area.end.x - radius:
+		position.x = area.end.x - radius
 
 
 ## Circuito: solo horizontal y vertical, con giros de noventa grados. Las
 ## trayectorias son las más predecibles del juego, así que lo difícil deja de ser
 ## adivinar y pasa a ser esperar al cruce.
-func _mover_circuito(delta: float, rect: Vector2) -> void:
+func _mover_circuito(delta: float, area: Rect2) -> void:
 	_giro -= delta
 	if _giro <= 0.0:
 		_giro = randf_range(0.45, 1.3)
 		var d := velocity.normalized()
 		velocity = (Vector2(-d.y, d.x) if randf() < 0.5 else Vector2(d.y, -d.x)) * base_speed
 	position += velocity * delta
-	_rebotar(rect)
+	_rebotar(area)
 
 
 ## Se comprueba también el signo de la velocidad: sin eso, un círculo que
 ## aparece fuera del borde queda atrapado invirtiéndose cada frame.
-func _rebotar(rect: Vector2) -> void:
-	if position.x < radius and velocity.x < 0.0:
+func _rebotar(area: Rect2) -> void:
+	if position.x < area.position.x + radius and velocity.x < 0.0:
 		velocity.x = -velocity.x
-	elif position.x > rect.x - radius and velocity.x > 0.0:
+	elif position.x > area.end.x - radius and velocity.x > 0.0:
 		velocity.x = -velocity.x
-	if position.y < radius and velocity.y < 0.0:
+	if position.y < area.position.y + radius and velocity.y < 0.0:
 		velocity.y = -velocity.y
-	elif position.y > rect.y - radius and velocity.y > 0.0:
+	elif position.y > area.end.y - radius and velocity.y > 0.0:
 		velocity.y = -velocity.y

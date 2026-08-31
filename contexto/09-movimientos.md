@@ -350,3 +350,55 @@ injusticia.
 - **Estampida arranca en escalones más bajos.** Era el bioma que ya se defiende
   solo —tu propia onda dispersa al grupo— y encima empezaba en escalón 4 con
   reposición lenta: triple castigo acumulado.
+
+
+# Área de juego con borde de seguridad
+
+El campo ya no es la pantalla entera: empieza **150 px por debajo del borde**,
+justo bajo la barra de tiempo.
+
+El problema salió jugando los biomas que van de arriba abajo: se formaban
+cadenas en la franja del HUD, donde el jugador no puede ver lo que ocurre aunque
+esté ocurriendo. Perder información sobre algo que sí está pasando es peor que
+que no pase nada.
+
+`Dot.mover()` pasa a recibir un `Rect2` en vez del tamaño de pantalla, y todos
+los rebotes, envolturas y altas trabajan contra esa área. Verificado en los 43
+niveles: **cero targets dentro de la franja del HUD**.
+
+# Ducha y Fiesta
+
+| Bioma | Regla | Target | Fondo |
+|---|---|---|---|
+| Ducha | brasa (suben) | **burbuja de jabón** | azulejos + **bañera** con grifo y espuma |
+| Fiesta | choque (rebotan entre sí) | **globo con cordel** | confeti + **guirnalda de banderines** |
+
+La burbuja fue la forma más difícil de todo el juego: una burbuja es sobre todo
+**ausencia** de color, y aquí el target tiene que verse sí o sí. La solución es
+cargar toda la legibilidad en el anillo del borde, a alfa alta; con el contorno
+resuelto, el interior puede permitirse ser casi invisible.
+
+Los globos llevan color por instancia, con el mismo campo que numera las bolas
+de billar: dos biomas que necesitan variedad por instancia, un solo mecanismo.
+
+# De escalón a dificultad
+
+El escalón era un **ordinal**: solo decía cuántos saltos habían pasado. Un
+"escalón 4" no significaba nada frente a un 3.
+
+Ahora el número que ve el jugador es la **suma de sus cuatro apartados** —
+presión, escasez, generosidad y legibilidad—, cada uno con su propio tope:
+
+| Escalón | Presión | Escasez | Generosidad | Legibilidad | **Dificultad** |
+|---|---|---|---|---|---|
+| 1 | 0 | 0 | 0 | 0 | **1** |
+| 3 | 2 | 2 | 2 | 2 | **9** |
+| 5 | 3 | 4 | 4 | 4 | **16** |
+| 9 | 6 | 8 | 8 | 8 | **31** |
+
+Eso hace que el número signifique algo. Y como la generosidad y la escasez
+topan, a partir de cierto punto la dificultad crece solo por presión y
+legibilidad: el número refleja esa desaceleración, cosa que un ordinal no podía.
+
+Empieza en 1 y no en 0 porque una "dificultad 0" se lee como que algo está roto,
+no como que el nivel es fácil.
