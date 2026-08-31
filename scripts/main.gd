@@ -173,7 +173,7 @@ const COMBO_SIZE := Vector2(240.0, 100.0)
 const STAGE_COLOR_TOPE := 10.0
 const SAVE_PATH := "user://cadena.cfg"
 const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
-		"enjambre", "huida", "brasa", "circuito"]
+		"enjambre", "huida", "brasa", "circuito", "planeo", "misil"]
 ## Fuerzas de los modos que Main dirige. Bajas a propósito: el movimiento tiene
 ## que seguir siendo legible, no convertirse en una sopa.
 const ENJAMBRE_VISTA := 220.0
@@ -313,7 +313,7 @@ var _effects: Array[Explosion] = []
 
 var _state: State = State.MENU
 var _mode: Mode = Mode.SIN_FIN
-## Nivel en curso y nivel más alto desbloqueado.
+## Nivel en curso y nivel más alto superado de verdad.
 var _nivel: int = 0
 var _nivel_max: int = 0
 ## Escalón de partida que impone el nivel.
@@ -414,7 +414,11 @@ func _ready() -> void:
 	_paleta = Niveles.paleta_neutra()
 	_fondo.configurar(
 		int(_paleta.get("telon", Fondo.Tipo.LISO)),
-		Color(str(_paleta.get("punto", "e8e8f0"))))
+		Color(str(_paleta.get("punto", "e8e8f0"))),
+		int(_paleta.get("banda", Fondo.Tipo.LISO)),
+		Color(str(_paleta.get("banda_color", "ffffff"))),
+		int(_paleta.get("marco", Fondo.Marco.NADA)),
+		bool(_paleta.get("fugaces", false)))
 	for i in VOCES_POP:
 		_voces_pop.append(_crear_voz(SND_POP))
 	_p_fallo = _crear_voz(SND_FALLO)
@@ -560,7 +564,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	match _state:
 		State.MENU:
 			if _btn_campana.contiene(p):
-				_nivel = mini(_nivel_max, Niveles.total() - 1)
+				# Se abre por donde se quedó el jugador, no por el último
+				# desbloqueado: entrar directamente al nivel 37 no le dice nada
+				# a nadie.
+				_nivel = clampi(_nivel_max, 0, Niveles.total() - 1)
 				_ir_a(State.SELECT)
 			elif _btn_sinfin.contiene(p):
 				_mode = Mode.SIN_FIN
@@ -573,7 +580,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif _btn_prev.contiene(p):
 				_nivel = maxi(0, _nivel - 1)
 			elif _btn_next.contiene(p):
-				_nivel = mini(mini(_nivel_max, Niveles.total() - 1), _nivel + 1)
+				_nivel = mini(_tope_selector(), _nivel + 1)
 			elif _btn_play.contiene(p):
 				_mode = Mode.CAMPANA
 				_empezar_partida()
@@ -694,7 +701,11 @@ func _aplicar_paleta() -> void:
 	# pertenece al mismo sitio sin llegar a parecer un círculo apagado.
 	_fondo.configurar(
 		int(_paleta.get("telon", Fondo.Tipo.LISO)),
-		Color(str(_paleta.get("punto", "e8e8f0"))))
+		Color(str(_paleta.get("punto", "e8e8f0"))),
+		int(_paleta.get("banda", Fondo.Tipo.LISO)),
+		Color(str(_paleta.get("banda_color", "ffffff"))),
+		int(_paleta.get("marco", Fondo.Marco.NADA)),
+		bool(_paleta.get("fugaces", false)))
 
 
 func _check_stage() -> void:
@@ -884,6 +895,12 @@ func _refill_field(delta: float) -> void:
 		# Las pavesas nacen abajo, como es debido.
 		d.position = Vector2(randf() * rect.x, rect.y + fuera)
 		rumbo = Vector2.UP
+	elif modo == Dot.Movimiento.PLANEO or modo == Dot.Movimiento.MISIL:
+		# Entran por un lateral y cruzan, como algo que sobrevuela.
+		var desde_izq := randf() < 0.5
+		d.position = Vector2(-fuera if desde_izq else rect.x + fuera,
+				randf_range(fuera, rect.y * 0.75))
+		rumbo = Vector2(1.0 if desde_izq else -1.0, randf_range(-0.25, 0.25)).normalized()
 	elif modo == Dot.Movimiento.CIRCUITO:
 		# En el circuito solo hay cuatro rumbos posibles, y el de entrada tiene
 		# que ser uno de ellos o el primer tramo saldría torcido.
@@ -1568,6 +1585,11 @@ func _poblar_campo() -> void:
 			rumbo = Vector2.UP
 		elif modo == Dot.Movimiento.CIRCUITO:
 			rumbo = [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT][randi() % 4]
+		elif modo == Dot.Movimiento.PLANEO or modo == Dot.Movimiento.MISIL:
+			# Cruzan el cielo de lado a lado, con una inclinación pequeña. Nacer
+			# en diagonal cerrada los haría rebotar en las esquinas en vez de
+			# volar.
+			rumbo = Vector2(1.0 if randf() < 0.5 else -1.0, randf_range(-0.3, 0.3)).normalized()
 		_preparar_dot(d, modo, rumbo)
 		_dots_root.add_child(d)
 		_dots.append(d)
@@ -1672,6 +1694,14 @@ func _ir_a(s: State) -> void:
 			_over_detail.text = "mejor  %d\ncadena ×%d  ·  %d:%02d" % [_best, _best_cascade, m, seg]
 
 
+## Hasta dónde deja avanzar el selector: el progreso real, o toda la campaña
+## si está puesto el interruptor de pruebas.
+func _tope_selector() -> int:
+	if todos_los_niveles:
+		return Niveles.total() - 1
+	return clampi(_nivel_max, 0, Niveles.total() - 1)
+
+
 func _cargar() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) != OK:
@@ -1689,8 +1719,9 @@ func _cargar() -> void:
 	else:
 		vibracion = bool(cfg.get_value("opciones", "vibracion", true))
 	sacudida = bool(cfg.get_value("opciones", "sacudida", true))
-	if todos_los_niveles:
-		_nivel_max = Niveles.total() - 1
+	# Ojo: todos_los_niveles NO toca _nivel_max, que sigue siendo el progreso
+	# real. Solo levanta el tope del selector, así se puede curiosear la campaña
+	# entera sin perder por dónde se iba.
 
 
 func _guardar() -> void:
@@ -1729,7 +1760,7 @@ func _update_ui() -> void:
 		_sel_meta.text = Niveles.capitalizar(Niveles.describir(_nivel))
 		_sel_pista.text = Niveles.capitalizar(str(Niveles.nivel(_nivel)["pista"]))
 		_btn_prev.modulate.a = 1.0 if _nivel > 0 else 0.25
-		_btn_next.modulate.a = 1.0 if _nivel < mini(_nivel_max, Niveles.total() - 1) else 0.25
+		_btn_next.modulate.a = 1.0 if _nivel < _tope_selector() else 0.25
 		return
 
 	if _state != State.READY and _state != State.PLAYING:

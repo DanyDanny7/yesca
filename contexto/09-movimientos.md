@@ -221,3 +221,67 @@ grande, movimiento lento. Lo único que el jugador tiene que localizar a toda
 velocidad es un círculo de nueve píxeles, y un fondo con detalle o contraste se
 lo roba. El telón tampoco se sacude con el campo: un fondo que tiembla en cada
 eslabón convierte la pantalla en un mareo.
+
+
+# Doce biomas
+
+| Bioma | Movimiento | Forma | Fondo |
+|---|---|---|---|
+| Cielo abierto | rebote | estrella que titila | estrellas + fugaces con estela |
+| Ventisca | nieve | copo | copos + **aurora** arriba |
+| Río | corriente | **pez** con cola triangular | líneas de corriente |
+| Enjambre | enjambre | círculo | células |
+| Billar | choque | bola con brillo | tapete + **mesa con seis troneras** |
+| Panal | abeja | **abeja** con alas y aguijón | panal hexagonal |
+| Estampida | huida | dron orientado | rejilla |
+| Otoño | nieve | hoja | hojas |
+| Brasas | brasa | pavesa | pavesas |
+| Circuito | circuito | rombo | trazas |
+| Ciudad de papel | planeo | **avión de papel** | estrellas + **ciudad encendida** |
+| Asedio | misil | **misil** | estelas + **ciudad ardiendo** |
+
+## Tres capas de fondo, cada una por un motivo
+
+**Mosaico** para lo que se repite bien en los dos ejes. Una sola llamada.
+
+**Banda** para lo que tiene un sitio vertical: la ciudad abajo, la aurora
+arriba. Se repite solo en horizontal, con la altura exacta de su textura.
+
+**Marco** para lo que no se repite en absoluto: la mesa de billar. Las troneras
+están en las esquinas y a media altura de los lados largos, y eso no cabe en
+baldosas. Son catorce llamadas de dibujo, medido a 144 fps.
+
+## Las troneras no emiten luz
+
+El mosaico solo puede AÑADIR luz sobre el fondo, porque se tiñe con un color. Un
+agujero necesita ser más oscuro. Por eso la mesa va como marco y se dibuja con
+colores explícitos: negro para la tronera, madera para la banda.
+
+La misma limitación explica el horizonte urbano: se dibuja como perfiles y
+ventanas encendidas, no como siluetas macizas. Y resulta que un horizonte
+nocturno es exactamente eso, así que la restricción coincidió con lo que se
+quería.
+
+## Formas que se mueven por dentro
+
+La abeja bate las alas, el pez mueve la cola y la estrella titila. Esas tres
+piden redibujarse aunque el nodo no cambie de sitio; el resto solo se redibuja
+mientras crece al entrar.
+
+Cinco formas se orientan al rumbo: dron, avión, misil, abeja y pez. Sin eso, un
+pez nadaría de lado y un aguijón apuntaría a cualquier parte.
+
+## El contraste manda sobre la estética
+
+Al hacer el tapete verde de verdad, Billar cayó a **4.4:1** y las bolas costaban
+de distinguir. Se oscureció el paño hasta 5.9:1. Lo mismo con Ventisca: el
+celeste polar que se pedía bajó el contraste, y se ajustó hasta dejar margen.
+
+Peor caso de los doce: **5.9:1**, por encima del mínimo de 4.5.
+
+## El selector abre por donde ibas
+
+`todos_los_niveles` levanta el tope del selector pero **no toca el progreso
+real**. Así se puede curiosear la campaña entera sin perder por dónde se iba, y
+el botón de campaña abre por el nivel en el que estabas en vez de por el 37, que
+no le dice nada a nadie.

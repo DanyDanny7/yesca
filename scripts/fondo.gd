@@ -33,7 +33,19 @@ enum Tipo {
 	HOJAS,      ## siluetas cayendo
 	PAVESAS,    ## chispas subiendo
 	TRAZAS,     ## pistas de circuito
+	ESTELAS,    ## rastros diagonales cayendo
+	HORIZONTE,      ## perfil de ciudad con ventanas encendidas
+	HORIZONTE_ROTO, ## el mismo perfil, roto y ardiendo
+	AURORA,         ## cortinas de luz polar, para la banda de arriba
 }
+
+## Adornos que NO se repiten: se dibujan una vez sobre el telón porque su sitio
+## en pantalla importa. Una mesa de billar con las troneras repetidas en mosaico
+## no sería una mesa.
+enum Marco { NADA, MESA }
+
+## Alto de la banda inferior, en píxeles del mosaico.
+const ALTO_BANDA := 112
 
 ## Lado del mosaico. Potencia de dos y divisible por los pasos de todos los
 ## patrones, que es lo que hace que encajen consigo mismos sin costura.
@@ -50,14 +62,47 @@ var _tex: ImageTexture
 var _scroll: Vector2 = Vector2.ZERO
 var _deriva: Vector2 = Vector2.ZERO
 
+## Banda inferior, opcional.
+##
+## Existe porque el mosaico se repite en los DOS ejes, y un horizonte urbano no
+## puede repetirse hacia arriba. La banda se repite solo en horizontal y se ancla
+## abajo, que es donde tiene sentido una ciudad.
+var _tex_banda: ImageTexture
+var _color_banda: Color = Color("ffffff")
+## Si los píxeles se envuelven también en vertical. En el mosaico sí; en la
+## banda no, o los tejados aparecerían asomando por abajo.
+var _wrap_y: bool = true
+## Si la banda va arriba (aurora) o abajo (ciudad).
+var _banda_arriba: bool = false
+var _scroll_banda: float = 0.0
 
-func configurar(nuevo_tipo: Tipo, nuevo_color: Color) -> void:
+var marco: Marco = Marco.NADA
+
+## Estrella fugaz: cruza de vez en cuando dejando estela.
+var _fugaces: bool = false
+var _fugaz_espera: float = 0.0
+var _fugaz_avance: float = 1.0
+var _fugaz_ini: Vector2 = Vector2.ZERO
+var _fugaz_fin: Vector2 = Vector2.ZERO
+
+
+func configurar(nuevo_tipo: Tipo, nuevo_color: Color,
+		banda: Tipo = Tipo.LISO, color_banda: Color = Color("ffffff"),
+		nuevo_marco: Marco = Marco.NADA, fugaces: bool = false) -> void:
 	tipo = nuevo_tipo
 	color = nuevo_color
+	_color_banda = color_banda
+	marco = nuevo_marco
+	_fugaces = fugaces
+	_fugaz_avance = 1.0
+	_fugaz_espera = randf_range(3.0, 7.0)
 	_scroll = Vector2.ZERO
+	_scroll_banda = 0.0
 	_deriva = _deriva_de(tipo)
 	_tex = _mosaico(tipo)
-	set_process(_deriva != Vector2.ZERO)
+	_tex_banda = _mosaico(banda) if banda != Tipo.LISO else null
+	_banda_arriba = banda == Tipo.AURORA
+	set_process(_deriva != Vector2.ZERO or _fugaces or _banda_arriba)
 	queue_redraw()
 
 
@@ -76,6 +121,12 @@ func _deriva_de(t: Tipo) -> Vector2:
 
 
 func _process(delta: float) -> void:
+	if _banda_arriba:
+		# La aurora se desplaza muy despacio: si se moviera al ritmo del telón
+		# parecería una cortina corriéndose en vez de luz que ondula.
+		_scroll_banda = fposmod(_scroll_banda + delta * 5.0, float(LADO))
+	if _fugaces:
+		_tick_fugaz(delta)
 	_scroll += _deriva * delta
 	# Se envuelve dentro de un mosaico para que el desplazamiento no crezca sin
 	# límite y acabe perdiendo precisión tras un rato largo de partida.
@@ -85,16 +136,97 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	if _tex == null or tipo == Tipo.LISO:
+	if _tex == null and _tex_banda == null:
 		return
 	var r := get_viewport_rect().size
 	# Una sola llamada para todo el telón. Se dibuja un mosaico de más en cada
 	# lado para que el desplazamiento no descubra el borde.
-	draw_texture_rect(
-		_tex,
-		Rect2(_scroll - Vector2(LADO, LADO), r + Vector2(LADO, LADO) * 2.0),
-		true,
-		color)
+	if _tex != null:
+		draw_texture_rect(
+			_tex,
+			Rect2(_scroll - Vector2(LADO, LADO), r + Vector2(LADO, LADO) * 2.0),
+			true,
+			color)
+
+	# La banda va anclada a un borde y con la altura EXACTA de su textura: así
+	# se repite en horizontal y no en vertical.
+	if _tex_banda != null:
+		var y := 0.0 if _banda_arriba else r.y - float(ALTO_BANDA)
+		var x := -_scroll_banda if _banda_arriba else 0.0
+		draw_texture_rect(
+			_tex_banda,
+			Rect2(Vector2(x, y), Vector2(r.x + float(LADO), float(ALTO_BANDA))),
+			true,
+			_color_banda)
+
+	if marco == Marco.MESA:
+		_dibujar_mesa(r)
+	if _fugaces and _fugaz_avance < 1.0:
+		_dibujar_fugaz()
+
+
+# --- adornos que no se repiten ---------------------------------------------
+
+## Mesa de billar: banda de madera y las seis troneras.
+##
+## Va aparte del mosaico porque su sitio importa: las troneras están en las
+## cuatro esquinas y a media altura de los lados largos, y eso no se puede
+## repetir en baldosas. Se dibujan en oscuro explícito, no con el color del
+## bioma: una tronera es un agujero, y un agujero no emite luz.
+func _dibujar_mesa(r: Vector2) -> void:
+	var margen := 26.0
+	var banda := Color(0.34, 0.2, 0.1, 0.5)
+	var paño := Color(1, 1, 1, 0.05)
+	draw_rect(Rect2(margen * 0.4, margen * 0.4, r.x - margen * 0.8, r.y - margen * 0.8),
+			banda, false, margen * 0.55)
+	draw_rect(Rect2(margen, margen, r.x - margen * 2.0, r.y - margen * 2.0),
+			paño, false, 2.0)
+
+	var hoyo := 21.0
+	var negro := Color(0.02, 0.03, 0.02, 0.92)
+	var borde := Color(0.5, 0.42, 0.3, 0.4)
+	for pos in [
+			Vector2(margen, margen), Vector2(r.x - margen, margen),
+			Vector2(margen, r.y * 0.5), Vector2(r.x - margen, r.y * 0.5),
+			Vector2(margen, r.y - margen), Vector2(r.x - margen, r.y - margen)]:
+		draw_circle(pos, hoyo, negro)
+		draw_arc(pos, hoyo, 0.0, TAU, 24, borde, 2.0, true)
+
+
+## Una estrella fugaz cada pocos segundos. Cruza en diagonal y deja estela.
+func _tick_fugaz(delta: float) -> void:
+	if _fugaz_avance < 1.0:
+		_fugaz_avance = minf(1.0, _fugaz_avance + delta * 1.3)
+		return
+	_fugaz_espera -= delta
+	if _fugaz_espera > 0.0:
+		return
+	_fugaz_espera = randf_range(4.0, 9.0)
+	_fugaz_avance = 0.0
+	var r := get_viewport_rect().size
+	# Sale de arriba y cruza hacia un lado, siempre en diagonal descendente.
+	var desde_izq := randf() < 0.5
+	_fugaz_ini = Vector2(randf_range(-0.1, 0.5) * r.x if desde_izq
+			else randf_range(0.5, 1.1) * r.x, randf_range(-0.05, 0.25) * r.y)
+	var largo := r.x * randf_range(0.55, 0.9)
+	_fugaz_fin = _fugaz_ini + Vector2(largo if desde_izq else -largo, largo * 0.45)
+
+
+func _dibujar_fugaz() -> void:
+	var cabeza := _fugaz_ini.lerp(_fugaz_fin, _fugaz_avance)
+	# La estela se dibuja como tramos con alfa decreciente: cuesta seis líneas y
+	# se lee mejor que un degradado real.
+	var tramos := 6
+	var largo_estela := 0.22
+	for i in tramos:
+		var t0 := clampf(_fugaz_avance - largo_estela * float(i) / float(tramos), 0.0, 1.0)
+		var t1 := clampf(_fugaz_avance - largo_estela * float(i + 1) / float(tramos), 0.0, 1.0)
+		if is_equal_approx(t0, t1):
+			continue
+		var desvanece := (1.0 - float(i) / float(tramos)) * (1.0 - _fugaz_avance * 0.35)
+		draw_line(_fugaz_ini.lerp(_fugaz_fin, t0), _fugaz_ini.lerp(_fugaz_fin, t1),
+				Color(color, 0.5 * desvanece), 2.6 - 0.3 * float(i), true)
+	draw_circle(cabeza, 2.6, Color(color, 0.7 * (1.0 - _fugaz_avance * 0.5)))
 
 
 # --- generación del mosaico ------------------------------------------------
@@ -105,7 +237,10 @@ func _mosaico(t: Tipo) -> ImageTexture:
 	if _cache.has(t):
 		return _cache[t]
 
-	var img := Image.create(LADO, LADO, false, Image.FORMAT_RGBA8)
+	var banda := t == Tipo.HORIZONTE or t == Tipo.HORIZONTE_ROTO or t == Tipo.AURORA
+	_wrap_y = not banda
+	var alto := ALTO_BANDA if banda else LADO
+	var img := Image.create(LADO, alto, false, Image.FORMAT_RGBA8)
 	img.fill(Color(1, 1, 1, 0))
 	# Semilla fija: el mosaico de un bioma tiene que ser siempre el mismo, o el
 	# fondo cambiaría de dibujo cada vez que se entra al nivel.
@@ -123,6 +258,10 @@ func _mosaico(t: Tipo) -> ImageTexture:
 		Tipo.REJILLA: _gen_rejilla(img)
 		Tipo.PANAL: _gen_panal(img)
 		Tipo.TRAZAS: _gen_trazas(img, rnd)
+		Tipo.ESTELAS: _gen_estelas(img)
+		Tipo.HORIZONTE: _gen_horizonte(img, rnd, false)
+		Tipo.HORIZONTE_ROTO: _gen_horizonte(img, rnd, true)
+		Tipo.AURORA: _gen_aurora(img, rnd)
 
 	var tex := ImageTexture.create_from_image(img)
 	_cache[t] = tex
@@ -134,8 +273,12 @@ func _mosaico(t: Tipo) -> ImageTexture:
 ## La envoltura es lo que hace que el mosaico encaje: una figura que se sale por
 ## un borde entra por el opuesto, así que nunca hay costura.
 func _px(img: Image, x: int, y: int, a: float) -> void:
-	var px := posmod(x, LADO)
-	var py := posmod(y, LADO)
+	var px := posmod(x, img.get_width())
+	var py := y
+	if _wrap_y:
+		py = posmod(y, img.get_height())
+	elif py < 0 or py >= img.get_height():
+		return
 	var previo := img.get_pixel(px, py).a
 	img.set_pixel(px, py, Color(1, 1, 1, maxf(previo, a)))
 
@@ -231,6 +374,80 @@ func _gen_panal(img: Image) -> void:
 				var a := c + Vector2.from_angle(deg_to_rad(60.0 * float(i) - 30.0)) * lado
 				var b := c + Vector2.from_angle(deg_to_rad(60.0 * float(i + 1) - 30.0)) * lado
 				_linea(img, a, b, 0.07)
+
+
+## Rastros diagonales, como algo cayendo del cielo. El paso divide a 128 para
+## que la diagonal continúe de un mosaico al siguiente.
+func _gen_estelas(img: Image) -> void:
+	for k in range(-LADO, LADO * 2, 32):
+		for i in 26:
+			var t := float(i) / 25.0
+			var p := Vector2(k, 0).lerp(Vector2(k + 44.0, 44.0), t)
+			_disco(img, p, 1.2, 0.09 * (1.0 - t * 0.5))
+
+
+## Perfil de ciudad: siluetas en contorno con ventanas encendidas.
+##
+## Se dibuja como contorno y no relleno porque el mosaico solo puede AÑADIR luz:
+## no hay forma de pintar un edificio más oscuro que el cielo. Un horizonte
+## nocturno es justo eso —perfiles y ventanas— así que la limitación coincide con
+## lo que se quería.
+func _gen_horizonte(img: Image, rnd: RandomNumberGenerator, roto: bool) -> void:
+	var base := float(ALTO_BANDA)
+	var x := 0.0
+	while x < float(LADO):
+		var ancho := float(rnd.randi_range(16, 30))
+		var alto := float(rnd.randi_range(34, 92))
+		var cima := base - alto
+		var alfa_perfil := 0.16 if not roto else 0.13
+
+		if roto and rnd.randf() < 0.55:
+			# Tejado partido: dos alturas y un borde dentado.
+			var corte := x + ancho * rnd.randf_range(0.3, 0.7)
+			var caida := cima + alto * rnd.randf_range(0.2, 0.5)
+			_linea(img, Vector2(x, base), Vector2(x, cima), alfa_perfil)
+			_linea(img, Vector2(x, cima), Vector2(corte, cima), alfa_perfil)
+			_linea(img, Vector2(corte, cima), Vector2(corte, caida), alfa_perfil)
+			_linea(img, Vector2(corte, caida), Vector2(x + ancho, caida), alfa_perfil)
+			_linea(img, Vector2(x + ancho, caida), Vector2(x + ancho, base), alfa_perfil)
+			# Fuego en la brecha.
+			_disco(img, Vector2(corte, caida - 3.0), rnd.randf_range(3.0, 5.5), 0.30)
+		else:
+			_linea(img, Vector2(x, base), Vector2(x, cima), alfa_perfil)
+			_linea(img, Vector2(x, cima), Vector2(x + ancho, cima), alfa_perfil)
+			_linea(img, Vector2(x + ancho, cima), Vector2(x + ancho, base), alfa_perfil)
+
+		# Ventanas. En la ciudad atacada quedan muchas menos encendidas.
+		var prob := 0.55 if not roto else 0.18
+		var vy := cima + 8.0
+		while vy < base - 6.0:
+			var vx := x + 5.0
+			while vx < x + ancho - 4.0:
+				if rnd.randf() < prob:
+					_disco(img, Vector2(vx, vy), 1.3, 0.26)
+				vx += 7.0
+			vy += 9.0
+		x += ancho + float(rnd.randi_range(2, 7))
+
+
+## Aurora: cortinas verticales que se desvanecen hacia abajo.
+##
+## El alfa cae con el cuadrado de la altura para que la luz se apague antes de
+## llegar al campo de juego. Una aurora que baje hasta el centro tapa círculos.
+func _gen_aurora(img: Image, rnd: RandomNumberGenerator) -> void:
+	var alto := float(ALTO_BANDA)
+	for x in LADO:
+		# Dos senos de periodo entero en el mosaico: así la cortina continúa al
+		# repetirse sin corte visible.
+		var fx := float(x) / float(LADO)
+		var onda := sin(TAU * fx) * 0.5 + sin(TAU * 2.0 * fx + 1.3) * 0.3
+		var intensidad := 0.10 * (0.45 + 0.55 * (0.5 + 0.5 * onda))
+		var borde := alto * (0.45 + 0.28 * onda)
+		var y := 0
+		while float(y) < borde:
+			var t := float(y) / borde
+			_px(img, x, y, intensidad * (1.0 - t) * (1.0 - t))
+			y += 1
 
 
 func _gen_trazas(img: Image, rnd: RandomNumberGenerator) -> void:

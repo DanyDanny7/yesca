@@ -30,17 +30,17 @@ enum Meta {
 }
 
 const LISTA: Array[Dictionary] = [
-	# --- Campo abierto: rebote. Aqui se aprende a jugar ---------------------
-	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+	# --- Cielo abierto: rebote. Aqui se aprende a jugar ---------------------
+	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
 		"meta": Meta.PUNTOS, "valor": 60, "escalon": 0,
 		"pista": "toca un círculo y deja que la onda haga el resto"},
-	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
 		"meta": Meta.CADENA, "valor": 4, "escalon": 0,
 		"pista": "busca cuatro juntos, no toques el primero que veas"},
-	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
 		"meta": Meta.PUNTOS, "valor": 250, "escalon": 1,
 		"pista": "cada eslabón vale más que el anterior"},
-	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
+	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
 		"meta": Meta.CADENA, "valor": 6, "escalon": 1,
 		"pista": "puedes tener varias cadenas a la vez, cada una con su cuenta"},
 
@@ -141,6 +141,28 @@ const LISTA: Array[Dictionary] = [
 		"pista": "los cruces son donde se juntan; espera al cruce"},
 	{"bioma": "Circuito", "mov": Dot.Movimiento.CIRCUITO,
 		"meta": Meta.CADENA, "valor": 11, "escalon": 5,
+		"pista": "los cruces son tuyos si sabes esperarlos"},
+
+	# --- Ciudad de papel: planean sobre una ciudad encendida ---------------
+	{"bioma": "Ciudad de papel", "mov": Dot.Movimiento.PLANEO,
+		"meta": Meta.PUNTOS, "valor": 380, "escalon": 2,
+		"pista": "planean y viran despacio; ningún tramo es recto del todo"},
+	{"bioma": "Ciudad de papel", "mov": Dot.Movimiento.PLANEO,
+		"meta": Meta.CADENA, "valor": 8, "escalon": 3,
+		"pista": "míralos un segundo entero antes de decidir a cuál tocas"},
+	{"bioma": "Ciudad de papel", "mov": Dot.Movimiento.PLANEO,
+		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
+		"pista": "abajo la ciudad sigue encendida; aquí solo hay que aguantar"},
+
+	# --- Asedio: aceleran. El unico bioma que castiga la duda --------------
+	{"bioma": "Asedio", "mov": Dot.Movimiento.MISIL,
+		"meta": Meta.CADENA, "valor": 7, "escalon": 3,
+		"pista": "aceleran sin parar: lo que puedes cazar ahora, en dos segundos ya no"},
+	{"bioma": "Asedio", "mov": Dot.Movimiento.MISIL,
+		"meta": Meta.PUNTOS, "valor": 500, "escalon": 4,
+		"pista": "esperar sale caro por primera vez en todo el juego"},
+	{"bioma": "Asedio", "mov": Dot.Movimiento.MISIL,
+		"meta": Meta.CADENA, "valor": 10, "escalon": 5,
 		"pista": "el último de todos. Aquí ya no hay excusas"},
 ]
 
@@ -156,26 +178,27 @@ const LISTA: Array[Dictionary] = [
 ## único que el jugador tiene que localizar a toda velocidad, así que ningún
 ## capricho de color puede comprometerlo.
 const PALETAS := {
-	"Campo abierto": {
-		"telon": Fondo.Tipo.ESTRELLAS,
-		"forma": Dot.Forma.CIRCULO,
-		"fondo": "0d0d12", "punto": "e8e8f0", "onda": "ff5470", "radio": 9.0},
+	"Cielo abierto": {
+		"telon": Fondo.Tipo.ESTRELLAS, "fugaces": true,
+		"forma": Dot.Forma.ESTRELLA,
+		"fondo": "070b16", "punto": "fdfbff", "onda": "8ec5ff", "radio": 9.0},
 	"Ventisca": {
 		"telon": Fondo.Tipo.COPOS,
+		"banda": Fondo.Tipo.AURORA, "banda_color": "6bffc4",
 		"forma": Dot.Forma.COPO,
-		"fondo": "0c1219", "punto": "eef6ff", "onda": "8fd8ff", "radio": 10.0},
+		"fondo": "0f2033", "punto": "f4fbff", "onda": "8fd8ff", "radio": 10.0},
 	"Río": {
 		"telon": Fondo.Tipo.CORRIENTE,
-		"forma": Dot.Forma.CIRCULO,
-		"fondo": "07161c", "punto": "d6f5ec", "onda": "2fd6c0", "radio": 9.0},
+		"forma": Dot.Forma.PEZ,
+		"fondo": "07161c", "punto": "ffd98a", "onda": "2fd6c0", "radio": 9.0},
 	"Enjambre": {
 		"telon": Fondo.Tipo.CELULAS,
 		"forma": Dot.Forma.CIRCULO,
 		"fondo": "150f1a", "punto": "e6d8f7", "onda": "b45cff", "radio": 8.0},
 	"Billar": {
-		"telon": Fondo.Tipo.TAPETE,
+		"telon": Fondo.Tipo.TAPETE, "marco": Fondo.Marco.MESA,
 		"forma": Dot.Forma.BOLA,
-		"fondo": "0a1c13", "punto": "f4efdc", "onda": "ffc24d", "radio": 10.0},
+		"fondo": "0a2717", "punto": "fff8e4", "onda": "ffc24d", "radio": 10.0},
 	"Panal": {
 		"telon": Fondo.Tipo.PANAL,
 		"forma": Dot.Forma.ABEJA,
@@ -196,16 +219,26 @@ const PALETAS := {
 		"telon": Fondo.Tipo.TRAZAS,
 		"forma": Dot.Forma.CHIP,
 		"fondo": "030b07", "punto": "8dffb0", "onda": "34ff88", "radio": 8.0},
+	"Ciudad de papel": {
+		"telon": Fondo.Tipo.ESTRELLAS,
+		"banda": Fondo.Tipo.HORIZONTE, "banda_color": "ffc879",
+		"forma": Dot.Forma.AVION,
+		"fondo": "101a2b", "punto": "fff4e2", "onda": "ffd166", "radio": 10.0},
+	"Asedio": {
+		"telon": Fondo.Tipo.ESTELAS,
+		"banda": Fondo.Tipo.HORIZONTE_ROTO, "banda_color": "ff7a3c",
+		"forma": Dot.Forma.MISIL,
+		"fondo": "140809", "punto": "ffd9cc", "onda": "ff4530", "radio": 8.0},
 }
 
 
 ## La paleta del bioma de un nivel, o la neutra si no la tiene.
 static func paleta(i: int) -> Dictionary:
-	return PALETAS.get(str(nivel(i)["bioma"]), PALETAS["Campo abierto"])
+	return PALETAS.get(str(nivel(i)["bioma"]), PALETAS["Cielo abierto"])
 
 
 static func paleta_neutra() -> Dictionary:
-	return PALETAS["Campo abierto"]
+	return PALETAS["Cielo abierto"]
 
 static func total() -> int:
 	return LISTA.size()
