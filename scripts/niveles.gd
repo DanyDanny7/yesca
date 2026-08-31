@@ -44,14 +44,14 @@ const LISTA: Array[Dictionary] = [
 		"meta": Meta.CADENA, "valor": 6, "escalon": 1,
 		"pista": "puedes tener varias cadenas a la vez, cada una con su cuenta"},
 
-	# --- Ventisca: nieve. Lento, para respirar antes de apretar -------------
-	{"bioma": "Ventisca", "mov": Dot.Movimiento.NIEVE,
+	# --- Invierno: nieve. Lento, para respirar antes de apretar -------------
+	{"bioma": "Invierno", "mov": Dot.Movimiento.NIEVE,
 		"meta": Meta.PUNTOS, "valor": 300, "escalon": 1,
 		"pista": "caen despacio y en vaivén; el campo se renueva por arriba"},
-	{"bioma": "Ventisca", "mov": Dot.Movimiento.NIEVE,
+	{"bioma": "Invierno", "mov": Dot.Movimiento.NIEVE,
 		"meta": Meta.CADENA, "valor": 7, "escalon": 2,
 		"pista": "la caída los alinea sola: espera a que la columna se junte"},
-	{"bioma": "Ventisca", "mov": Dot.Movimiento.NIEVE,
+	{"bioma": "Invierno", "mov": Dot.Movimiento.NIEVE,
 		"meta": Meta.SEGUNDOS, "valor": 50, "escalon": 2,
 		"pista": "aquí no puntúas, sobrevives"},
 
@@ -101,13 +101,13 @@ const LISTA: Array[Dictionary] = [
 
 	# --- Estampida: huyen de tus ondas. El bioma que se defiende -----------
 	{"bioma": "Estampida", "mov": Dot.Movimiento.HUIDA,
-		"meta": Meta.CADENA, "valor": 6, "escalon": 3,
+		"meta": Meta.CADENA, "valor": 6, "escalon": 2,
 		"pista": "huyen de tus explosiones: atrapa a los vecinos antes de que escapen"},
 	{"bioma": "Estampida", "mov": Dot.Movimiento.HUIDA,
-		"meta": Meta.PUNTOS, "valor": 500, "escalon": 4,
-		"pista": "cada onda dispersa lo que estabas cazando"},
+		"meta": Meta.PUNTOS, "valor": 420, "escalon": 2,
+		"pista": "cada onda dispersa lo que estabas cazando; encadena corto y seguido"},
 	{"bioma": "Estampida", "mov": Dot.Movimiento.HUIDA,
-		"meta": Meta.CADENA, "valor": 9, "escalon": 4,
+		"meta": Meta.CADENA, "valor": 9, "escalon": 3,
 		"pista": "solo cae si los pillas antes de que reaccionen"},
 
 	# --- Otoño: la caída de la nieve, pero en hojas y en calido -------------
@@ -155,15 +155,15 @@ const LISTA: Array[Dictionary] = [
 		"pista": "abajo la ciudad sigue encendida; aquí solo hay que aguantar"},
 
 	# --- Asedio: aceleran. El unico bioma que castiga la duda --------------
-	{"bioma": "Asedio", "mov": Dot.Movimiento.MISIL,
-		"meta": Meta.CADENA, "valor": 7, "escalon": 3,
-		"pista": "aceleran sin parar: lo que puedes cazar ahora, en dos segundos ya no"},
-	{"bioma": "Asedio", "mov": Dot.Movimiento.MISIL,
-		"meta": Meta.PUNTOS, "valor": 500, "escalon": 4,
-		"pista": "esperar sale caro por primera vez en todo el juego"},
-	{"bioma": "Asedio", "mov": Dot.Movimiento.MISIL,
-		"meta": Meta.CADENA, "valor": 10, "escalon": 5,
-		"pista": "el último de todos. Aquí ya no hay excusas"},
+	{"bioma": "Asedio", "mov": Dot.Movimiento.BOMBARDEO,
+		"meta": Meta.SEGUNDOS, "valor": 40, "escalon": 1,
+		"pista": "caen sobre la ciudad: si uno toca el suelo, se acabó"},
+	{"bioma": "Asedio", "mov": Dot.Movimiento.BOMBARDEO,
+		"meta": Meta.PUNTOS, "valor": 400, "escalon": 2,
+		"pista": "zigzaguean, así que no basta con mirar dónde están ahora"},
+	{"bioma": "Asedio", "mov": Dot.Movimiento.BOMBARDEO,
+		"meta": Meta.SEGUNDOS, "valor": 65, "escalon": 3,
+		"pista": "el último de todos. Aguanta el bombardeo entero"},
 ]
 
 
@@ -182,7 +182,7 @@ const PALETAS := {
 		"telon": Fondo.Tipo.ESTRELLAS, "fugaces": true,
 		"forma": Dot.Forma.ESTRELLA,
 		"fondo": "070b16", "punto": "fdfbff", "onda": "8ec5ff", "radio": 9.0},
-	"Ventisca": {
+	"Invierno": {
 		"telon": Fondo.Tipo.COPOS,
 		"banda": Fondo.Tipo.AURORA, "banda_color": "6bffc4",
 		"forma": Dot.Forma.COPO,
@@ -213,7 +213,7 @@ const PALETAS := {
 		"fondo": "1a1208", "punto": "ffb347", "onda": "ff7038", "radio": 11.0},
 	"Brasas": {
 		"telon": Fondo.Tipo.PAVESAS,
-		"forma": Dot.Forma.CHISPA,
+		"forma": Dot.Forma.LLAMA,
 		"fondo": "120806", "punto": "ffca6b", "onda": "ff5a1f", "radio": 8.0},
 	"Circuito": {
 		"telon": Fondo.Tipo.TRAZAS,
@@ -227,10 +227,59 @@ const PALETAS := {
 	"Asedio": {
 		"telon": Fondo.Tipo.ESTELAS,
 		"banda": Fondo.Tipo.HORIZONTE_ROTO, "banda_color": "ff7a3c",
-		"forma": Dot.Forma.MISIL,
-		"fondo": "140809", "punto": "ffd9cc", "onda": "ff4530", "radio": 8.0},
+		"forma": Dot.Forma.BALA,
+		# Caen más despacio pero salen mucho más seguido: la amenaza no es la
+		# velocidad de cada proyectil sino cuántos hay bajando a la vez.
+		# El reloj pasa a segundo plano: aquí la amenaza es la ciudad, no la barra.
+		# Con el desagüe normal se perdía por tiempo a los 11 s mientras los
+		# proyectiles tardaban 21 s en llegar abajo, así que la mecánica del
+		# bioma no llegaba ni a entrar en juego.
+		"vel_mult": 0.8, "respawn_mult": 1.2, "targets": 10, "drain_mult": 0.45,
+		# Si uno llega abajo, revienta en la ciudad y se acabó la partida.
+		"defender": true,
+		"fondo": "140809", "punto": "ffd9cc", "onda": "ff4530", "radio": 9.0},
 }
 
+
+
+## Los biomas en el orden en que aparecen en la campaña.
+##
+## Se saca de la lista de niveles y no de las paletas: el diccionario no
+## garantiza orden, y en el modo sin fin la rotación tiene que seguir la misma
+## curva de menos a más hostil que la campaña.
+static func biomas() -> Array:
+	var vistos: Array = []
+	for n in LISTA:
+		var b: String = str(n["bioma"])
+		if not vistos.has(b):
+			vistos.append(b)
+	return vistos
+
+
+## Los biomas aptos para el modo sin fin.
+##
+## Quedan fuera los de defensa: perder porque un proyectil tocó el suelo tiene
+## sentido en un nivel que avisa de ello, pero en una partida sin fin aparecería
+## de la nada a los tres minutos y se leería como una injusticia.
+static func biomas_sinfin() -> Array:
+	var aptos: Array = []
+	for b in biomas():
+		if not bool(PALETAS.get(b, {}).get("defender", false)):
+			aptos.append(b)
+	return aptos
+
+
+## El movimiento con el que juega un bioma, tomado de su primer nivel.
+static func movimiento_de_bioma(nombre: String) -> int:
+	for n in LISTA:
+		if str(n["bioma"]) == nombre:
+			return int(n.get("mov", Dot.Movimiento.REBOTE))
+	return Dot.Movimiento.REBOTE
+
+
+## La paleta de un bioma por nombre.
+static func paleta_de(nombre: String) -> Dictionary:
+	return PALETAS.get(nombre, PALETAS["Cielo abierto"])
 
 ## La paleta del bioma de un nivel, o la neutra si no la tiene.
 static func paleta(i: int) -> Dictionary:

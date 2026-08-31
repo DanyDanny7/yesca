@@ -44,8 +44,13 @@ enum Tipo {
 ## no sería una mesa.
 enum Marco { NADA, MESA }
 
-## Alto de la banda inferior, en píxeles del mosaico.
-const ALTO_BANDA := 112
+## Alto de cada banda, en píxeles.
+##
+## La ciudad ocupa el tercio inferior de una pantalla de móvil: con bandas bajas
+## los edificios salían enanos y se leían como textura, no como ciudad. La
+## aurora es mucho más corta porque va arriba y solo tiene que insinuarse.
+const ALTO_CIUDAD := 420
+const ALTO_AURORA := 190
 
 ## Lado del mosaico. Potencia de dos y divisible por los pasos de todos los
 ## patrones, que es lo que hace que encajen consigo mismos sin costura.
@@ -151,11 +156,12 @@ func _draw() -> void:
 	# La banda va anclada a un borde y con la altura EXACTA de su textura: así
 	# se repite en horizontal y no en vertical.
 	if _tex_banda != null:
-		var y := 0.0 if _banda_arriba else r.y - float(ALTO_BANDA)
+		var alto := float(_tex_banda.get_height())
+		var y := 0.0 if _banda_arriba else r.y - alto
 		var x := -_scroll_banda if _banda_arriba else 0.0
 		draw_texture_rect(
 			_tex_banda,
-			Rect2(Vector2(x, y), Vector2(r.x + float(LADO), float(ALTO_BANDA))),
+			Rect2(Vector2(x, y), Vector2(r.x + float(LADO), alto)),
 			true,
 			_color_banda)
 
@@ -239,7 +245,11 @@ func _mosaico(t: Tipo) -> ImageTexture:
 
 	var banda := t == Tipo.HORIZONTE or t == Tipo.HORIZONTE_ROTO or t == Tipo.AURORA
 	_wrap_y = not banda
-	var alto := ALTO_BANDA if banda else LADO
+	var alto := LADO
+	if t == Tipo.AURORA:
+		alto = ALTO_AURORA
+	elif banda:
+		alto = ALTO_CIUDAD
 	var img := Image.create(LADO, alto, false, Image.FORMAT_RGBA8)
 	img.fill(Color(1, 1, 1, 0))
 	# Semilla fija: el mosaico de un bioma tiene que ser siempre el mismo, o el
@@ -363,8 +373,12 @@ func _gen_panal(img: Image) -> void:
 	# Celdas centradas en una retícula que se repite cada 128 en los dos ejes:
 	# dos columnas y dos filas por mosaico, con las impares desplazadas media
 	# celda. Es lo que permite que el panal continúe de un mosaico al siguiente.
+	# El paso tiene que ser la MITAD del mosaico para que la retícula encaje
+	# consigo misma: con paso 128 el periodo sería 256 y aparecerían costuras.
+	# La separación entre celdas se consigue encogiendo el hexágono, no
+	# alejándolo: a 30 los bordes dejan de tocarse y la malla se afina.
 	var paso := 64.0
-	var lado := 34.0
+	var lado := 30.0
 	for fy in range(-1, 3):
 		for fx in range(-1, 3):
 			var c := Vector2(
@@ -373,7 +387,9 @@ func _gen_panal(img: Image) -> void:
 			for i in 6:
 				var a := c + Vector2.from_angle(deg_to_rad(60.0 * float(i) - 30.0)) * lado
 				var b := c + Vector2.from_angle(deg_to_rad(60.0 * float(i + 1) - 30.0)) * lado
-				_linea(img, a, b, 0.07)
+				# Más claro que el resto de telones: con celdas separadas hay
+				# mucha menos línea en pantalla, así que puede permitirse.
+				_linea(img, a, b, 0.11)
 
 
 ## Rastros diagonales, como algo cayendo del cielo. El paso divide a 128 para
@@ -393,11 +409,11 @@ func _gen_estelas(img: Image) -> void:
 ## nocturno es justo eso —perfiles y ventanas— así que la limitación coincide con
 ## lo que se quería.
 func _gen_horizonte(img: Image, rnd: RandomNumberGenerator, roto: bool) -> void:
-	var base := float(ALTO_BANDA)
+	var base := float(img.get_height())
 	var x := 0.0
 	while x < float(LADO):
-		var ancho := float(rnd.randi_range(16, 30))
-		var alto := float(rnd.randi_range(34, 92))
+		var ancho := float(rnd.randi_range(26, 48))
+		var alto := float(rnd.randi_range(150, 390))
 		var cima := base - alto
 		var alfa_perfil := 0.16 if not roto else 0.13
 
@@ -419,14 +435,14 @@ func _gen_horizonte(img: Image, rnd: RandomNumberGenerator, roto: bool) -> void:
 
 		# Ventanas. En la ciudad atacada quedan muchas menos encendidas.
 		var prob := 0.55 if not roto else 0.18
-		var vy := cima + 8.0
-		while vy < base - 6.0:
-			var vx := x + 5.0
-			while vx < x + ancho - 4.0:
+		var vy := cima + 11.0
+		while vy < base - 8.0:
+			var vx := x + 7.0
+			while vx < x + ancho - 5.0:
 				if rnd.randf() < prob:
-					_disco(img, Vector2(vx, vy), 1.3, 0.26)
-				vx += 7.0
-			vy += 9.0
+					_disco(img, Vector2(vx, vy), 1.8, 0.28)
+				vx += 10.0
+			vy += 13.0
 		x += ancho + float(rnd.randi_range(2, 7))
 
 
@@ -435,7 +451,7 @@ func _gen_horizonte(img: Image, rnd: RandomNumberGenerator, roto: bool) -> void:
 ## El alfa cae con el cuadrado de la altura para que la luz se apague antes de
 ## llegar al campo de juego. Una aurora que baje hasta el centro tapa círculos.
 func _gen_aurora(img: Image, rnd: RandomNumberGenerator) -> void:
-	var alto := float(ALTO_BANDA)
+	var alto := float(img.get_height())
 	for x in LADO:
 		# Dos senos de periodo entero en el mosaico: así la cortina continúa al
 		# repetirse sin corte visible.
@@ -451,15 +467,44 @@ func _gen_aurora(img: Image, rnd: RandomNumberGenerator) -> void:
 
 
 func _gen_trazas(img: Image, rnd: RandomNumberGenerator) -> void:
-	# Tramos en ángulo recto con un nodo al final, como una placa.
-	for i in 5:
-		var p := Vector2(
-			float(rnd.randi_range(0, 3)) * 32.0,
-			float(rnd.randi_range(0, 3)) * 32.0)
+	# Una placa de verdad tiene tres cosas que la anterior no tenía: pistas de
+	# grosores distintos, buses de varias líneas paralelas y zonas de puntos.
+	# Con un solo grosor y trazos sueltos parecía una cuadrícula rota.
+
+	# Buses: dos o tres pistas paralelas que giran juntas. Es lo que más se lee
+	# como circuito, porque el paralelismo no aparece por casualidad.
+	for i in 3:
+		var p := Vector2(float(rnd.randi_range(0, 3)) * 32.0,
+				float(rnd.randi_range(0, 3)) * 32.0)
 		var horizontal := rnd.randf() < 0.5
-		var largo := float(rnd.randi_range(1, 3)) * 32.0
-		var medio := p + (Vector2.RIGHT if horizontal else Vector2.DOWN) * largo
-		var fin := medio + (Vector2.DOWN if horizontal else Vector2.RIGHT) * 32.0
-		_linea(img, p, medio, 0.075)
-		_linea(img, medio, fin, 0.075)
-		_disco(img, fin, 2.4, 0.13)
+		var largo := float(rnd.randi_range(2, 4)) * 32.0
+		var carriles := rnd.randi_range(2, 3)
+		for k in carriles:
+			var sep := float(k) * 5.0
+			var a := p + (Vector2.DOWN if horizontal else Vector2.RIGHT) * sep
+			var medio := a + (Vector2.RIGHT if horizontal else Vector2.DOWN) * largo
+			var fin := medio + (Vector2.DOWN if horizontal else Vector2.RIGHT) * (32.0 + sep)
+			_linea(img, a, medio, 0.16)
+			_linea(img, medio, fin, 0.16)
+
+	# Pistas gruesas sueltas, con pad al final: anillo con agujero, como una
+	# soldadura de verdad.
+	for i in 4:
+		var p := Vector2(rnd.randf() * LADO, rnd.randf() * LADO)
+		var horizontal := rnd.randf() < 0.5
+		var largo := float(rnd.randi_range(1, 3)) * 26.0
+		var fin := p + (Vector2.RIGHT if horizontal else Vector2.DOWN) * largo
+		_linea(img, p, fin, 0.2, 2.4)
+		_disco(img, fin, 4.2, 0.24)
+		_disco(img, fin, 1.7, 0.0)
+
+	# Zona de puntos: la retícula de agujeros de una placa perforada.
+	var zx := float(rnd.randi_range(0, 2)) * 32.0
+	var zy := float(rnd.randi_range(0, 2)) * 32.0
+	var y := zy
+	while y < zy + 56.0:
+		var x := zx
+		while x < zx + 56.0:
+			_disco(img, Vector2(x, y), 1.1, 0.1)
+			x += 8.0
+		y += 8.0

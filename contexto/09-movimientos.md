@@ -285,3 +285,68 @@ Peor caso de los doce: **5.9:1**, por encima del mínimo de 4.5.
 real**. Así se puede curiosear la campaña entera sin perder por dónde se iba, y
 el botón de campaña abre por el nivel en el que estabas en vez de por el 37, que
 no le dice nada a nadie.
+
+
+# Asedio: el primer bioma que se defiende
+
+Reformulado entero a partir del feedback. Antes eran misiles que aceleraban de
+lado; ahora son proyectiles que **caen sobre una ciudad** y que no deben tocar
+el suelo.
+
+Es la **única derrota del juego que no viene de la barra de tiempo**, y eso
+obligó a varios ajustes que no eran evidentes:
+
+- **La aceleración por campo vacío no aplica aquí.** Está pensada para cuando el
+  jugador limpia el campo de una cascada, pero en un bioma de defensa el campo
+  está escaso por diseño, así que se disparaba siempre: medido, un intervalo de
+  reposición de 0.05 s, o sea una muralla de proyectiles a la vez.
+- **Muchos menos targets simultáneos.** Veinticinco proyectiles cayendo no son
+  una amenaza, son una pared. Diez.
+- **El reloj pasa a segundo plano** (`drain_mult` 0.45). Con el desagüe normal
+  se perdía por tiempo a los 11 s mientras los proyectiles tardaban 21 s en
+  llegar abajo: la mecánica del bioma no llegaba ni a entrar en juego. Ahora la
+  barra sola aguantaría 25 s y la ciudad cae a los 10.
+- **Los primeros proyectiles nacen arriba del todo**, no repartidos por el
+  campo. Empezar con uno ya a media caída no da tiempo ni a leer la pantalla, y
+  la primera derrota se sentiría robada.
+
+El zigzag son dos senos de periodos que no encajan entre sí, así que nunca se
+repite igual y no se puede memorizar: hay que leerlo.
+
+# Sin fin: el bioma va rotando
+
+Una partida larga transcurría entera en el mismo sitio y el progreso solo se
+notaba en un número. Ahora cambia de bioma cada dos escalones, unos cuarenta
+segundos.
+
+**La transición es un barrido**, no un corte. Una línea del color del bioma que
+viene cruza la pantalla, y **a su paso cada target adopta la forma, el color y
+el movimiento del bioma nuevo**. El fondo se cambia justo cuando la línea va por
+el medio, que es cuando su destello lo tapa.
+
+Así el cambio se ve *ocurrir* en vez de aparecer ya hecho. Medido, los targets
+se convierten progresivamente: 0, 4, 7, 12... hasta los 25.
+
+Los biomas de defensa quedan **fuera** de la rotación: perder porque un
+proyectil tocó el suelo tiene sentido en un nivel que avisa de ello, pero en una
+partida sin fin aparecería de la nada a los tres minutos y se leería como una
+injusticia.
+
+# Otros ajustes de esta tanda
+
+- **Ventisca pasa a llamarse Invierno.**
+- **La ciudad ocupa el tercio inferior** (420 px de banda). Con bandas bajas los
+  edificios se leían como textura, no como ciudad.
+- **Brasas usa llamas** en vez de chispas: gota apuntada con núcleo claro que
+  ondea. Siempre apunta arriba pase lo que pase con el rumbo, porque una llama
+  que se tumbara al moverse dejaría de leerse como fuego.
+- **El circuito gana buses de líneas paralelas, pistas de dos grosores, pads con
+  agujero y una zona de placa perforada.** Con un solo grosor y trazos sueltos
+  parecía una cuadrícula rota; el paralelismo es lo que más se lee como circuito
+  porque no aparece por casualidad.
+- **El panal se afina**: celdas más grandes que ya no se tocan, y línea más
+  clara. Ojo, el paso tiene que seguir siendo la mitad del mosaico o el periodo
+  se va a 256 y aparecen costuras.
+- **Estampida arranca en escalones más bajos.** Era el bioma que ya se defiende
+  solo —tu propia onda dispersa al grupo— y encima empezaba en escalón 4 con
+  reposición lenta: triple castigo acumulado.

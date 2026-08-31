@@ -25,6 +25,7 @@ enum Movimiento {
 	CIRCUITO,   ## solo en horizontal y vertical, con giros de 90 grados
 	PLANEO,     ## viran suave y cabecean, como algo que se deja caer en el aire
 	MISIL,      ## aceleran en su rumbo hasta un tope
+	BOMBARDEO,  ## caen de arriba abajo zigzagueando, y no deben llegar al suelo
 }
 
 ## Qué se dibuja. Un bioma con copos de nieve o abejas se explica solo; con
@@ -33,7 +34,7 @@ enum Movimiento {
 ## Todas las formas caben en el mismo radio y se dibujan a mano: a nueve píxeles
 ## no hay sitio para detalle, así que lo que las distingue es la silueta.
 enum Forma { CIRCULO, COPO, ABEJA, HOJA, BOLA, DRON, CHISPA, CHIP, AVION, MISIL,
-		PEZ, ESTRELLA }
+		PEZ, ESTRELLA, BALA, LLAMA }
 
 ## Color y tamaño los fija el bioma al nacer el círculo, no una constante: es
 ## lo que permite que la ventisca se vea de nieve y el panal de miel sin tocar
@@ -112,6 +113,8 @@ func _draw() -> void:
 		Forma.MISIL: _misil(r)
 		Forma.PEZ: _pez(r)
 		Forma.ESTRELLA: _estrella(r)
+		Forma.BALA: _bala(r)
+		Forma.LLAMA: _llama(r)
 		_: draw_circle(Vector2.ZERO, r, color)
 
 
@@ -269,15 +272,15 @@ func mover(delta: float, rect: Vector2) -> void:
 	if _entrada < 1.0:
 		_entrada = minf(1.0, _entrada + delta / ENTRADA_DUR)
 		queue_redraw()
-	elif forma in [Forma.ABEJA, Forma.PEZ, Forma.ESTRELLA]:
+	elif forma in [Forma.ABEJA, Forma.PEZ, Forma.ESTRELLA, Forma.LLAMA]:
 		# Estas tres se mueven por dentro —alas, cola, titileo— así que hay que
 		# redibujarlas aunque el nodo no cambie de sitio.
 		queue_redraw()
 
 	# Las formas con orientación la actualizan aquí: el dron mira hacia donde
 	# va, la hoja voltea despacio como si cayera.
-	if forma in [Forma.DRON, Forma.AVION, Forma.MISIL, Forma.ABEJA, Forma.PEZ] \
-			and velocity.length_squared() > 1.0:
+	if forma in [Forma.DRON, Forma.AVION, Forma.MISIL, Forma.ABEJA, Forma.PEZ,
+			Forma.BALA] and velocity.length_squared() > 1.0:
 		rotation = velocity.angle()
 	elif forma == Forma.HOJA:
 		rotation += delta * 0.9
@@ -296,6 +299,8 @@ func mover(delta: float, rect: Vector2) -> void:
 			_mover_planeo(delta, rect)
 		Movimiento.MISIL:
 			_mover_misil(delta, rect)
+		Movimiento.BOMBARDEO:
+			_mover_bombardeo(delta, rect)
 		_:
 			# REBOTE, CHOQUE, ENJAMBRE y HUIDA comparten integración recta; lo
 			# que los distingue lo aplica Main antes de llamar aquí.
@@ -416,6 +421,74 @@ func _estrella(r: float) -> void:
 	draw_circle(Vector2.ZERO, r * 0.42, color)
 
 
+## Bala: cápsula con morro claro y aletas. Apunta a +x y la rotación la orienta.
+##
+## La silueta es deliberadamente maciza y corta: tiene que leerse como algo
+## pesado que cae, no como una chispa. El morro claro marca hacia dónde va.
+func _bala(r: float) -> void:
+	var oscuro := Color(color.r * 0.35, color.g * 0.3, color.b * 0.32, 1.0)
+
+	# Aletas traseras.
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-r * 0.75, r * 0.5), Vector2(-r * 1.35, r * 1.0),
+		Vector2(-r * 1.35, r * 0.25)]), oscuro)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-r * 0.75, -r * 0.5), Vector2(-r * 1.35, -r * 1.0),
+		Vector2(-r * 1.35, -r * 0.25)]), oscuro)
+
+	# Cuerpo: cápsula.
+	var cuerpo := PackedVector2Array()
+	var n := 10
+	for i in n + 1:
+		var a := -PI * 0.5 + PI * float(i) / float(n)
+		cuerpo.append(Vector2(r * 0.55, 0.0) + Vector2.from_angle(a) * r * 0.62)
+	for i in n + 1:
+		var a := PI * 0.5 + PI * float(i) / float(n)
+		cuerpo.append(Vector2(-r * 0.95, 0.0) + Vector2.from_angle(a) * r * 0.62)
+	draw_colored_polygon(cuerpo, oscuro)
+
+	# Morro claro y brillo, que es lo que dice hacia dónde va.
+	draw_circle(Vector2(r * 0.62, 0.0), r * 0.5, color)
+	draw_circle(Vector2(r * 0.55, -r * 0.2), r * 0.16, Color(1, 1, 1, 0.55))
+
+
+## Llama: gota apuntada hacia arriba con núcleo claro, ondeando.
+##
+## Siempre apunta arriba pase lo que pase con el rumbo, porque una llama que se
+## tumbara al moverse dejaría de leerse como fuego. El ondeo va con la fase
+## propia, así que dos llamas vecinas nunca hacen lo mismo.
+func _llama(r: float) -> void:
+	var onda := sin(_fase * 7.0 + _semilla) * 0.22
+	var pts := PackedVector2Array()
+	var n := 14
+	for i in n + 1:
+		var t := float(i) / float(n)
+		# Perfil de gota: ancho abajo, puntiagudo arriba, con vaivén lateral.
+		var ancho := r * 0.85 * pow(sin(PI * t), 0.75)
+		var y := lerpf(r * 0.9, -r * 1.5, t)
+		pts.append(Vector2(ancho + onda * r * t * 1.6, y))
+	for i in range(n, -1, -1):
+		var t := float(i) / float(n)
+		var ancho := r * 0.85 * pow(sin(PI * t), 0.75)
+		var y := lerpf(r * 0.9, -r * 1.5, t)
+		pts.append(Vector2(-ancho + onda * r * t * 1.6, y))
+	draw_colored_polygon(pts, Color(color, 0.55))
+
+	# Núcleo, más claro y más corto: es lo que da la lectura de brasa viva.
+	var nucleo := PackedVector2Array()
+	for i in n + 1:
+		var t := float(i) / float(n)
+		var ancho := r * 0.42 * pow(sin(PI * t), 0.75)
+		var y := lerpf(r * 0.55, -r * 0.75, t)
+		nucleo.append(Vector2(ancho + onda * r * t, y))
+	for i in range(n, -1, -1):
+		var t := float(i) / float(n)
+		var ancho := r * 0.42 * pow(sin(PI * t), 0.75)
+		var y := lerpf(r * 0.55, -r * 0.75, t)
+		nucleo.append(Vector2(-ancho + onda * r * t, y))
+	draw_colored_polygon(nucleo, Color(1.0, 1.0, 0.85, 0.9))
+
+
 ## Brasa: sube y se renueva por abajo. Es la nieve del revés, y eso cambia la
 ## lectura del campo más de lo que parece — se caza hacia arriba.
 func _mover_brasa(delta: float, rect: Vector2) -> void:
@@ -457,6 +530,28 @@ func _mover_misil(delta: float, rect: Vector2) -> void:
 		velocity = velocity.normalized() * (v + base_speed * MISIL_ACEL * delta)
 	position += velocity * delta
 	_rebotar(rect)
+
+
+## Bombardeo: cae de arriba abajo trazando eses.
+##
+## Dos senos de periodos que no encajan entre sí, así que el zigzag nunca se
+## repite igual y no se puede memorizar: hay que leerlo. Y el descenso es
+## constante, que es lo que convierte el nivel en una cuenta atrás por cada
+## proyectil en vez de una carrera contra la barra.
+##
+## No rebota abajo a propósito: llegar al suelo es perder, y de eso se encarga
+## main.gd.
+func _mover_bombardeo(delta: float, rect: Vector2) -> void:
+	var lateral := sin(_fase * 1.5 + _semilla) * 0.8 + sin(_fase * 2.9 + _semilla * 1.7) * 0.35
+	var v := Vector2(lateral * base_speed * 0.75, base_speed)
+	position += v * delta
+	rotation = v.angle()
+	# Los lados sí rebotan: un proyectil que se va por un costado no habría
+	# amenazado nada y el jugador se quedaría esperándolo.
+	if position.x < radius:
+		position.x = radius
+	elif position.x > rect.x - radius:
+		position.x = rect.x - radius
 
 
 ## Circuito: solo horizontal y vertical, con giros de noventa grados. Las

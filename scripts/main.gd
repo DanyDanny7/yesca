@@ -138,6 +138,12 @@ extends Node2D
 @export_subgroup("Legibilidad")
 @export var speed_step: float = 8.0
 
+@export_subgroup("Sin fin")
+## Cada cuántos escalones cambia de bioma la partida sin fin.
+@export var escalones_por_bioma: int = 2
+## Cuánto tarda el barrido en cruzar la pantalla.
+@export var barrido_dur: float = 1.1
+
 @export_subgroup("Fallos")
 @export var fallos_base: int = 5
 @export var fallos_step: float = 0.4
@@ -173,7 +179,9 @@ const COMBO_SIZE := Vector2(240.0, 100.0)
 const STAGE_COLOR_TOPE := 10.0
 const SAVE_PATH := "user://cadena.cfg"
 const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
-		"enjambre", "huida", "brasa", "circuito", "planeo", "misil"]
+		"enjambre", "huida", "brasa", "circuito", "planeo", "misil", "bombardeo"]
+## Franja de abajo que cuenta como ciudad en los biomas de defensa.
+const ALTURA_CIUDAD := 150.0
 ## Fuerzas de los modos que Main dirige. Bajas a propósito: el movimiento tiene
 ## que seguir siendo legible, no convertirse en una sopa.
 const ENJAMBRE_VISTA := 220.0
@@ -253,6 +261,8 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _fallos_label: Label = $UI/Fallos
 @onready var _combos_root: Control = $UI/Combos
 @onready var _destello_rect: ColorRect = $UI/Destello
+@onready var _barrido: ColorRect = $UI/Barrido
+@onready var _barrido_halo: ColorRect = $UI/BarridoHalo
 @onready var _opt_shake: CircleButton = $UI/PauseScreen/OptShake
 @onready var _btn_pausa: CircleButton = $UI/Pausa
 
@@ -393,6 +403,18 @@ var _anticipa_hasta: int = 0
 var _marca_muerte: Explosion
 ## Paleta del bioma en curso.
 var _paleta: Dictionary = {}
+
+## Rotación de biomas del modo sin fin.
+##
+## Sin esto, una partida larga transcurre entera en el mismo sitio y el progreso
+## solo se nota en un número. Cambiando de bioma cada pocos escalones, avanzar
+## se ve.
+var _bioma_sinfin: int = 0
+## Progreso del barrido, de 0 a 1. Negativo cuando no hay transición.
+var _transicion: float = -1.0
+var _bioma_destino: String = ""
+## Si el fondo ya se cambió durante el barrido en curso.
+var _fondo_cambiado: bool = false
 ## Cuenta atrás para el próximo pitido de alarma.
 var _t_alarma: float = 0.0
 ## Fogonazo de victoria, de 1 a 0.
@@ -502,6 +524,7 @@ func _process(delta: float) -> void:
 	# En pausa el mundo se congela igual que al morir: no se llama a _mover_dots.
 	if _mundo_activo() and _hitstop <= 0.0:
 		_mover_dots(delta)
+		_check_impactos()
 		_check_catches()
 		# Con la partida ya decidida no se repuebla ni se cobra pantalla limpia:
 		# si no, la celebración dispararía el aviso de campo vacío y traería
@@ -539,6 +562,7 @@ func _process(delta: float) -> void:
 	var velo := 0.12 if _anticipando else 0.0
 	_destello_rect.color.a = maxf(_destello * DESTELLO_MAX, velo)
 	_registrar(delta)
+	_tick_transicion(delta)
 	_aplicar_shake(delta)
 	_score_pop = maxf(0.0, _score_pop - delta * 4.0)
 
@@ -659,16 +683,34 @@ func _pasos_presion(s: int) -> int:
 
 
 func _drain_rate() -> float:
-	return drain_base + drain_step * _pasos_presion(_stage())
+	var d := drain_base + drain_step * _pasos_presion(_stage())
+	# Un bioma puede pedir que el reloj apriete menos. Lo usan los de defensa,
+	# donde la amenaza tiene que ser lo que cae, no la barra.
+	return d * float(_paleta.get("drain_mult", 1.0))
 
 
 func _chain_radius() -> float:
 	return maxf(chain_radius_min, chain_radius_base - chain_radius_step * (_stage() - 1))
 
 
+## Cuántos targets caben a la vez. Los biomas de defensa piden muchos menos:
+## veinticinco proyectiles cayendo no son una amenaza, son una pared.
+func _target_dots() -> int:
+	return maxi(1, int(_paleta.get("targets", target_dots)))
+
+
 func _respawn_interval() -> float:
 	var base := minf(respawn_max, respawn_base + respawn_step * (_stage() - 1))
-	var llenado := clampf(float(_dots.size()) / float(maxi(1, target_dots)), 0.0, 1.0)
+	# Cada bioma puede pedir su propio ritmo. El asedio nace de aquí: proyectiles
+	# lentos pero muy seguidos es una amenaza distinta a pocos y rápidos.
+	base *= float(_paleta.get("respawn_mult", 1.0))
+	# La aceleración por campo vacío NO aplica en los biomas de defensa. Está
+	# pensada para cuando el jugador limpia el campo de una cascada, pero ahí el
+	# campo está escaso por diseño, así que se disparaba siempre y soltaba una
+	# muralla de proyectiles: medido, un intervalo de 0.05 s.
+	if bool(_paleta.get("defender", false)):
+		return base
+	var llenado := clampf(float(_dots.size()) / float(_target_dots()), 0.0, 1.0)
 	return base * lerpf(respawn_vacio, 1.0, llenado)
 
 
@@ -695,7 +737,8 @@ func _stage_color() -> Color:
 
 ## Aplica la paleta del bioma: fondo y, de rebote, círculos y ondas nuevas.
 func _aplicar_paleta() -> void:
-	_paleta = Niveles.paleta(_nivel) if _mode == Mode.CAMPANA else Niveles.paleta_neutra()
+	_paleta = Niveles.paleta(_nivel) if _mode == Mode.CAMPANA \
+			else Niveles.paleta_de(_bioma_actual_sinfin())
 	RenderingServer.set_default_clear_color(Color(str(_paleta.get("fondo", "0d0d12"))))
 	# El telón se tiñe con el color de los círculos, no con el de la onda: así
 	# pertenece al mismo sitio sin llegar a parecer un círculo apagado.
@@ -708,11 +751,82 @@ func _aplicar_paleta() -> void:
 		bool(_paleta.get("fugaces", false)))
 
 
+## El bioma que toca ahora mismo en el modo sin fin.
+func _bioma_actual_sinfin() -> String:
+	var lista := Niveles.biomas_sinfin()
+	if lista.is_empty():
+		return "Cielo abierto"
+	return str(lista[_bioma_sinfin % lista.size()])
+
+
+## Arranca el barrido que cambia de bioma.
+##
+## No corta a negro ni cambia de golpe: una línea cruza la pantalla y, a su
+## paso, cada target adopta la forma y el movimiento del bioma nuevo. El fondo
+## se cambia justo cuando la línea va por el medio, que es cuando el destello la
+## tapa. Así el cambio se ve ocurrir en vez de aparecer ya hecho.
+func _empezar_transicion() -> void:
+	var lista := Niveles.biomas_sinfin()
+	if lista.is_empty():
+		return
+	_bioma_sinfin += 1
+	_bioma_destino = str(lista[_bioma_sinfin % lista.size()])
+	_transicion = 0.0
+	_fondo_cambiado = false
+	_diag.evento("bioma sin fin -> %s" % _bioma_destino)
+	_sonar(SND_CADENA, 0.85, -6.0)
+
+
+func _tick_transicion(delta: float) -> void:
+	if _transicion < 0.0:
+		return
+	_transicion = minf(1.0, _transicion + delta / maxf(0.1, barrido_dur))
+
+	var ancho := get_viewport_rect().size.x
+	var x := _transicion * (ancho + 120.0) - 60.0
+	_barrido.position.x = x - _barrido.size.x * 0.5
+	_barrido_halo.position.x = x - _barrido_halo.size.x * 0.5
+	_barrido.visible = true
+	_barrido_halo.visible = true
+	var tinte := Color(str(Niveles.paleta_de(_bioma_destino).get("onda", "ffffff")))
+	_barrido.color = Color(tinte, 0.85)
+	_barrido_halo.color = Color(tinte, 0.12)
+
+	# A mitad de camino se cambia el fondo: el destello de la línea lo tapa.
+	if not _fondo_cambiado and _transicion >= 0.5:
+		_fondo_cambiado = true
+		_aplicar_paleta()
+
+	# Los targets que la línea ya dejó atrás pertenecen al bioma nuevo.
+	var nueva := Niveles.paleta_de(_bioma_destino)
+	var modo := Niveles.movimiento_de_bioma(_bioma_destino)
+	for d in _dots:
+		if d.position.x + _dots_root.position.x > x:
+			continue
+		if d.forma == int(nueva.get("forma", Dot.Forma.CIRCULO)):
+			continue
+		d.forma = int(nueva.get("forma", Dot.Forma.CIRCULO))
+		d.color = Color(str(nueva.get("punto", "e8e8f0")))
+		d.radius = float(nueva.get("radio", 9.0))
+		d.modo = modo
+		d.numero = randi_range(1, 15) if d.forma == Dot.Forma.BOLA else 0
+		d.queue_redraw()
+
+	if _transicion >= 1.0:
+		_transicion = -1.0
+		_barrido.visible = false
+		_barrido_halo.visible = false
+
+
 func _check_stage() -> void:
 	var s := _stage()
 	if s == _stage_shown or _state != State.PLAYING:
 		_stage_shown = s
 		return
+	# En el modo sin fin, cada tantos escalones toca cambiar de bioma.
+	if _mode == Mode.SIN_FIN and _transicion < 0.0 and escalones_por_bioma > 0:
+		if (s - 1) / escalones_por_bioma > _bioma_sinfin:
+			_empezar_transicion()
 	_stage_shown = s
 	_diag.evento("escalon %d  desague=%.2f radio=%.0f repo=%.2f" % [
 		s, _drain_rate(), _chain_radius(), _respawn_interval()])
@@ -855,6 +969,45 @@ func _check_catches() -> void:
 		_spawn_explosion(a["pos"], _chain_radius(), int(a["cadena"]))
 
 
+## En los biomas de defensa, un proyectil que llega abajo revienta en la ciudad
+## y termina la partida.
+##
+## Es la única derrota del juego que no viene de la barra de tiempo, y por eso
+## necesita leerse distinto: una explosión grande, del color de la ciudad
+## ardiendo y en el sitio exacto del impacto. El jugador tiene que ver DÓNDE
+## falló, no solo que falló.
+func _check_impactos() -> void:
+	if _state != State.PLAYING or _final_pendiente >= 0:
+		return
+	if not bool(_paleta.get("defender", false)):
+		return
+	var suelo := get_viewport_rect().size.y - ALTURA_CIUDAD
+	for d in _dots:
+		if d.position.y < suelo:
+			continue
+		var donde := d.position
+		_dots.erase(d)
+		d.queue_free()
+		_impacto_ciudad(donde)
+		return
+
+
+func _impacto_ciudad(pos: Vector2) -> void:
+	var e := Explosion.new()
+	e.position = pos
+	e.max_radius = tap_radius * 1.6
+	e.color = Color("ff7a3c")
+	e.grow_time = 0.18
+	e.hold_time = 0.5
+	e.decay_time = 0.6
+	_explosions_root.add_child(e)
+	_effects.append(e)
+	_shake = shake_max
+	_sonar(SND_FIN, 0.7)
+	_vibrar(180)
+	_perder("Impactó la ciudad")
+
+
 ## Vaciar la pantalla es lo más parecido a ganar que tiene una partida sin fin.
 func _check_cleared() -> void:
 	var vacio := _dots.is_empty()
@@ -868,7 +1021,7 @@ func _check_cleared() -> void:
 ## Los puntos entran desde fuera de la pantalla, nunca aparecen en medio: eso
 ## rompería la lectura de trayectorias y podría regalar un contagio.
 func _refill_field(delta: float) -> void:
-	if _dots.size() >= target_dots:
+	if _dots.size() >= _target_dots():
 		return
 
 	_respawn_timer -= delta
@@ -895,6 +1048,11 @@ func _refill_field(delta: float) -> void:
 		# Las pavesas nacen abajo, como es debido.
 		d.position = Vector2(randf() * rect.x, rect.y + fuera)
 		rumbo = Vector2.UP
+	elif modo == Dot.Movimiento.BOMBARDEO:
+		# Nacen arriba y repartidos a lo ancho: el jugador tiene que vigilar toda
+		# la anchura de la pantalla, no un punto de entrada.
+		d.position = Vector2(randf_range(fuera, rect.x - fuera), -fuera)
+		rumbo = Vector2.DOWN
 	elif modo == Dot.Movimiento.PLANEO or modo == Dot.Movimiento.MISIL:
 		# Entran por un lateral y cruzan, como algo que sobrevuela.
 		var desde_izq := randf() < 0.5
@@ -945,7 +1103,7 @@ func _movimiento_actual() -> int:
 		return movimiento_prueba
 	if _mode == Mode.CAMPANA:
 		return Niveles.movimiento(_nivel)
-	return Dot.Movimiento.REBOTE
+	return Niveles.movimiento_de_bioma(_bioma_actual_sinfin())
 
 
 ## Main dirige el movimiento en vez de que cada círculo lo haga en su _process.
@@ -1542,6 +1700,13 @@ func _empezar_partida() -> void:
 	_anticipando = false
 	Engine.time_scale = _ts_base
 	_stage_shown = _stage()
+	# Se limpia cualquier final a medias: si se reinicia durante la cámara lenta
+	# de una derrota, la partida nueva arrancaría bloqueada.
+	_final_pendiente = -1
+	_bioma_sinfin = 0
+	_transicion = -1.0
+	_barrido.visible = false
+	_barrido_halo.visible = false
 	_diag.evento("PARTIDA modo=%s nivel=%d mov=%s" % [
 		"campana" if _mode == Mode.CAMPANA else "sinfin",
 		_nivel + 1, NOMBRES_MOV[_movimiento_actual()]])
@@ -1573,11 +1738,22 @@ func _poblar_campo() -> void:
 	# bordes. Verlo llenarse punto a punto sería una espera muerta al empezar.
 	var rect := get_viewport_rect().size
 	var modo := _movimiento_actual()
-	for i in target_dots:
+	var cuantos := _target_dots()
+	if modo == Dot.Movimiento.BOMBARDEO:
+		# En un bioma de defensa el campo NO arranca lleno: empezar con veinte
+		# proyectiles ya a media caída sería una derrota servida.
+		cuantos = 4
+	for i in cuantos:
 		var d := Dot.new()
+		var techo := rect.y
+		if modo == Dot.Movimiento.BOMBARDEO:
+			# Los primeros proyectiles nacen arriba del todo, no repartidos por
+			# el campo: empezar con uno ya a media caída no da tiempo ni a leer
+			# la pantalla, y la primera derrota se sentiría robada.
+			techo = (rect.y - ALTURA_CIUDAD) * 0.25
 		d.position = Vector2(
 			randf_range(SPAWN_MARGIN, rect.x - SPAWN_MARGIN),
-			randf_range(SPAWN_MARGIN, rect.y - SPAWN_MARGIN))
+			randf_range(SPAWN_MARGIN, maxf(SPAWN_MARGIN + 1.0, techo)))
 		var rumbo := Vector2.from_angle(randf() * TAU)
 		if modo == Dot.Movimiento.CORRIENTE:
 			rumbo = Vector2.RIGHT
@@ -1585,6 +1761,10 @@ func _poblar_campo() -> void:
 			rumbo = Vector2.UP
 		elif modo == Dot.Movimiento.CIRCUITO:
 			rumbo = [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT][randi() % 4]
+		elif modo == Dot.Movimiento.BRASA:
+			rumbo = Vector2.UP
+		elif modo == Dot.Movimiento.BOMBARDEO:
+			rumbo = Vector2.DOWN
 		elif modo == Dot.Movimiento.PLANEO or modo == Dot.Movimiento.MISIL:
 			# Cruzan el cielo de lado a lado, con una inclinación pequeña. Nacer
 			# en diagonal cerrada los haría rebotar en las esquinas en vez de
@@ -1610,6 +1790,7 @@ func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 	d.numero = randi_range(1, 15) if d.forma == Dot.Forma.BOLA else 0
 	var bonus := _speed_bonus()
 	var rapidez := randf_range(dot_speed_min + bonus, dot_speed_max + bonus)
+	rapidez *= float(_paleta.get("vel_mult", 1.0))
 	if speed_variance > 0.0:
 		rapidez *= randf_range(1.0 - speed_variance, 1.0 + speed_variance)
 	d.base_speed = maxf(10.0, rapidez)

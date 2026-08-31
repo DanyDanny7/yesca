@@ -151,6 +151,20 @@ anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0.65, 1, 0.8, 0)
 
+[node name="BarridoHalo" type="ColorRect" parent="UI"]
+visible = false
+anchor_bottom = 1.0
+offset_right = 90.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0.1)
+
+[node name="Barrido" type="ColorRect" parent="UI"]
+visible = false
+anchor_bottom = 1.0
+offset_right = 10.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0.85)
+
 [node name="MenuScreen" type="Control" parent="UI"]
 anchor_right = 1.0
 anchor_bottom = 1.0
