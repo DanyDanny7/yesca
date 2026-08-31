@@ -66,7 +66,13 @@ var base_speed: float = 100.0
 ## que se puede tocar es generoso; al revés sería una trampa.
 var _entrada: float = 1.0
 ## Cuánto más grandes se ven los targets de lo que miden para el juego.
-const ESCALA_VISUAL := 1.25
+##
+## Dos subidas del 25% acumuladas. Ojo con seguir tirando de aquí: cuanto más se
+## separa el dibujo de la lógica, más ancha es la franja en la que una onda
+## parece rozar un target y no lo contagia. A 1.56 esa franja es de 4 a 6 px
+## según el bioma; el día que se note como injusto, la solución es subir el
+## radio de lógica y recalibrar, no seguir agrandando el dibujo.
+const ESCALA_VISUAL := 1.5625
 const ENTRADA_DUR := 0.55
 const ENTRADA_MIN := 0.28
 
