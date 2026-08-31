@@ -72,8 +72,8 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
 ## Android
 
 ```powershell
-.	oolsuild-apk.ps1            # APK de depuración en build/
-.	oolsuild-apk.ps1 -Release   # APK de publicación
+.\tools\build-apk.ps1            # APK de depuración en build/
+.\tools\build-apk.ps1 -Release   # APK de publicación
 ```
 
 El script exporta y **verifica la firma**: un APK sin firmar se genera igual y
@@ -105,4 +105,4 @@ más nuevo que encuentre, que aquí era el 21 y no sirve.
 Faltan las plantillas de exportación (1.28 GB): `Editor → Gestionar plantillas
 de exportación` en el editor, o descargando el `.tpz` de la release de Godot y
 extrayendo su carpeta `templates/` en
-`%APPDATA%\Godot\export_templates.7.2.stable\`.
+`%APPDATA%\Godot\export_templates\4.7.2.stable\`.
