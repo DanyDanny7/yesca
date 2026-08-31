@@ -71,7 +71,9 @@ func _draw() -> void:
 	fade = clampf(fade, 0.0, 1.0)
 
 	draw_circle(Vector2.ZERO, radius, Color(color, 0.16 * fade))
-	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, Color(color, fade), 3.0, true)
+	# 32 segmentos en vez de 64: a este tamaño no se distingue y son la mitad de
+	# vértices por anillo, con decenas de anillos vivos en una cascada grande.
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 32, Color(color, fade), 3.0, true)
 
 	# Las esquirlas adelantan al anillo y se encogen: dan la lectura de que algo
 	# ha salido despedido, no solo de que un círculo ha crecido.

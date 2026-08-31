@@ -8,7 +8,53 @@ La app se cierra sola en el teléfono, alrededor de los 200 puntos. En PC no
 ocurre nunca. Sin el registro de Android no hay diagnóstico posible, y llegar a
 él exige cable y `adb`, que no siempre se tiene a mano.
 
-## Lo que ya se descartó
+## RESUELTO: era el renderizador
+
+La caja negra dio la respuesta a la primera vez que se usó. Línea de arranque:
+
+```
+gpu=ANGLE ((Samsung Xclipse 540) on Vulkan 1.3.279)  driver=OpenGL ES 3.2
+```
+
+El teléfono de pruebas es un Galaxy A56 con GPU **Samsung Xclipse 540**, que no
+tiene OpenGL nativo: Android le sirve OpenGL ES **traducido a Vulkan mediante
+ANGLE**. Y `00-decisiones.md` había elegido `gl_compatibility` precisamente por
+ser "lo seguro en gama baja".
+
+O sea que el juego corría sobre OpenGL emulado sobre Vulkan, una capa de
+traducción con mala fama justo en esas GPU.
+
+El resto del registro confirma que no era carga ni fuga:
+
+```
+12.14  pts=35 exp=4 cad=2 lbl=2 fps=60.0 nodos=126 memMB=61.7
+```
+
+**60 fps clavados, memoria plana, 126 nodos, y se cierra.** A los 12 segundos y
+35 puntos, no a los 200 de la primera vez. Sin picos, sin degradación, sin nada
+que anticipe el corte: la firma de un fallo nativo de la capa gráfica, no de
+nada que el juego estuviera haciendo mal.
+
+**Arreglo:** `renderer/rendering_method = "mobile"` (Forward Mobile, Vulkan
+nativo). Se habla Vulkan directamente y ANGLE desaparece de la ecuación.
+
+Dos consecuencias asumidas:
+
+- Vulkan pasa a ser obligatorio, así que quedan fuera dispositivos muy antiguos
+  con solo OpenGL ES. A cambio funciona en el teléfono real que tenemos delante.
+- Escritorio y móvil usan ahora el **mismo** renderizador. Tenerlos distintos
+  significaba que lo probado en el PC no era lo que corría en el teléfono, y esa
+  divergencia costó tres builds y varias horas persiguiendo la vibración, el
+  audio y la sacudida.
+
+### Lo que la caza en falso enseñó
+
+Antes de tener el registro se sospechó, por orden: fuga de memoria, vibración,
+frecuencia de audio y sacudida de pantalla. Las cuatro eran razonables y las
+cuatro estaban equivocadas. **La primera línea del log valía más que todas las
+horas de conjetura**, y el log costó una tarde de escribirlo.
+
+## Lo que se descartó por el camino
 
 **No es una fuga de memoria.** Medido con 40 000 frames y varios miles de puntos
 acumulados: nodos entre 108 y 129, cero huérfanos, memoria estable en 40-44 MB, y

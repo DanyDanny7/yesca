@@ -37,10 +37,30 @@ pointing/emulate_touch_from_mouse=true
 
 [rendering]
 
-; Compatibility en vez de Forward+: es lo correcto para 2D en Android, sobre
-; todo en gama baja.
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
+; Forward Mobile (Vulkan nativo), NO gl_compatibility.
+;
+; La eleccion original fue compatibility por ser "lo seguro en gama baja", y
+; resulto ser justo lo contrario en el telefono de pruebas. Un Galaxy A56 lleva
+; una GPU Samsung Xclipse 540, que no tiene OpenGL nativo: Android le sirve
+; OpenGL ES traducido a Vulkan mediante ANGLE. El registro del propio juego lo
+; delato:
+;
+;   gpu=ANGLE ((Samsung Xclipse 540) on Vulkan 1.3.279) driver=OpenGL ES 3.2
+;
+; Es decir, el juego corria sobre OpenGL emulado sobre Vulkan. Se cerraba con
+; 60 fps clavados, memoria plana y sin picos: un fallo de la capa de traduccion,
+; no de carga. Con Forward Mobile se habla Vulkan directamente y esa capa
+; desaparece.
+;
+; El precio: Vulkan es obligatorio, asi que quedan fuera dispositivos muy
+; antiguos que solo tengan OpenGL ES. A cambio funciona en el telefono real que
+; tenemos delante.
+;
+; Escritorio y movil usan el MISMO renderizador a proposito. Tenerlos distintos
+; significa que lo que se prueba en el PC no es lo que corre en el telefono, y
+; esa divergencia es exactamente la que costo tres builds y varias horas.
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
 environment/defaults/default_clear_color=Color(0.051, 0.051, 0.071, 1)
 ; Godot exige ETC2/ASTC para exportar a Android. Aquí no hay ni una textura
 ; (todo se dibuja con _draw), así que es puro requisito formal.

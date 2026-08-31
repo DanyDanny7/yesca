@@ -62,6 +62,7 @@ extends Node2D
 @export var hitstop_por_eslabon: float = 0.035
 @export var hitstop_max: float = 0.10
 @export var sonido: bool = true
+@export var sacudida: bool = true
 @export var musica: bool = true
 ## Apagada de momento: es el principal sospechoso de un cierre que solo ocurre
 ## en el teléfono. El interruptor sigue en la pausa para poder volver a probarla.
@@ -171,9 +172,16 @@ const SND_FIN := preload("res://audio/fin.wav")
 const SND_ALARMA := preload("res://audio/alarma.wav")
 const SND_EXITO := preload("res://audio/exito.wav")
 const MUS_CAMPO := preload("res://audio/musica_campo.wav")
-## Voces de audio. Una sola cortaría el sonido anterior en cada eslabón, que es
-## justo lo contrario de lo que se quiere en una cascada.
-const VOCES := 8
+## Voces para el sonido de contagio, que es el único que se dispara en ráfaga.
+## Una sola cortaría el anterior en cada eslabón, justo lo contrario de lo que
+## se quiere en una cascada.
+const VOCES_POP := 6
+## Tope de contagios que suenan en un mismo frame.
+##
+## Más de tres en el mismo instante no se distinguen de tres, pero sí cuestan
+## otras tantas llamadas al motor de audio. En una cascada grande esa ráfaga era
+## el pico de carga más alto del juego.
+const POPS_POR_FRAME := 3
 ## Cada cuántos eslabones suena el premio y vibra el teléfono. Hacerlo en todos
 ## sería un zumbido continuo.
 const HITO_CADENA := 5
@@ -226,6 +234,7 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _fallos_label: Label = $UI/Fallos
 @onready var _combos_root: Control = $UI/Combos
 @onready var _destello_rect: ColorRect = $UI/Destello
+@onready var _opt_shake: CircleButton = $UI/PauseScreen/OptShake
 @onready var _btn_pausa: CircleButton = $UI/Pausa
 
 @onready var _pause_screen: Control = $UI/PauseScreen
@@ -324,8 +333,20 @@ var _shake: float = 0.0
 var _hitstop: float = 0.0
 var _explosiones_pausadas: bool = false
 var _score_pop: float = 0.0
-var _audio: Array[AudioStreamPlayer] = []
-var _voz: int = 0
+## Un reproductor por sonido, con el stream asignado UNA vez.
+##
+## Antes había un anillo de ocho voces genéricas al que se le reasignaba el
+## stream en cada disparo. Reasignar el stream de un reproductor que puede estar
+## sonando es el tipo de cosa que en escritorio no molesta y en Android puede
+## costar caro, y aquí pasaba decenas de veces por segundo en plena cascada.
+var _voces_pop: Array[AudioStreamPlayer] = []
+var _voz_pop: int = 0
+var _p_fallo: AudioStreamPlayer
+var _p_cadena: AudioStreamPlayer
+var _p_alarma: AudioStreamPlayer
+var _p_fin: AudioStreamPlayer
+var _p_exito: AudioStreamPlayer
+var _pops_frame: int = 0
 var _musica_player: AudioStreamPlayer
 var _ultima_vibracion: float = 0.0
 var _diag: Diagnostico
@@ -333,6 +354,12 @@ var _diag: Diagnostico
 var _n_sonidos: int = 0
 var _n_vibras: int = 0
 var _t_instantanea: float = 0.0
+## Máximos desde la última foto. Una instantánea por segundo puede caer entre
+## dos picos y perderse justo el instante de mayor carga, que es cuando se
+## cierra la aplicación.
+var _pico_exp: int = 0
+var _pico_cad: int = 0
+var _pico_snd: int = 0
 ## Escala de tiempo normal, capturada al arrancar para no pisar la que imponga
 ## una herramienta externa como el simulador.
 var _ts_base: float = 1.0
@@ -363,10 +390,13 @@ func _ready() -> void:
 	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _fallos_label, _score_label,
 			_best_label, _objetivo_label, _hint_label, _flash_label, _combos_root,
 			_btn_pausa]
-	for i in VOCES:
-		var voz := AudioStreamPlayer.new()
-		add_child(voz)
-		_audio.append(voz)
+	for i in VOCES_POP:
+		_voces_pop.append(_crear_voz(SND_POP))
+	_p_fallo = _crear_voz(SND_FALLO)
+	_p_cadena = _crear_voz(SND_CADENA)
+	_p_alarma = _crear_voz(SND_ALARMA)
+	_p_fin = _crear_voz(SND_FIN)
+	_p_exito = _crear_voz(SND_EXITO)
 	_musica_player = AudioStreamPlayer.new()
 	add_child(_musica_player)
 	_ts_base = Engine.time_scale
@@ -389,8 +419,11 @@ func _exit_tree() -> void:
 		_diag.cerrar_limpio()
 	if _musica_player:
 		_musica_player.stop()
-	for voz in _audio:
+	for voz in _voces_pop:
 		voz.stop()
+	for voz in [_p_fallo, _p_cadena, _p_alarma, _p_fin, _p_exito]:
+		if voz:
+			voz.stop()
 
 
 func _process(delta: float) -> void:
@@ -446,6 +479,10 @@ func _process(delta: float) -> void:
 			# desesperado todavía puede salvarte si atrapa algo.
 			_perder("Se acabó el tiempo")
 
+	_pico_exp = maxi(_pico_exp, _explosions.size())
+	_pico_cad = maxi(_pico_cad, _cadenas.size())
+	_pico_snd = maxi(_pico_snd, _pops_frame)
+	_pops_frame = 0
 	_tick_celebracion(delta)
 	_alarma_tiempo(delta)
 	_destello = maxf(0.0, _destello - delta * DESTELLO_CAIDA)
@@ -528,6 +565,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif _opt_vibra.contiene(p):
 				vibracion = not vibracion
 				_vibrar(40)
+				_guardar()
+			elif _opt_shake.contiene(p):
+				sacudida = not sacudida
 				_guardar()
 		State.READY:
 			if _btn_pausa.contiene(p):
@@ -1003,7 +1043,9 @@ func _prune(lista: Array[Explosion]) -> Array[Explosion]:
 ## ilegibles justo en el momento en que el jugador quiere leerlos.
 func _aplicar_shake(delta: float) -> void:
 	_shake = maxf(0.0, _shake - _shake * shake_amortiguacion * delta - 0.4 * delta)
-	var off := Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * _shake
+	var off := Vector2.ZERO
+	if sacudida:
+		off = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * _shake
 	_dots_root.position = off
 	_explosions_root.position = off
 
@@ -1019,12 +1061,41 @@ func _sincronizar_congelacion() -> void:
 ## Reparte los sonidos entre varias voces por turnos. Con una sola, cada eslabón
 ## cortaría al anterior y la cascada sonaría a un único clic en vez de a una
 ## ráfaga.
-func _sonar(stream: AudioStream, pitch: float = 1.0, volumen: float = 0.0) -> void:
-	if not sonido or _audio.is_empty():
-		return
-	var voz := _audio[_voz]
-	_voz = (_voz + 1) % _audio.size()
+func _crear_voz(stream: AudioStream) -> AudioStreamPlayer:
+	var voz := AudioStreamPlayer.new()
 	voz.stream = stream
+	add_child(voz)
+	return voz
+
+
+## El reproductor fijo de cada sonido. El de contagio va por turnos entre sus
+## seis voces; el resto tienen la suya y no compiten con nadie.
+func _voz_de(stream: AudioStream) -> AudioStreamPlayer:
+	if stream == SND_POP:
+		var v := _voces_pop[_voz_pop]
+		_voz_pop = (_voz_pop + 1) % _voces_pop.size()
+		return v
+	if stream == SND_FALLO:
+		return _p_fallo
+	if stream == SND_CADENA:
+		return _p_cadena
+	if stream == SND_ALARMA:
+		return _p_alarma
+	if stream == SND_FIN:
+		return _p_fin
+	return _p_exito
+
+
+func _sonar(stream: AudioStream, pitch: float = 1.0, volumen: float = 0.0) -> void:
+	if not sonido:
+		return
+	if stream == SND_POP:
+		if _pops_frame >= POPS_POR_FRAME:
+			return
+		_pops_frame += 1
+	var voz := _voz_de(stream)
+	if voz == null:
+		return
 	voz.pitch_scale = pitch
 	voz.volume_db = volumen
 	voz.play()
@@ -1112,6 +1183,10 @@ func _registrar(delta: float) -> void:
 		"lbl": _combo_labels.size(),
 		"pool": _combo_pool.size(),
 		"snd": _n_sonidos,
+		"picoExp": _pico_exp,
+		"picoCad": _pico_cad,
+		"picoSnd": _pico_snd,
+		"shake": "%.0f" % _shake,
 		"vib": _n_vibras,
 		"fps": Engine.get_frames_per_second(),
 		"nodos": Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
@@ -1119,6 +1194,9 @@ func _registrar(delta: float) -> void:
 	})
 	_n_sonidos = 0
 	_n_vibras = 0
+	_pico_exp = 0
+	_pico_cad = 0
+	_pico_snd = 0
 
 
 ## Pitido de tiempo bajo, cada vez más seguido.
@@ -1483,6 +1561,7 @@ func _cargar() -> void:
 		_guardar()
 	else:
 		vibracion = bool(cfg.get_value("opciones", "vibracion", false))
+	sacudida = bool(cfg.get_value("opciones", "sacudida", true))
 
 
 func _guardar() -> void:
@@ -1492,12 +1571,16 @@ func _guardar() -> void:
 	cfg.set_value("opciones", "sonido", sonido)
 	cfg.set_value("opciones", "musica", musica)
 	cfg.set_value("opciones", "vibracion", vibracion)
+	cfg.set_value("opciones", "sacudida", sacudida)
 	cfg.set_value("opciones", "version", 2)
 	cfg.save(SAVE_PATH)
 
 
 func _update_ui() -> void:
-	_menu_best.text = "Mejor sin fin  %d" % _best
+	if _diag != null and _diag.hubo_cierre_brusco:
+		_menu_best.text = "La sesión anterior se cerró sola\nToca Log para ver qué pasaba"
+	else:
+		_menu_best.text = "Mejor sin fin  %d" % _best
 	# El botón se pone en rojo si la sesión anterior murió sin avisar: si no, el
 	# registro estaría ahí y nadie lo miraría nunca.
 	_btn_log.color = Color("ff5470") if _diag != null and _diag.hubo_cierre_brusco 		else Color(0.25, 0.25, 0.32)
@@ -1508,6 +1591,7 @@ func _update_ui() -> void:
 		_opt_sonido.modulate.a = 1.0 if sonido else 0.28
 		_opt_musica.modulate.a = 1.0 if musica else 0.28
 		_opt_vibra.modulate.a = 1.0 if vibracion else 0.28
+		_opt_shake.modulate.a = 1.0 if sacudida else 0.28
 		return
 
 	if _state == State.SELECT:

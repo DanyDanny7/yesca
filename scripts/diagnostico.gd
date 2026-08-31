@@ -47,9 +47,12 @@ func _init() -> void:
 	evento("gpu=%s  driver=%s" % [
 		RenderingServer.get_video_adapter_name(),
 		RenderingServer.get_video_adapter_api_version()])
-	evento("procesadores=%d  memoria_del_sistema=%d MB" % [
-		OS.get_processor_count(),
-		int(OS.get_memory_info().get("physical", 0)) / 1048576])
+	# El renderizador se anota porque fue la causa del primer cierre: la GPU
+	# Xclipse del telefono de pruebas no tiene OpenGL nativo y Android servia
+	# una traduccion por ANGLE que se caia sola.
+	evento("renderizador=%s  procesadores=%d" % [
+		ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile", "?"),
+		OS.get_processor_count()])
 
 
 func evento(texto: String) -> void:
