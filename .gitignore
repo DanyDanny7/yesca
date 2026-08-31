@@ -1,7 +1,10 @@
 # Godot 4
 .godot/
 /android/
-export_presets.cfg
+# export_presets.cfg SI se versiona: sin el, un clon limpio no puede
+# reconstruir el APK. Regla que no se puede romper: NUNCA meter ahi la
+# contrasena de la keystore de publicacion. Godot la escribe sola si se
+# configura desde el editor, asi que hay que revisarlo antes de commitear.
 *.translation
 
 # Exports

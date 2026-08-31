@@ -69,8 +69,40 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
   perfiles de jugador para ver si la economía separa el juego bueno del malo.
   Ninguno mide diversión.
 
-## Pendiente de entorno
+## Android
 
-El export a Android pide **JDK 17** y en la máquina hay JDK 21. Habrá que
-instalar el 17 en paralelo antes de la primera build. Tampoco está el Android
-SDK todavía.
+```powershell
+.	oolsuild-apk.ps1            # APK de depuración en build/
+.	oolsuild-apk.ps1 -Release   # APK de publicación
+```
+
+El script exporta y **verifica la firma**: un APK sin firmar se genera igual y
+solo falla al instalarlo en el teléfono, que es el peor momento para enterarse.
+
+Estado actual: `com.cadena.juego`, minSdk 24 (Android 7+), solo arm64-v8a,
+~27 MB. Sin icono propio todavía, así que sale el de Godot por defecto.
+
+### Montar el entorno (una sola vez)
+
+```powershell
+winget install Microsoft.OpenJDK.17     # el export pide 17, no vale el 21
+winget install Google.AndroidCLI
+android sdk install platform-tools "build-tools;35.0.0" "platforms;android-35" "cmdline-tools;latest"
+```
+
+Después, keystore de depuración con el `keytool` del JDK 17:
+
+```powershell
+keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android `
+  -keystore "$env:APPDATA\Godot\keystores\debug.keystore" -storepass android `
+  -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+```
+
+Y en `%APPDATA%\Godot\editor_settings-4.7.tres` hay que dejar
+`export/android/java_sdk_path` apuntando al **JDK 17** — Godot autodetecta el
+más nuevo que encuentre, que aquí era el 21 y no sirve.
+
+Faltan las plantillas de exportación (1.28 GB): `Editor → Gestionar plantillas
+de exportación` en el editor, o descargando el `.tpz` de la release de Godot y
+extrayendo su carpeta `templates/` en
+`%APPDATA%\Godot\export_templates.7.2.stable\`.
