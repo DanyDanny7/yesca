@@ -20,3 +20,4 @@ reescribe y se anota por qué cambió — el historial lo guarda git.
 | `08-campana.md` | Modos, niveles como datos y por qué la supervivencia no tiene victoria |
 | `09-movimientos.md` | Las siete reglas de desplazamiento y por qué son el cimiento de los biomas |
 | `10-game-feel.md` | Hit stop, sacudida, sonido y vibración, y los tres errores que cazó medirlo |
+| `11-caja-negra.md` | Diagnóstico de un cierre que solo ocurre en el teléfono |

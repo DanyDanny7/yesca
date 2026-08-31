@@ -20,6 +20,15 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 
+[debug]
+
+; Godot escribe su propio registro a user://logs/godot.log. En escritorio ya lo
+; hace; activarlo explicitamente es lo que lo lleva tambien al telefono, donde
+; no hay consola a la vista. Ahi aparecen los errores de script y del motor,
+; que las migas de pan de Diagnostico no pueden ver.
+file_logging/enable_file_logging=true
+file_logging/enable_file_logging.pc=true
+
 [input_devices]
 
 ; Hace que el clic del ratón genere eventos táctiles, para que el mismo código

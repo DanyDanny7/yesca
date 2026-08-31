@@ -232,6 +232,29 @@ theme_override_font_sizes/font_size = 28
 text = "mejor sin fin  0"
 horizontal_alignment = 1
 
+[node name="Log" type="Control" parent="UI/MenuScreen"]
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -122.0
+offset_top = -122.0
+offset_right = -32.0
+offset_bottom = -32.0
+mouse_filter = 2
+script = ExtResource("2_circle")
+color = Color(0.25, 0.25, 0.32, 1)
+pulse = 0.0
+
+[node name="Text" type="Label" parent="UI/MenuScreen/Log"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 22
+text = "LOG"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="SelectScreen" type="Control" parent="UI"]
 visible = false
 anchor_right = 1.0
@@ -718,5 +741,76 @@ anchor_bottom = 1.0
 mouse_filter = 2
 theme_override_font_sizes/font_size = 30
 text = "MENÚ"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="LogScreen" type="Control" parent="UI"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Bg" type="ColorRect" parent="UI/LogScreen"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.051, 0.051, 0.071, 0.97)
+
+[node name="Title" type="Label" parent="UI/LogScreen"]
+anchor_right = 1.0
+offset_left = 30.0
+offset_top = 40.0
+offset_right = -30.0
+offset_bottom = 90.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 30
+text = "SESIÓN ANTERIOR"
+horizontal_alignment = 1
+
+[node name="Estado" type="Label" parent="UI/LogScreen"]
+anchor_right = 1.0
+offset_left = 30.0
+offset_top = 94.0
+offset_right = -30.0
+offset_bottom = 130.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.55, 0.66, 1)
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Texto" type="Label" parent="UI/LogScreen"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 22.0
+offset_top = 140.0
+offset_right = -22.0
+offset_bottom = -150.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.72, 0.78, 0.72, 1)
+theme_override_font_sizes/font_size = 16
+vertical_alignment = 2
+autowrap_mode = 2
+
+[node name="Volver" type="Control" parent="UI/LogScreen"]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -60.0
+offset_top = -130.0
+offset_right = 60.0
+offset_bottom = -10.0
+mouse_filter = 2
+script = ExtResource("2_circle")
+color = Color(0.25, 0.25, 0.32, 1)
+pulse = 0.0
+
+[node name="Text" type="Label" parent="UI/LogScreen/Volver"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 26
+text = "VOLVER"
 horizontal_alignment = 1
 vertical_alignment = 1

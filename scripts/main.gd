@@ -147,11 +147,15 @@ const VOCES := 8
 const HITO_CADENA := 5
 ## Separación mínima entre vibraciones, en segundos.
 const VIBRA_INTERVALO_MIN := 0.12
+## Cada cuánto se anota una foto del estado en la caja negra.
+const INSTANTANEA_CADA := 1.0
+## Cuántas líneas del registro anterior se enseñan.
+const LOG_LINEAS := 34
 
 ## PAUSA va al FINAL a propósito. Insertar un estado en medio desplaza los
 ## índices y rompe tools/simulacion.gd, que ya se quedó girando en vacío una vez
 ## justo por eso.
-enum State { MENU, SELECT, READY, PLAYING, DEAD, WIN, FINAL, PAUSA }
+enum State { MENU, SELECT, READY, PLAYING, DEAD, WIN, FINAL, PAUSA, LOG }
 enum Mode { CAMPANA, SIN_FIN }
 
 @onready var _dots_root: Node2D = $Dots
@@ -183,6 +187,12 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _btn_campana: CircleButton = $UI/MenuScreen/Campana
 @onready var _btn_sinfin: CircleButton = $UI/MenuScreen/SinFin
 @onready var _menu_best: Label = $UI/MenuScreen/Best
+@onready var _btn_log: CircleButton = $UI/MenuScreen/Log
+
+@onready var _log_screen: Control = $UI/LogScreen
+@onready var _log_estado: Label = $UI/LogScreen/Estado
+@onready var _log_texto: Label = $UI/LogScreen/Texto
+@onready var _btn_log_volver: CircleButton = $UI/LogScreen/Volver
 
 @onready var _select_screen: Control = $UI/SelectScreen
 @onready var _sel_bioma: Label = $UI/SelectScreen/Title
@@ -256,6 +266,11 @@ var _audio: Array[AudioStreamPlayer] = []
 var _voz: int = 0
 var _musica_player: AudioStreamPlayer
 var _ultima_vibracion: float = 0.0
+var _diag: Diagnostico
+## Contadores desde la última instantánea, para ver si algo se dispara.
+var _n_sonidos: int = 0
+var _n_vibras: int = 0
+var _t_instantanea: float = 0.0
 ## Estado al que se vuelve al despausar.
 var _antes_de_pausar: State = State.PLAYING
 ## Selección del menú de pausa: 0..6 son los modos, AUTO_MOV es "el del nivel".
@@ -272,7 +287,9 @@ func _ready() -> void:
 		_audio.append(voz)
 	_musica_player = AudioStreamPlayer.new()
 	add_child(_musica_player)
+	_diag = Diagnostico.new()
 	_cargar()
+	_diag.evento("opciones sonido=%s musica=%s vibra=%s" % [sonido, musica, vibracion])
 	_sonar_musica()
 	_poblar_campo()
 	_ir_a(State.MENU)
@@ -285,6 +302,8 @@ func _ready() -> void:
 ## sí lo son, y este proyecto ha cazado varios errores justo porque el log
 ## estaba limpio.
 func _exit_tree() -> void:
+	if _diag:
+		_diag.cerrar_limpio()
 	if _musica_player:
 		_musica_player.stop()
 	for voz in _audio:
@@ -335,6 +354,7 @@ func _process(delta: float) -> void:
 			# desesperado todavía puede salvarte si atrapa algo.
 			_perder("SE ACABÓ EL TIEMPO")
 
+	_registrar(delta)
 	_aplicar_shake(delta)
 	_score_pop = maxf(0.0, _score_pop - delta * 4.0)
 
@@ -361,6 +381,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif _btn_sinfin.contiene(p):
 				_mode = Mode.SIN_FIN
 				_empezar_partida()
+			elif _btn_log.contiene(p):
+				_ir_a(State.LOG)
 		State.SELECT:
 			if _btn_volver.contiene(p):
 				_ir_a(State.MENU)
@@ -382,6 +404,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_nivel += 1
 				_empezar_partida()
 		State.FINAL:
+			_ir_a(State.MENU)
+		State.LOG:
 			_ir_a(State.MENU)
 		State.PAUSA:
 			if _btn_seguir.contiene(p):
@@ -475,6 +499,8 @@ func _check_stage() -> void:
 		_stage_shown = s
 		return
 	_stage_shown = s
+	_diag.evento("escalon %d  desague=%.2f radio=%.0f repo=%.2f" % [
+		s, _drain_rate(), _chain_radius(), _respawn_interval()])
 	_flash("ESCALÓN %d%s" % [s, "   ·   RESPIRO" if _es_respiro(s) else ""])
 
 
@@ -870,6 +896,7 @@ func _sonar(stream: AudioStream, pitch: float = 1.0, volumen: float = 0.0) -> vo
 	voz.pitch_scale = pitch
 	voz.volume_db = volumen
 	voz.play()
+	_n_sonidos += 1
 
 
 ## El bucle se activa AQUÍ y no en el .import.
@@ -910,6 +937,7 @@ func _sonar_musica() -> void:
 	_preparar_bucle(pista)
 	_musica_player.volume_db = volumen_musica
 	if _musica_player.stream != pista or not _musica_player.playing:
+		_diag.evento("musica %s  %.1f s  hz=%d" % [bioma, pista.get_length(), pista.mix_rate])
 		_musica_player.stream = pista
 		_musica_player.play()
 
@@ -927,7 +955,38 @@ func _vibrar(ms: int) -> void:
 	if ahora - _ultima_vibracion < VIBRA_INTERVALO_MIN:
 		return
 	_ultima_vibracion = ahora
+	_n_vibras += 1
 	Input.vibrate_handheld(ms)
+
+
+## Foto periódica del estado a la caja negra.
+##
+## Solo mientras se juega: en los menús no pasa nada que valga la pena anotar, y
+## cada línea implica un volcado a disco.
+func _registrar(delta: float) -> void:
+	if _state != State.PLAYING:
+		return
+	_t_instantanea += delta
+	if _t_instantanea < INSTANTANEA_CADA:
+		return
+	_t_instantanea = 0.0
+	_diag.instantanea({
+		"pts": _score,
+		"esc": _stage(),
+		"mov": NOMBRES_MOV[_movimiento_actual()],
+		"dots": _dots.size(),
+		"exp": _explosions.size(),
+		"cad": _cadenas.size(),
+		"lbl": _combo_labels.size(),
+		"pool": _combo_pool.size(),
+		"snd": _n_sonidos,
+		"vib": _n_vibras,
+		"fps": Engine.get_frames_per_second(),
+		"nodos": Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
+		"memMB": "%.1f" % (Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0),
+	})
+	_n_sonidos = 0
+	_n_vibras = 0
 
 
 func _flash(texto: String) -> void:
@@ -946,6 +1005,7 @@ func _congelar() -> void:
 
 
 func _perder(motivo: String) -> void:
+	_diag.evento("DERROTA %s  pts=%d esc=%d cadena=%d" % [motivo, _score, _stage(), _best_cascade])
 	_sonar(SND_FIN)
 	_vibrar(160)
 	_shake = shake_max
@@ -960,6 +1020,7 @@ func _perder(motivo: String) -> void:
 
 
 func _ganar() -> void:
+	_diag.evento("VICTORIA nivel=%d pts=%d" % [_nivel + 1, _score])
 	_sonar(SND_CADENA, 1.25)
 	_vibrar(60)
 	_congelar()
@@ -990,6 +1051,9 @@ func _empezar_partida() -> void:
 	_hitstop = 0.0
 	_score_pop = 0.0
 	_stage_shown = _stage()
+	_diag.evento("PARTIDA modo=%s nivel=%d mov=%s" % [
+		"campana" if _mode == Mode.CAMPANA else "sinfin",
+		_nivel + 1, NOMBRES_MOV[_movimiento_actual()]])
 	_sonar_musica()
 	_ir_a(State.READY)
 
@@ -1069,6 +1133,17 @@ func _ir_a(s: State) -> void:
 	_over_screen.visible = s == State.DEAD
 	_win_screen.visible = s == State.WIN or s == State.FINAL
 	_pause_screen.visible = s == State.PAUSA
+	_log_screen.visible = s == State.LOG
+	if s == State.LOG:
+		_log_estado.text = "la sesión anterior se cerró SOLA" if _diag.hubo_cierre_brusco 			else "la sesión anterior cerró con normalidad"
+		var motor := _diag.errores_del_motor(10)
+		if motor.is_empty():
+			_log_texto.text = _diag.ultimas_lineas(LOG_LINEAS)
+		else:
+			# Si el motor registró errores, van ARRIBA: pesan más que cualquier
+			# instantánea del juego para saber qué tumbó el proceso.
+			_log_texto.text = "-- ERRORES DEL MOTOR --\n%s\n\n-- ESTADO --\n%s" % [
+				motor, _diag.ultimas_lineas(LOG_LINEAS - 12)]
 	var jugando := s == State.READY or s == State.PLAYING
 	for nodo in _hud:
 		nodo.visible = jugando
@@ -1117,6 +1192,9 @@ func _guardar() -> void:
 
 func _update_ui() -> void:
 	_menu_best.text = "mejor sin fin  %d" % _best
+	# El botón se pone en rojo si la sesión anterior murió sin avisar: si no, el
+	# registro estaría ahí y nadie lo miraría nunca.
+	_btn_log.color = Color("ff5470") if _diag != null and _diag.hubo_cierre_brusco 		else Color(0.25, 0.25, 0.32)
 
 	if _state == State.PAUSA:
 		_mov_nombre.text = "según el nivel" if _mov_sel == AUTO_MOV else NOMBRES_MOV[_mov_sel]
