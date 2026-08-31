@@ -145,6 +145,8 @@ const VOCES := 8
 ## Cada cuántos eslabones suena el premio y vibra el teléfono. Hacerlo en todos
 ## sería un zumbido continuo.
 const HITO_CADENA := 5
+## Separación mínima entre vibraciones, en segundos.
+const VIBRA_INTERVALO_MIN := 0.12
 
 ## PAUSA va al FINAL a propósito. Insertar un estado en medio desplaza los
 ## índices y rompe tools/simulacion.gd, que ya se quedó girando en vacío una vez
@@ -253,6 +255,7 @@ var _score_pop: float = 0.0
 var _audio: Array[AudioStreamPlayer] = []
 var _voz: int = 0
 var _musica_player: AudioStreamPlayer
+var _ultima_vibracion: float = 0.0
 ## Estado al que se vuelve al despausar.
 var _antes_de_pausar: State = State.PLAYING
 ## Selección del menú de pausa: 0..6 son los modos, AUTO_MOV es "el del nivel".
@@ -911,9 +914,20 @@ func _sonar_musica() -> void:
 		_musica_player.play()
 
 
+## Vibración con freno de frecuencia.
+##
+## En una cascada larga esto se llamaba decenas de veces por segundo, y cada
+## llamada cruza al servicio de vibración de Android. En PC no se nota porque
+## ahí es un no-op. El tope deja pasar unas ocho por segundo, que es más de lo
+## que el motor háptico puede distinguir de todas formas.
 func _vibrar(ms: int) -> void:
-	if vibracion:
-		Input.vibrate_handheld(ms)
+	if not vibracion:
+		return
+	var ahora := float(Time.get_ticks_msec()) / 1000.0
+	if ahora - _ultima_vibracion < VIBRA_INTERVALO_MIN:
+		return
+	_ultima_vibracion = ahora
+	Input.vibrate_handheld(ms)
 
 
 func _flash(texto: String) -> void:

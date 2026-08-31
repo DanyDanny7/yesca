@@ -87,6 +87,15 @@ solo falla al instalarlo en el teléfono, que es el peor momento para enterarse.
 Estado actual: `com.cadena.juego`, minSdk 24 (Android 7+), solo arm64-v8a,
 ~27 MB. Sin icono propio todavía, así que sale el de Godot por defecto.
 
+### Diagnosticar un cierre en el teléfono
+
+```powershell
+.\tools\capturar-crash.ps1     # conecta el móvil por USB, reproduce el fallo, Ctrl+C
+```
+
+Un cierre que solo pasa en el móvil no se diagnostica adivinando: hace falta el
+log. El script deja el volcado en `build/crash.txt`.
+
 ### Montar el entorno (una sola vez)
 
 ```powershell
