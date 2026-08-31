@@ -8,10 +8,14 @@ extends RefCounted
 ## `contexto/00-decisiones.md` de evitar géneros con hambre de contenido —
 ## añadir un nivel cuesta una fila, no una tarde de arte.
 ##
-## La variedad real no sale de subir números, sale de que el OBJETIVO cambie:
-## puntuar, encadenar, limpiar y sobrevivir son cuatro habilidades distintas del
-## mismo mecanismo. Los primeros niveles están ordenados para enseñar una cosa
-## cada uno.
+## La variedad real no sale de subir números, sale de que cambien el OBJETIVO y
+## la REGLA DE MOVIMIENTO. Cada bioma agrupa los niveles que comparten regla, y
+## están ordenados de menos a más hostil: rebote enseña, nieve deja respirar,
+## corriente y enjambre regalan los grupos, billar y panal los deshacen, y
+## estampida se defiende de ti.
+##
+## Meta.LIMPIAS existe y funciona, pero ningún nivel la usa: vaciar la pantalla
+## entera resultó demasiado duro y queda aparcada.
 ##
 ## Cada nivel trae además su regla de movimiento (`mov`), que es lo que
 ## convierte un bioma en algo más que una paleta: cambia cómo se lee el campo y
@@ -26,7 +30,7 @@ enum Meta {
 }
 
 const LISTA: Array[Dictionary] = [
-	# --- Campo abierto: el comportamiento base, para enseñar el juego -------
+	# --- Campo abierto: rebote. Aqui se aprende a jugar ---------------------
 	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
 		"meta": Meta.PUNTOS, "valor": 60, "escalon": 0,
 		"pista": "toca un círculo y deja que la onda haga el resto"},
@@ -37,45 +41,74 @@ const LISTA: Array[Dictionary] = [
 		"meta": Meta.PUNTOS, "valor": 250, "escalon": 1,
 		"pista": "cada eslabón vale más que el anterior"},
 	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
-		"meta": Meta.SEGUNDOS, "valor": 45, "escalon": 1,
-		"pista": "aquí no puntúas, sobrevives"},
-	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
-		"meta": Meta.CADENA, "valor": 6, "escalon": 2,
+		"meta": Meta.CADENA, "valor": 6, "escalon": 1,
 		"pista": "puedes tener varias cadenas a la vez, cada una con su cuenta"},
-	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
-		"meta": Meta.PUNTOS_LIMPIOS, "valor": 300, "escalon": 3,
-		"pista": "un solo fallo y vuelves a empezar"},
-	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
-		"meta": Meta.CADENA, "valor": 9, "escalon": 4,
-		"pista": "con el campo así de rápido, la paciencia es todo"},
-	{"bioma": "Campo abierto", "mov": Dot.Movimiento.REBOTE,
-		"meta": Meta.LIMPIAS, "valor": 1, "escalon": 2,
-		"pista": "el más duro: no puede quedar ni uno"},
 
-	# --- Un movimiento por nivel, para probarlos en juego ------------------
-	#
-	# Todavía NO son biomas: son el catálogo de reglas de desplazamiento, cada
-	# una con el objetivo que mejor la luce. De aquí saldrán los biomas de
-	# verdad, quedándose con las que cambien la forma de jugar y no solo el
-	# aspecto.
-	{"bioma": "Panal", "mov": Dot.Movimiento.ABEJA,
-		"meta": Meta.PUNTOS, "valor": 200, "escalon": 1,
-		"pista": "van a tirones: no basta con mirar dónde están, sino hacia dónde salen"},
-	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
-		"meta": Meta.CADENA, "valor": 5, "escalon": 1,
-		"pista": "chocan entre ellos, así que los grupos se deshacen solos"},
+	# --- Ventisca: nieve. Lento, para respirar antes de apretar -------------
 	{"bioma": "Ventisca", "mov": Dot.Movimiento.NIEVE,
-		"meta": Meta.PUNTOS, "valor": 250, "escalon": 1,
+		"meta": Meta.PUNTOS, "valor": 300, "escalon": 1,
 		"pista": "caen despacio y en vaivén; el campo se renueva por arriba"},
+	{"bioma": "Ventisca", "mov": Dot.Movimiento.NIEVE,
+		"meta": Meta.CADENA, "valor": 7, "escalon": 2,
+		"pista": "la caída los alinea sola: espera a que la columna se junte"},
+	{"bioma": "Ventisca", "mov": Dot.Movimiento.NIEVE,
+		"meta": Meta.SEGUNDOS, "valor": 50, "escalon": 2,
+		"pista": "aquí no puntúas, sobrevives"},
+
+	# --- Rio: corriente. Los grupos se forman solos rio abajo ---------------
 	{"bioma": "Río", "mov": Dot.Movimiento.CORRIENTE,
-		"meta": Meta.CADENA, "valor": 6, "escalon": 2,
-		"pista": "todos van en la misma dirección: espera a que la corriente los junte"},
+		"meta": Meta.PUNTOS, "valor": 400, "escalon": 2,
+		"pista": "todos van en la misma dirección: deja que la corriente los junte"},
+	{"bioma": "Río", "mov": Dot.Movimiento.CORRIENTE,
+		"meta": Meta.CADENA, "valor": 8, "escalon": 2,
+		"pista": "el mejor momento es justo antes de que salgan por el borde"},
+	{"bioma": "Río", "mov": Dot.Movimiento.CORRIENTE,
+		"meta": Meta.PUNTOS_LIMPIOS, "valor": 250, "escalon": 2,
+		"pista": "un solo fallo y se acabó; van todos al mismo sitio, no hay excusa"},
+
+	# --- Enjambre: se buscan entre si. El grupo viene servido --------------
 	{"bioma": "Enjambre", "mov": Dot.Movimiento.ENJAMBRE,
 		"meta": Meta.CADENA, "valor": 10, "escalon": 2,
-		"pista": "se buscan solos; aquí lo difícil no es encontrar el grupo sino el momento"},
+		"pista": "se agrupan solos; aquí lo difícil no es encontrarlos sino el instante"},
+	{"bioma": "Enjambre", "mov": Dot.Movimiento.ENJAMBRE,
+		"meta": Meta.PUNTOS, "valor": 600, "escalon": 3,
+		"pista": "el grumo se deshace tras cada onda: hay que dejarlo rehacerse"},
+	{"bioma": "Enjambre", "mov": Dot.Movimiento.ENJAMBRE,
+		"meta": Meta.SEGUNDOS, "valor": 60, "escalon": 3,
+		"pista": "con el grupo tan junto, la tentación de tocar todo el rato te mata"},
+
+	# --- Billar: chocan entre ellos. Nada se queda quieto -------------------
+	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
+		"meta": Meta.PUNTOS, "valor": 400, "escalon": 2,
+		"pista": "chocan entre ellos, así que los grupos se deshacen solos"},
+	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
+		"meta": Meta.CADENA, "valor": 7, "escalon": 3,
+		"pista": "apunta a donde van a estar, no a donde están"},
+	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
+		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
+		"pista": "un choque puede regalarte la cadena o arruinártela"},
+
+	# --- Panal: abeja. Tirones y giros bruscos, dificil de leer ------------
+	{"bioma": "Panal", "mov": Dot.Movimiento.ABEJA,
+		"meta": Meta.PUNTOS, "valor": 450, "escalon": 3,
+		"pista": "van a tirones: mira hacia dónde salen, no dónde están"},
+	{"bioma": "Panal", "mov": Dot.Movimiento.ABEJA,
+		"meta": Meta.CADENA, "valor": 7, "escalon": 3,
+		"pista": "los grupos duran un instante; hay que tocar en cuanto se forman"},
+	{"bioma": "Panal", "mov": Dot.Movimiento.ABEJA,
+		"meta": Meta.PUNTOS_LIMPIOS, "valor": 300, "escalon": 4,
+		"pista": "un fallo y se acabó, y encima no se están quietos"},
+
+	# --- Estampida: huyen de tus ondas. El bioma que se defiende -----------
 	{"bioma": "Estampida", "mov": Dot.Movimiento.HUIDA,
-		"meta": Meta.CADENA, "valor": 6, "escalon": 2,
+		"meta": Meta.CADENA, "valor": 6, "escalon": 3,
 		"pista": "huyen de tus explosiones: atrapa a los vecinos antes de que escapen"},
+	{"bioma": "Estampida", "mov": Dot.Movimiento.HUIDA,
+		"meta": Meta.PUNTOS, "valor": 500, "escalon": 4,
+		"pista": "cada onda dispersa lo que estabas cazando"},
+	{"bioma": "Estampida", "mov": Dot.Movimiento.HUIDA,
+		"meta": Meta.CADENA, "valor": 9, "escalon": 4,
+		"pista": "el último: solo cae si los pillas antes de que reaccionen"},
 ]
 
 

@@ -54,7 +54,9 @@ extends Node2D
 @export var hitstop_max: float = 0.10
 @export var sonido: bool = true
 @export var musica: bool = true
-@export var vibracion: bool = true
+## Apagada de momento: es el principal sospechoso de un cierre que solo ocurre
+## en el teléfono. El interruptor sigue en la pausa para poder volver a probarla.
+@export var vibracion: bool = false
 @export var volumen_musica: float = -13.0
 
 @export_group("Pruebas")
@@ -131,8 +133,6 @@ const ENJAMBRE_ATRACCION := 55.0
 const ENJAMBRE_SEPARACION := 110.0
 const HUIDA_MARGEN := 120.0
 const HUIDA_FUERZA := 420.0
-## Índice del selector de pausa que devuelve el control al nivel.
-const AUTO_MOV := 7
 
 const SND_POP := preload("res://audio/pop.wav")
 const SND_FALLO := preload("res://audio/fallo.wav")
@@ -151,11 +151,18 @@ const VIBRA_INTERVALO_MIN := 0.12
 const INSTANTANEA_CADA := 1.0
 ## Cuántas líneas del registro anterior se enseñan.
 const LOG_LINEAS := 34
+## El último movimiento de una partida se ve a cámara lenta.
+##
+## Es el momento que el jugador quiere entender, por qué ganó o por qué murió, y
+## a velocidad normal se lo pierde. Cortar de golpe a la pantalla de resultado le
+## roba justo la información que necesita para volver a intentarlo.
+const SLOWMO_FACTOR := 0.3
+const SLOWMO_DUR := 0.8
 
 ## PAUSA va al FINAL a propósito. Insertar un estado en medio desplaza los
 ## índices y rompe tools/simulacion.gd, que ya se quedó girando en vacío una vez
 ## justo por eso.
-enum State { MENU, SELECT, READY, PLAYING, DEAD, WIN, FINAL, PAUSA, LOG }
+enum State { MENU, SELECT, READY, PLAYING, DEAD, WIN, FINAL, PAUSA, LOG, BRIEFING }
 enum Mode { CAMPANA, SIN_FIN }
 
 @onready var _dots_root: Node2D = $Dots
@@ -174,9 +181,6 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _pause_screen: Control = $UI/PauseScreen
 @onready var _btn_seguir: CircleButton = $UI/PauseScreen/Seguir
 @onready var _btn_menu: CircleButton = $UI/PauseScreen/Menu
-@onready var _btn_mov_prev: CircleButton = $UI/PauseScreen/MovPrev
-@onready var _btn_mov_next: CircleButton = $UI/PauseScreen/MovNext
-@onready var _mov_nombre: Label = $UI/PauseScreen/MovNombre
 @onready var _opt_sonido: CircleButton = $UI/PauseScreen/OptSonido
 @onready var _opt_musica: CircleButton = $UI/PauseScreen/OptMusica
 @onready var _opt_vibra: CircleButton = $UI/PauseScreen/OptVibra
@@ -188,6 +192,12 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _btn_sinfin: CircleButton = $UI/MenuScreen/SinFin
 @onready var _menu_best: Label = $UI/MenuScreen/Best
 @onready var _btn_log: CircleButton = $UI/MenuScreen/Log
+
+@onready var _brief_screen: Control = $UI/BriefingScreen
+@onready var _brief_bioma: Label = $UI/BriefingScreen/Bioma
+@onready var _brief_num: Label = $UI/BriefingScreen/Num
+@onready var _brief_meta: Label = $UI/BriefingScreen/Meta
+@onready var _brief_pista: Label = $UI/BriefingScreen/Pista
 
 @onready var _log_screen: Control = $UI/LogScreen
 @onready var _log_estado: Label = $UI/LogScreen/Estado
@@ -271,10 +281,17 @@ var _diag: Diagnostico
 var _n_sonidos: int = 0
 var _n_vibras: int = 0
 var _t_instantanea: float = 0.0
+## Escala de tiempo normal, capturada al arrancar para no pisar la que imponga
+## una herramienta externa como el simulador.
+var _ts_base: float = 1.0
+## Estado al que se irá cuando acabe la cámara lenta, o -1 si no hay final en
+## curso.
+var _final_pendiente: int = -1
+var _slowmo_hasta: int = 0
+## Marca de dónde se perdió, para que quede visible bajo el mensaje.
+var _marca_muerte: Explosion
 ## Estado al que se vuelve al despausar.
 var _antes_de_pausar: State = State.PLAYING
-## Selección del menú de pausa: 0..6 son los modos, AUTO_MOV es "el del nivel".
-var _mov_sel: int = 0
 
 
 func _ready() -> void:
@@ -287,6 +304,7 @@ func _ready() -> void:
 		_audio.append(voz)
 	_musica_player = AudioStreamPlayer.new()
 	add_child(_musica_player)
+	_ts_base = Engine.time_scale
 	_diag = Diagnostico.new()
 	_cargar()
 	_diag.evento("opciones sonido=%s musica=%s vibra=%s" % [sonido, musica, vibracion])
@@ -343,7 +361,10 @@ func _process(delta: float) -> void:
 		_check_stage()
 		_refill_field(delta)
 
-	if _state == State.PLAYING:
+	if _final_pendiente >= 0 and Time.get_ticks_msec() >= _slowmo_hasta:
+		_rematar()
+
+	if _state == State.PLAYING and _final_pendiente < 0:
 		# La victoria se comprueba ANTES que la derrota: si el último eslabón de
 		# una cascada cumple el objetivo justo cuando la barra llega a cero,
 		# ganas. Es lo justo y además es un final memorable.
@@ -370,6 +391,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Solo se escucha táctil: project.godot tiene emulate_touch_from_mouse, así
 	# que el clic del editor entra por aquí igual que el dedo en el teléfono.
 	if not (event is InputEventScreenTouch and event.pressed):
+		return
+	# Durante la cámara lenta del final no se acepta nada: la partida ya acabó y
+	# un tap suelto solo serviría para confundir.
+	if _final_pendiente >= 0:
 		return
 	var p: Vector2 = event.position
 
@@ -407,15 +432,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			_ir_a(State.MENU)
 		State.LOG:
 			_ir_a(State.MENU)
+		State.BRIEFING:
+			# El tap que cierra la tarjeta NO detona: solo arranca la partida.
+			_ir_a(State.READY)
 		State.PAUSA:
 			if _btn_seguir.contiene(p):
 				_ir_a(_antes_de_pausar)
 			elif _btn_menu.contiene(p):
 				_ir_a(State.MENU)
-			elif _btn_mov_prev.contiene(p):
-				_elegir_movimiento(_mov_sel - 1)
-			elif _btn_mov_next.contiene(p):
-				_elegir_movimiento(_mov_sel + 1)
 			elif _opt_sonido.contiene(p):
 				sonido = not sonido
 				_guardar()
@@ -526,8 +550,10 @@ func _tap(pos: Vector2) -> void:
 		_vibrar(45)
 		_fallos += 1
 		if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):
-			_perder("UN FALLO Y SE ACABÓ")
+			_marcar_muerte(mundo)
+			_perder("FALLASTE EL TOQUE")
 		elif _fallos >= _fallos_permitidos():
+			_marcar_muerte(mundo)
 			_perder("DEMASIADOS FALLOS")
 		else:
 			_flash("fallo  %d / %d" % [_fallos, _fallos_permitidos()])
@@ -785,6 +811,24 @@ func _spawn_explosion(pos: Vector2, radius: float, chain_id: int) -> void:
 	_explosions.append(e)
 
 
+## Deja clavado en el campo el sitio exacto del toque que costó la partida.
+##
+## El mensaje dice POR QUÉ perdiste; esto dice DÓNDE. Sin ello el jugador lee
+## que falló el toque y se queda sin saber por cuánto.
+func _marcar_muerte(pos: Vector2) -> void:
+	if _marca_muerte and is_instance_valid(_marca_muerte):
+		_marca_muerte.queue_free()
+	var e := Explosion.new()
+	e.position = pos
+	e.max_radius = tap_tolerance
+	e.color = Explosion.COLOR_FALLO
+	e.grow_time = 0.12
+	e.hold_time = 9999.0
+	e.decay_time = 0.3
+	_explosions_root.add_child(e)
+	_marca_muerte = e
+
+
 func _spawn_effect(pos: Vector2) -> void:
 	var e := Explosion.new()
 	e.position = pos
@@ -1010,24 +1054,41 @@ func _perder(motivo: String) -> void:
 	_vibrar(160)
 	_shake = shake_max
 	_over_title.text = motivo
-	_congelar()
-	if _mode == Mode.SIN_FIN:
+	_terminar(State.DEAD)
+
+
+## Arranca la cámara lenta y aplaza el cambio de pantalla.
+##
+## El mundo sigue moviéndose mientras tanto, así que la última cascada o el
+## último fallo se ven con calma antes de que aparezca el resultado.
+func _terminar(estado: State) -> void:
+	_final_pendiente = estado
+	_slowmo_hasta = Time.get_ticks_msec() + int(SLOWMO_DUR * 1000.0)
+	Engine.time_scale = _ts_base * SLOWMO_FACTOR
+
+
+func _rematar() -> void:
+	Engine.time_scale = _ts_base
+	var estado := _final_pendiente
+	_final_pendiente = -1
+	# El récord se decide AQUÍ y no al arrancar la cámara lenta: durante ella la
+	# cascada puede seguir sumando puntos, y cuentan.
+	if estado == State.DEAD and _mode == Mode.SIN_FIN:
 		_record_nuevo = _score > _best
 		if _record_nuevo:
 			_best = _score
 			_guardar()
-	_ir_a(State.DEAD)
+	_ir_a(estado)
 
 
 func _ganar() -> void:
 	_diag.evento("VICTORIA nivel=%d pts=%d" % [_nivel + 1, _score])
 	_sonar(SND_CADENA, 1.25)
 	_vibrar(60)
-	_congelar()
 	if _nivel + 1 > _nivel_max:
 		_nivel_max = mini(_nivel + 1, Niveles.total() - 1)
 		_guardar()
-	_ir_a(State.WIN)
+	_terminar(State.WIN)
 
 
 func _empezar_partida() -> void:
@@ -1055,7 +1116,9 @@ func _empezar_partida() -> void:
 		"campana" if _mode == Mode.CAMPANA else "sinfin",
 		_nivel + 1, NOMBRES_MOV[_movimiento_actual()]])
 	_sonar_musica()
-	_ir_a(State.READY)
+	# En campaña se lee el objetivo antes de empezar. Es lo que faltaba al
+	# encadenar niveles: tras "SIGUE" caías dentro sin saber qué te pedían.
+	_ir_a(State.BRIEFING if _mode == Mode.CAMPANA else State.READY)
 
 
 func _poblar_campo() -> void:
@@ -1068,6 +1131,9 @@ func _poblar_campo() -> void:
 	for e in _effects:
 		e.queue_free()
 	_effects.clear()
+	if _marca_muerte and is_instance_valid(_marca_muerte):
+		_marca_muerte.queue_free()
+		_marca_muerte = null
 
 	# El campo arranca lleno y repartido; solo las reposiciones entran por los
 	# bordes. Verlo llenarse punto a punto sería una espera muerta al empezar.
@@ -1104,26 +1170,12 @@ func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 ## con el juego moviéndose detrás se siente despierta y enseña la mecánica antes
 ## de que el jugador toque nada.
 func _mundo_activo() -> bool:
-	return _state == State.MENU or _state == State.SELECT 		or _state == State.READY or _state == State.PLAYING
+	return _state == State.MENU or _state == State.SELECT 		or _state == State.BRIEFING or _state == State.READY 		or _state == State.PLAYING
 
 
 func _pausar() -> void:
 	_antes_de_pausar = _state
-	_mov_sel = movimiento_prueba if forzar_movimiento else AUTO_MOV
 	_ir_a(State.PAUSA)
-
-
-## Cambiar el movimiento desde la pausa se aplica a los círculos que ya están en
-## pantalla, no solo a los que nazcan después: si no, comparar dos reglas exigía
-## esperar a que se renovara el campo entero.
-func _elegir_movimiento(sel: int) -> void:
-	_mov_sel = wrapi(sel, 0, AUTO_MOV + 1)
-	forzar_movimiento = _mov_sel != AUTO_MOV
-	if forzar_movimiento:
-		movimiento_prueba = _mov_sel
-	var modo := _movimiento_actual()
-	for d in _dots:
-		d.modo = modo
 
 
 func _ir_a(s: State) -> void:
@@ -1133,6 +1185,12 @@ func _ir_a(s: State) -> void:
 	_over_screen.visible = s == State.DEAD
 	_win_screen.visible = s == State.WIN or s == State.FINAL
 	_pause_screen.visible = s == State.PAUSA
+	_brief_screen.visible = s == State.BRIEFING
+	if s == State.BRIEFING:
+		_brief_bioma.text = str(Niveles.nivel(_nivel)["bioma"]).to_upper()
+		_brief_num.text = "NIVEL %d" % (_nivel + 1)
+		_brief_meta.text = Niveles.describir(_nivel)
+		_brief_pista.text = str(Niveles.nivel(_nivel)["pista"])
 	_log_screen.visible = s == State.LOG
 	if s == State.LOG:
 		_log_estado.text = "la sesión anterior se cerró SOLA" if _diag.hubo_cierre_brusco 			else "la sesión anterior cerró con normalidad"
@@ -1177,7 +1235,14 @@ func _cargar() -> void:
 	_nivel_max = clampi(int(cfg.get_value("progreso", "nivel_max", 0)), 0, Niveles.total() - 1)
 	sonido = bool(cfg.get_value("opciones", "sonido", true))
 	musica = bool(cfg.get_value("opciones", "musica", true))
-	vibracion = bool(cfg.get_value("opciones", "vibracion", true))
+	# La vibración se fuerza a apagada una vez, aunque el jugador la tuviera
+	# encendida de antes: es sospechosa de tumbar la app y no vale dejarla
+	# encendida solo porque estaba guardada así.
+	if int(cfg.get_value("opciones", "version", 1)) < 2:
+		vibracion = false
+		_guardar()
+	else:
+		vibracion = bool(cfg.get_value("opciones", "vibracion", false))
 
 
 func _guardar() -> void:
@@ -1187,6 +1252,7 @@ func _guardar() -> void:
 	cfg.set_value("opciones", "sonido", sonido)
 	cfg.set_value("opciones", "musica", musica)
 	cfg.set_value("opciones", "vibracion", vibracion)
+	cfg.set_value("opciones", "version", 2)
 	cfg.save(SAVE_PATH)
 
 
@@ -1197,7 +1263,6 @@ func _update_ui() -> void:
 	_btn_log.color = Color("ff5470") if _diag != null and _diag.hubo_cierre_brusco 		else Color(0.25, 0.25, 0.32)
 
 	if _state == State.PAUSA:
-		_mov_nombre.text = "según el nivel" if _mov_sel == AUTO_MOV else NOMBRES_MOV[_mov_sel]
 		# Apagado = apagado a la vista: el círculo se atenúa. Un interruptor que
 		# no dice en qué estado está no es un interruptor.
 		_opt_sonido.modulate.a = 1.0 if sonido else 0.28
@@ -1236,8 +1301,14 @@ func _update_ui() -> void:
 
 	var s := _stage()
 	_stage_label.text = "escalón %d  ·  %s" % [s, NOMBRES_MOV[_movimiento_actual()]]
-	_fallos_label.text = "fallos  %d / %d" % [_fallos, _fallos_permitidos()]
-	_fallos_label.modulate = Color("ff5470") if _fallos > 0 else Color(0.45, 0.45, 0.55)
+	# En los niveles que se pierden al primer fallo, un contador 0 / 5 sería
+	# mentira: no hay margen que gastar.
+	if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):
+		_fallos_label.text = "sin fallos permitidos"
+		_fallos_label.modulate = Color("ff5470")
+	else:
+		_fallos_label.text = "fallos  %d / %d" % [_fallos, _fallos_permitidos()]
+		_fallos_label.modulate = Color("ff5470") if _fallos > 0 else Color(0.45, 0.45, 0.55)
 
 	var frac := clampf(_time_left / time_max, 0.0, 1.0)
 	_bar_fill.size = Vector2(_bar_bg.size.x * frac, _bar_bg.size.y)

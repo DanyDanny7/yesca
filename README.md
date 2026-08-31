@@ -14,7 +14,7 @@ una apuesta entre detonar ya o esperar a que se junten más.
 
 ## Estado
 
-**Fase v4** — dos modos. **Campaña**: ocho niveles con objetivo, que es donde
+**Fase v5** — dos modos. **Campaña**: ocho niveles con objetivo, que es donde
 vive el cierre (un juego de supervivencia no tiene victoria por naturaleza; para
 que exista un "ganaste" la partida tiene que ser finita). **Sin fin**: la caza
 del récord.
