@@ -65,6 +65,8 @@ var base_speed: float = 100.0
 ## primer frame, con su radio completo. Un círculo que parece más pequeño de lo
 ## que se puede tocar es generoso; al revés sería una trampa.
 var _entrada: float = 1.0
+## Cuánto más grandes se ven los targets de lo que miden para el juego.
+const ESCALA_VISUAL := 1.25
 const ENTRADA_DUR := 0.55
 const ENTRADA_MIN := 0.28
 
@@ -85,7 +87,13 @@ func _ready() -> void:
 func _draw() -> void:
 	# Ojo: _draw() dibuja en espacio LOCAL y lo que cambia es la transform del
 	# nodo, así que solo hace falta queue_redraw() mientras el círculo crece.
-	var r := radius * lerpf(ENTRADA_MIN, 1.0, _entrada)
+	# El radio de DIBUJO no es el de lógica.
+	#
+	# `radius` gobierna los contagios, así que agrandarlo cambiaría el balance
+	# del juego entero por un motivo puramente estético. La escala se aplica
+	# solo aquí: los targets se ven un 25% más grandes y no encadenan ni un
+	# píxel más lejos. El radio de toque es aparte y tampoco se toca.
+	var r := radius * ESCALA_VISUAL * lerpf(ENTRADA_MIN, 1.0, _entrada)
 	match forma:
 		Forma.COPO: _copo(r)
 		Forma.ABEJA: _abeja(r)
