@@ -1605,6 +1605,9 @@ func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 	d.color = Color(str(_paleta.get("punto", "e8e8f0")))
 	d.radius = float(_paleta.get("radio", 9.0))
 	d.forma = int(_paleta.get("forma", Dot.Forma.CIRCULO))
+	# En el billar cada bola lleva su número, del 1 al 15. En el resto de biomas
+	# queda a cero y la forma se dibuja lisa.
+	d.numero = randi_range(1, 15) if d.forma == Dot.Forma.BOLA else 0
 	var bonus := _speed_bonus()
 	var rapidez := randf_range(dot_speed_min + bonus, dot_speed_max + bonus)
 	if speed_variance > 0.0:

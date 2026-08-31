@@ -40,6 +40,15 @@ enum Forma { CIRCULO, COPO, ABEJA, HOJA, BOLA, DRON, CHISPA, CHIP, AVION, MISIL,
 ## una línea de la lógica.
 var color: Color = Color("e8e8f0")
 var forma: Forma = Forma.CIRCULO
+## Número de la bola, del 1 al 15. Cero en el resto de biomas.
+var numero: int = 0
+
+## Colores de billar. Ninguno es el negro real de la bola 8: sobre un tapete
+## oscuro sería invisible, y la legibilidad manda sobre el realismo.
+const COLOR_BOLA := [
+	Color("ffd23f"), Color("5b9bff"), Color("ff6060"), Color("c184ff"),
+	Color("ff9d54"), Color("4fe39a"), Color("dd8259"), Color("b3bacb"),
+]
 
 @export var radius: float = 9.0
 
@@ -163,10 +172,51 @@ func _hoja(r: float) -> void:
 	draw_line(Vector2(0, -r * 0.9), Vector2(0, r * 0.9), Color(0, 0, 0, 0.3), maxf(1.0, r * 0.15), true)
 
 
-## Bola de billar: el brillo desplazado es lo que le da volumen.
+## Bola de billar: lisa o a rayas, con su número y su brillo.
+##
+## El círculo blanco del centro no es decoración: es lo que garantiza que la
+## bola se vea sobre el tapete pase lo que pase con el color del cuerpo. Sin él,
+## las oscuras se perderían en el paño verde.
 func _bola(r: float) -> void:
-	draw_circle(Vector2.ZERO, r, color)
-	draw_circle(Vector2(-r * 0.32, -r * 0.32), r * 0.26, Color(1.0, 1.0, 1.0, 0.5))
+	if numero <= 0:
+		draw_circle(Vector2.ZERO, r, color)
+		draw_circle(Vector2(-r * 0.32, -r * 0.32), r * 0.26, Color(1.0, 1.0, 1.0, 0.5))
+		return
+
+	var tinte: Color = COLOR_BOLA[(numero - 1) % COLOR_BOLA.size()]
+	var rayada := numero > 8
+
+	if rayada:
+		# A rayas: cuerpo claro con una franja de color por el ecuador.
+		draw_circle(Vector2.ZERO, r, Color("f2ede0"))
+		draw_colored_polygon(_franja(r, r * 0.62), tinte)
+	else:
+		draw_circle(Vector2.ZERO, r, tinte)
+
+	# Disco blanco y número encima.
+	draw_circle(Vector2.ZERO, r * 0.56, Color("fbf7ee"))
+	var fuente := ThemeDB.fallback_font
+	if fuente != null:
+		var tam := int(maxf(8.0, r * 1.05))
+		draw_string(fuente, Vector2(-r, r * 0.36), str(numero),
+				HORIZONTAL_ALIGNMENT_CENTER, r * 2.0, tam, Color(0.08, 0.08, 0.1))
+
+	draw_circle(Vector2(-r * 0.4, -r * 0.42), r * 0.2, Color(1.0, 1.0, 1.0, 0.45))
+
+
+## Franja horizontal recortada al círculo, para las bolas a rayas. Se calcula
+## con la ecuación del círculo en vez de dibujar un rectángulo, que se saldría
+## por los lados.
+func _franja(r: float, alto: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var n := 8
+	for i in n + 1:
+		var y := lerpf(-alto, alto, float(i) / float(n))
+		pts.append(Vector2(sqrt(maxf(0.0, r * r - y * y)), y))
+	for i in range(n, -1, -1):
+		var y := lerpf(-alto, alto, float(i) / float(n))
+		pts.append(Vector2(-sqrt(maxf(0.0, r * r - y * y)), y))
+	return pts
 
 
 ## Triángulo orientado al rumbo. Mirar hacia donde va delata su trayectoria
