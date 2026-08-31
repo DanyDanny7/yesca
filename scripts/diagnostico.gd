@@ -14,9 +14,15 @@ extends RefCounted
 
 const RUTA_ACTUAL := "user://sesion.log"
 const RUTA_PREVIA := "user://sesion_anterior.log"
-## Marca que se escribe al cerrar bien. Si falta en el registro anterior, esa
-## sesión se fue a la calle sin avisar.
+## Marca que se escribe al cerrar bien.
 const MARCA_CIERRE := "CIERRE LIMPIO"
+## Marca de que la aplicación se fue al fondo.
+##
+## En Android, mandar la app al segundo plano o cerrarla desde el sistema no
+## siempre dispara el cierre limpio: el proceso puede morir después sin avisar.
+## Sin esta marca, salirse del juego contaba como si hubiera reventado, que es
+## exactamente el falso positivo que hace inútil un detector de fallos.
+const MARCA_PAUSA := "EN SEGUNDO PLANO"
 
 ## Contenido de la sesión anterior, para enseñarlo en pantalla.
 var informe_previo: String = ""
@@ -35,7 +41,7 @@ func _init() -> void:
 		if previo:
 			informe_previo = previo.get_as_text()
 			previo.close()
-			hubo_cierre_brusco = not informe_previo.contains(MARCA_CIERRE)
+			hubo_cierre_brusco = _acabo_mal(informe_previo)
 			var copia := FileAccess.open(RUTA_PREVIA, FileAccess.WRITE)
 			if copia:
 				copia.store_string(informe_previo)
@@ -53,6 +59,27 @@ func _init() -> void:
 	evento("renderizador=%s  procesadores=%d" % [
 		ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile", "?"),
 		OS.get_processor_count()])
+
+
+## Una sesión acabó mal si su ÚLTIMA línea no es una despedida.
+##
+## Mirar si la marca aparece en cualquier parte del texto no sirve: una sesión
+## que se va al fondo, vuelve y luego revienta tendría la marca en medio y
+## pasaría por buena.
+static func _acabo_mal(texto: String) -> bool:
+	var lineas := texto.strip_edges().split("\n", false)
+	if lineas.is_empty():
+		return false
+	var ultima: String = lineas[lineas.size() - 1]
+	return not (ultima.contains(MARCA_CIERRE) or ultima.contains(MARCA_PAUSA))
+
+
+func al_fondo() -> void:
+	evento(MARCA_PAUSA)
+
+
+func vuelve() -> void:
+	evento("vuelve del segundo plano")
 
 
 func evento(texto: String) -> void:

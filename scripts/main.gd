@@ -419,6 +419,22 @@ func _ready() -> void:
 ## filtradas al salir. No es un fallo real, pero un log ruidoso esconde los que
 ## sí lo son, y este proyecto ha cazado varios errores justo porque el log
 ## estaba limpio.
+## Android avisa cuando la app se va al fondo, y ese aviso sí llega siempre.
+##
+## Anotarlo es lo que permite distinguir "el usuario se salió" de "el proceso
+## reventó": sin esto, salir del juego dejaba el registro sin despedida y el
+## menú acusaba un cierre brusco que nunca ocurrió.
+func _notification(que: int) -> void:
+	if _diag == null:
+		return
+	if que == NOTIFICATION_APPLICATION_PAUSED:
+		_diag.al_fondo()
+	elif que == NOTIFICATION_APPLICATION_RESUMED:
+		_diag.vuelve()
+	elif que == NOTIFICATION_WM_CLOSE_REQUEST:
+		_diag.cerrar_limpio()
+
+
 func _exit_tree() -> void:
 	if _diag:
 		_diag.cerrar_limpio()
@@ -1492,7 +1508,16 @@ func _pausar() -> void:
 	_ir_a(State.PAUSA)
 
 
+const NOMBRES_ESTADO := ["menu", "seleccion", "listo", "jugando", "derrota",
+		"victoria", "final", "pausa", "log", "briefing"]
+
+
 func _ir_a(s: State) -> void:
+	# Cada cambio de pantalla queda anotado. Sin esto, un registro que termina en
+	# VICTORIA no dice si el juego murió durante la celebración o si llegó a
+	# enseñar el resultado y se cerró después.
+	if _diag != null and s != _state:
+		_diag.evento("pantalla=%s" % NOMBRES_ESTADO[s])
 	_state = s
 	_menu_screen.visible = s == State.MENU
 	_select_screen.visible = s == State.SELECT
