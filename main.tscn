@@ -141,6 +141,12 @@ text = "toca un círculo"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="Destello" type="ColorRect" parent="UI"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.65, 1, 0.8, 0)
+
 [node name="MenuScreen" type="Control" parent="UI"]
 anchor_right = 1.0
 anchor_bottom = 1.0

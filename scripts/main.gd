@@ -116,7 +116,22 @@ extends Node2D
 @export var fallos_min: int = 3
 
 const SPAWN_MARGIN := 40.0
+## Umbrales de la barra. Tres estados y no dos: con solo verde y rojo, el aviso
+## llega de golpe y ya no da tiempo a reaccionar. El amarillo es el que dice
+## "empieza a buscar un buen grupo".
 const WARN_TIME := 3.0
+const ALERTA_TIME := 6.0
+const COLOR_BARRA_OK := Color("6de3a0")
+const COLOR_BARRA_ALERTA := Color("ffd166")
+const COLOR_BARRA_PELIGRO := Color("ff5470")
+## Separación entre pitidos de alarma: se acorta según se acaba el tiempo.
+const ALARMA_LENTA := 0.60
+const ALARMA_RAPIDA := 0.22
+## Cuánto tarda en apagarse el fogonazo de victoria.
+const DESTELLO_CAIDA := 1.5
+## Opacidad máxima del fogonazo. Un blanco pleno taparía el campo justo cuando
+## el jugador quiere ver qué acaba de conseguir.
+const DESTELLO_MAX := 0.5
 const FLASH_TIME := 1.4
 const COMBO_POP_TIME := 0.45
 ## Caja de la etiqueta flotante de cada cadena.
@@ -138,6 +153,8 @@ const SND_POP := preload("res://audio/pop.wav")
 const SND_FALLO := preload("res://audio/fallo.wav")
 const SND_CADENA := preload("res://audio/cadena.wav")
 const SND_FIN := preload("res://audio/fin.wav")
+const SND_ALARMA := preload("res://audio/alarma.wav")
+const SND_EXITO := preload("res://audio/exito.wav")
 const MUS_CAMPO := preload("res://audio/musica_campo.wav")
 ## Voces de audio. Una sola cortaría el sonido anterior en cada eslabón, que es
 ## justo lo contrario de lo que se quiere en una cascada.
@@ -176,6 +193,7 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _stage_label: Label = $UI/Stage
 @onready var _fallos_label: Label = $UI/Fallos
 @onready var _combos_root: Control = $UI/Combos
+@onready var _destello_rect: ColorRect = $UI/Destello
 @onready var _btn_pausa: CircleButton = $UI/Pausa
 
 @onready var _pause_screen: Control = $UI/PauseScreen
@@ -290,6 +308,10 @@ var _final_pendiente: int = -1
 var _slowmo_hasta: int = 0
 ## Marca de dónde se perdió, para que quede visible bajo el mensaje.
 var _marca_muerte: Explosion
+## Cuenta atrás para el próximo pitido de alarma.
+var _t_alarma: float = 0.0
+## Fogonazo de victoria, de 1 a 0.
+var _destello: float = 0.0
 ## Estado al que se vuelve al despausar.
 var _antes_de_pausar: State = State.PLAYING
 
@@ -375,6 +397,9 @@ func _process(delta: float) -> void:
 			# desesperado todavía puede salvarte si atrapa algo.
 			_perder("SE ACABÓ EL TIEMPO")
 
+	_alarma_tiempo(delta)
+	_destello = maxf(0.0, _destello - delta * DESTELLO_CAIDA)
+	_destello_rect.color.a = _destello * DESTELLO_MAX
 	_registrar(delta)
 	_aplicar_shake(delta)
 	_score_pop = maxf(0.0, _score_pop - delta * 4.0)
@@ -1033,6 +1058,47 @@ func _registrar(delta: float) -> void:
 	_n_vibras = 0
 
 
+## Pitido de tiempo bajo, cada vez más seguido.
+##
+## Solo suena en rojo y se calla solo al volver a ámbar o verde: no hay nada que
+## parar porque no es un bucle, sino pitidos sueltos que dejan de programarse.
+## El intervalo se acorta según baja la barra, que es lo que convierte el aviso
+## en presión en vez de en un ruido de fondo.
+func _alarma_tiempo(delta: float) -> void:
+	var en_peligro := _state == State.PLAYING and _final_pendiente < 0 \
+		and _time_left > 0.0 and _time_left < WARN_TIME
+	if not en_peligro:
+		_t_alarma = 0.0
+		return
+	_t_alarma -= delta
+	if _t_alarma > 0.0:
+		return
+	var margen := clampf(_time_left / WARN_TIME, 0.0, 1.0)
+	_t_alarma = lerpf(ALARMA_RAPIDA, ALARMA_LENTA, margen)
+	_sonar(SND_ALARMA, lerpf(1.3, 1.0, margen), -7.0)
+
+
+## Fogonazo, anillos por toda la pantalla y fanfarria.
+##
+## Se lanza al ganar y coincide con la cámara lenta, así que la celebración se
+## ve entera antes de que aparezca la pantalla de resultado. Los anillos se
+## registran como efectos y no como detonaciones: adornan, no contagian.
+func _celebrar() -> void:
+	_destello = 1.0
+	var rect := get_viewport_rect().size
+	for i in 9:
+		var e := Explosion.new()
+		e.position = Vector2(randf() * rect.x, randf() * rect.y)
+		e.max_radius = randf_range(80.0, 190.0)
+		e.color = COLOR_BARRA_OK
+		e.grow_time = randf_range(0.25, 0.6)
+		e.hold_time = 0.25
+		e.decay_time = 0.5
+		_explosions_root.add_child(e)
+		_effects.append(e)
+	_sonar(SND_EXITO)
+
+
 func _flash(texto: String) -> void:
 	_flash_label.text = texto
 	_flash_left = FLASH_TIME
@@ -1083,7 +1149,7 @@ func _rematar() -> void:
 
 func _ganar() -> void:
 	_diag.evento("VICTORIA nivel=%d pts=%d" % [_nivel + 1, _score])
-	_sonar(SND_CADENA, 1.25)
+	_celebrar()
 	_vibrar(60)
 	if _nivel + 1 > _nivel_max:
 		_nivel_max = mini(_nivel + 1, Niveles.total() - 1)
@@ -1111,6 +1177,8 @@ func _empezar_partida() -> void:
 	_shake = 0.0
 	_hitstop = 0.0
 	_score_pop = 0.0
+	_t_alarma = 0.0
+	_destello = 0.0
 	_stage_shown = _stage()
 	_diag.evento("PARTIDA modo=%s nivel=%d mov=%s" % [
 		"campana" if _mode == Mode.CAMPANA else "sinfin",
@@ -1312,7 +1380,12 @@ func _update_ui() -> void:
 
 	var frac := clampf(_time_left / time_max, 0.0, 1.0)
 	_bar_fill.size = Vector2(_bar_bg.size.x * frac, _bar_bg.size.y)
-	_bar_fill.color = Color("ff5470") if _time_left < WARN_TIME else Color("6de3a0")
+	if _time_left < WARN_TIME:
+		_bar_fill.color = COLOR_BARRA_PELIGRO
+	elif _time_left < ALERTA_TIME:
+		_bar_fill.color = COLOR_BARRA_ALERTA
+	else:
+		_bar_fill.color = COLOR_BARRA_OK
 
 	# El multiplicador solo existe mientras la cascada está viva.
 	_sync_combos()

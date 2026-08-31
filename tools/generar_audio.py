@@ -154,6 +154,51 @@ def musica(bpm=80.0, compases=4):
     return out
 
 
+def alarma(dur=0.11):
+    """Pitido de tiempo bajo.
+
+    Tiene que cortar por encima de la musica y de los pops sin taparlos: por eso
+    es corto, agudo y con un armonico impar que lo hace nasal. Un tono limpio a
+    este volumen se confundiria con un eslabon mas de la cadena.
+    """
+    n = int(TASA * dur)
+    out = []
+    for i in range(n):
+        t = i / TASA
+        v = math.sin(TAU * 1180.0 * t) * 0.5
+        v += math.sin(TAU * 3540.0 * t) * 0.12
+        out.append(v * envolvente(t, dur, 0.003))
+    return out
+
+
+def exito(dur=0.75):
+    """Fanfarria de victoria: arpegio ascendente de Do mayor y acorde final.
+
+    Sube, que es lo unico que hace falta para que se lea como logro. El acorde
+    del final sostiene para que la celebracion no se corte en seco.
+    """
+    n = int(TASA * dur)
+    notas = [523.25, 659.25, 783.99, 1046.50]  # do mi sol do
+    paso = dur * 0.16
+    out = []
+    for i in range(n):
+        t = i / TASA
+        v = 0.0
+        for k, f in enumerate(notas):
+            inicio = k * paso
+            if t < inicio:
+                continue
+            tt = t - inicio
+            v += math.sin(TAU * f * tt) * 0.22 * math.exp(-2.6 * tt)
+        # acorde sostenido por debajo, para que no quede hueco al final
+        if t > paso * 3.0:
+            ta = t - paso * 3.0
+            for f in (523.25, 659.25, 783.99):
+                v += math.sin(TAU * f * ta) * 0.07 * math.exp(-1.6 * ta)
+        out.append(v * 0.9)
+    return out
+
+
 TAU = math.pi * 2.0
 
 if __name__ == "__main__":
@@ -162,6 +207,8 @@ if __name__ == "__main__":
     escribir("fallo.wav", fallo())
     escribir("cadena.wav", cadena())
     escribir("fin.wav", fin())
+    escribir("alarma.wav", alarma())
+    escribir("exito.wav", exito())
     # Nombrada por bioma desde ya: cuando cada bioma tenga su pista, basta con
     # añadir funciones al lado y una entrada en el diccionario de main.gd.
     escribir("musica_campo.wav", musica(), TASA_MUS)
