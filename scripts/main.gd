@@ -1123,19 +1123,32 @@ func _sonar(stream: AudioStream, pitch: float = 1.0, volumen: float = 0.0) -> vo
 	_n_sonidos += 1
 
 
-## El bucle se activa AQUÍ y no en el .import.
+## La música se reencadena a mano, sin metadatos de bucle.
 ##
-## `edit/loop_mode=1` en el archivo de importación no llega al recurso en esta
-## versión de Godot: el .import lo dice y el AudioStreamWAV cargado sigue
-## reportando 0. Ponerlo en código es explícito y además deja el motivo escrito.
-## Requiere que la pista se importe sin comprimir, o `data` no sería PCM plano y
-## la cuenta de fotogramas no saldría.
+## Antes se marcaba la pista como LOOP_FORWARD calculando `loop_end` desde el
+## tamaño de los datos. La cuenta salía exacta —264600 muestras, ni una de
+## más— y aun así el juego se cerraba SIEMPRE en el punto del bucle: tres
+## registros del teléfono terminando en 12.14 s, 11.97 s y ~12 s, con la pista
+## durando 12.00 s clavados.
+##
+## No merece la pena averiguar si es un desfase de una muestra en el límite o
+## algo dentro del motor: reencadenar por señal no toca ni un metadato, no hace
+## aritmética sobre el buffer y no puede leer fuera de rango. El hueco de un
+## frame al reiniciar es inaudible en un fondo de pad, y desde luego preferible
+## a que la aplicación se cierre.
 func _preparar_bucle(pista: AudioStreamWAV) -> void:
-	if pista.loop_mode == AudioStreamWAV.LOOP_FORWARD:
+	# Explícitamente SIN bucle, para que llegue la señal `finished`.
+	if pista.loop_mode != AudioStreamWAV.LOOP_DISABLED:
+		pista.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	if not _musica_player.finished.is_connected(_reencadenar_musica):
+		_musica_player.finished.connect(_reencadenar_musica)
+
+
+func _reencadenar_musica() -> void:
+	if not musica:
 		return
-	pista.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	pista.loop_begin = 0
-	pista.loop_end = pista.data.size() / 2  # 16 bits mono: 2 bytes por muestra
+	_diag.evento("musica reencadena")
+	_musica_player.play()
 
 
 ## Pista por bioma. De momento una sola.
