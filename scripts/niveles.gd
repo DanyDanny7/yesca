@@ -112,6 +112,42 @@ const LISTA: Array[Dictionary] = [
 ]
 
 
+## Paleta de cada bioma: fondo, círculos y ondas.
+##
+## Lo que NO se tematiza: la barra de tiempo (verde, ámbar, rojo) y el anillo
+## gris del fallo. Esos colores no decoran, informan, y cambiarlos por bioma
+## obligaría al jugador a reaprender a leerlos siete veces. Se tematiza el
+## mundo; la interfaz se queda quieta.
+##
+## Regla de legibilidad: el círculo siempre mucho más claro que su fondo. Es lo
+## único que el jugador tiene que localizar a toda velocidad, así que ningún
+## capricho de color puede comprometerlo.
+const PALETAS := {
+	"Campo abierto": {
+		"fondo": "0d0d12", "punto": "e8e8f0", "onda": "ff5470", "radio": 9.0},
+	"Ventisca": {
+		"fondo": "0c1219", "punto": "eef6ff", "onda": "8fd8ff", "radio": 10.0},
+	"Río": {
+		"fondo": "07161c", "punto": "d6f5ec", "onda": "2fd6c0", "radio": 9.0},
+	"Enjambre": {
+		"fondo": "150f1a", "punto": "e6d8f7", "onda": "b45cff", "radio": 8.0},
+	"Billar": {
+		"fondo": "0a1c13", "punto": "f4efdc", "onda": "ffc24d", "radio": 10.0},
+	"Panal": {
+		"fondo": "17100a", "punto": "ffd24a", "onda": "ff8c1a", "radio": 9.0},
+	"Estampida": {
+		"fondo": "060a12", "punto": "6feaff", "onda": "ff3b30", "radio": 8.0},
+}
+
+
+## La paleta del bioma de un nivel, o la neutra si no la tiene.
+static func paleta(i: int) -> Dictionary:
+	return PALETAS.get(str(nivel(i)["bioma"]), PALETAS["Campo abierto"])
+
+
+static func paleta_neutra() -> Dictionary:
+	return PALETAS["Campo abierto"]
+
 static func total() -> int:
 	return LISTA.size()
 

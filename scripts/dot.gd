@@ -23,7 +23,10 @@ enum Movimiento {
 	HUIDA,      ## se apartan de las detonaciones activas
 }
 
-const COLOR := Color("e8e8f0")
+## Color y tamaño los fija el bioma al nacer el círculo, no una constante: es
+## lo que permite que la ventisca se vea de nieve y el panal de miel sin tocar
+## una línea de la lógica.
+var color: Color = Color("e8e8f0")
 
 @export var radius: float = 9.0
 
@@ -48,7 +51,7 @@ func _ready() -> void:
 func _draw() -> void:
 	# Ojo: _draw() dibuja en espacio LOCAL y lo que cambia es la transform del
 	# nodo, así que no hace falta queue_redraw() al moverse.
-	draw_circle(Vector2.ZERO, radius, COLOR)
+	draw_circle(Vector2.ZERO, radius, color)
 
 
 ## Todo movimiento va multiplicado por delta. Si no, el juego corre a distinta

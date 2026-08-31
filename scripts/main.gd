@@ -377,6 +377,8 @@ var _anticipando: bool = false
 var _anticipa_hasta: int = 0
 ## Marca de dónde se perdió, para que quede visible bajo el mensaje.
 var _marca_muerte: Explosion
+## Paleta del bioma en curso.
+var _paleta: Dictionary = {}
 ## Cuenta atrás para el próximo pitido de alarma.
 var _t_alarma: float = 0.0
 ## Fogonazo de victoria, de 1 a 0.
@@ -395,6 +397,7 @@ func _ready() -> void:
 	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _fallos_label, _score_label,
 			_best_label, _objetivo_label, _hint_label, _flash_label, _combos_root,
 			_btn_pausa]
+	_paleta = Niveles.paleta_neutra()
 	for i in VOCES_POP:
 		_voces_pop.append(_crear_voz(SND_POP))
 	_p_fallo = _crear_voz(SND_FALLO)
@@ -651,9 +654,20 @@ func _fallos_permitidos() -> int:
 ## Las detonaciones se calientan de color con los escalones. No cambia nada del
 ## balance, solo la percepción — la palanca más barata para que lo difícil se
 ## SIENTA difícil.
+##
+## Parte del color del bioma, no de uno fijo: así la onda pertenece al sitio
+## donde estás jugando, y aun así todos los biomas convergen al mismo rojo
+## cuando la cosa se pone seria.
 func _stage_color() -> Color:
 	var t := clampf(float(_stage() - 1) / STAGE_COLOR_TOPE, 0.0, 1.0)
-	return Explosion.COLOR_ACTIVA.lerp(Color("ff2020"), t)
+	var base := Color(str(_paleta.get("onda", "ff5470")))
+	return base.lerp(Color("ff2020"), t)
+
+
+## Aplica la paleta del bioma: fondo y, de rebote, círculos y ondas nuevas.
+func _aplicar_paleta() -> void:
+	_paleta = Niveles.paleta(_nivel) if _mode == Mode.CAMPANA else Niveles.paleta_neutra()
+	RenderingServer.set_default_clear_color(Color(str(_paleta.get("fondo", "0d0d12"))))
 
 
 func _check_stage() -> void:
@@ -1293,7 +1307,7 @@ func _anillo_fiesta(pos: Vector2, indice: int) -> void:
 	var e := Explosion.new()
 	e.position = pos
 	e.max_radius = randf_range(90.0, 170.0)
-	e.color = COLOR_BARRA_OK
+	e.color = Color(str(_paleta.get("onda", "6de3a0")))
 	e.grow_time = randf_range(0.2, 0.45)
 	e.hold_time = 0.2
 	e.decay_time = 0.45
@@ -1428,6 +1442,7 @@ func _ganar() -> void:
 
 func _empezar_partida() -> void:
 	_stage_offset = int(Niveles.nivel(_nivel)["escalon"]) if _mode == Mode.CAMPANA else 0
+	_aplicar_paleta()
 	_poblar_campo()
 
 	_time_left = time_start
@@ -1499,6 +1514,8 @@ func _poblar_campo() -> void:
 ## ni frenar sin querer al cambiar de dirección.
 func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 	d.modo = modo
+	d.color = Color(str(_paleta.get("punto", "e8e8f0")))
+	d.radius = float(_paleta.get("radio", 9.0))
 	var bonus := _speed_bonus()
 	var rapidez := randf_range(dot_speed_min + bonus, dot_speed_max + bonus)
 	if speed_variance > 0.0:
