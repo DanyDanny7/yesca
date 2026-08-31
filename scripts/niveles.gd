@@ -157,33 +157,43 @@ const LISTA: Array[Dictionary] = [
 ## capricho de color puede comprometerlo.
 const PALETAS := {
 	"Campo abierto": {
+		"telon": Fondo.Tipo.ESTRELLAS,
 		"forma": Dot.Forma.CIRCULO,
 		"fondo": "0d0d12", "punto": "e8e8f0", "onda": "ff5470", "radio": 9.0},
 	"Ventisca": {
+		"telon": Fondo.Tipo.COPOS,
 		"forma": Dot.Forma.COPO,
 		"fondo": "0c1219", "punto": "eef6ff", "onda": "8fd8ff", "radio": 10.0},
 	"Río": {
+		"telon": Fondo.Tipo.CORRIENTE,
 		"forma": Dot.Forma.CIRCULO,
 		"fondo": "07161c", "punto": "d6f5ec", "onda": "2fd6c0", "radio": 9.0},
 	"Enjambre": {
+		"telon": Fondo.Tipo.CELULAS,
 		"forma": Dot.Forma.CIRCULO,
 		"fondo": "150f1a", "punto": "e6d8f7", "onda": "b45cff", "radio": 8.0},
 	"Billar": {
+		"telon": Fondo.Tipo.TAPETE,
 		"forma": Dot.Forma.BOLA,
 		"fondo": "0a1c13", "punto": "f4efdc", "onda": "ffc24d", "radio": 10.0},
 	"Panal": {
+		"telon": Fondo.Tipo.PANAL,
 		"forma": Dot.Forma.ABEJA,
 		"fondo": "17100a", "punto": "ffd24a", "onda": "ff8c1a", "radio": 9.0},
 	"Estampida": {
+		"telon": Fondo.Tipo.REJILLA,
 		"forma": Dot.Forma.DRON,
 		"fondo": "060a12", "punto": "6feaff", "onda": "ff3b30", "radio": 8.0},
 	"Otoño": {
+		"telon": Fondo.Tipo.HOJAS,
 		"forma": Dot.Forma.HOJA,
 		"fondo": "1a1208", "punto": "ffb347", "onda": "ff7038", "radio": 11.0},
 	"Brasas": {
+		"telon": Fondo.Tipo.PAVESAS,
 		"forma": Dot.Forma.CHISPA,
 		"fondo": "120806", "punto": "ffca6b", "onda": "ff5a1f", "radio": 8.0},
 	"Circuito": {
+		"telon": Fondo.Tipo.TRAZAS,
 		"forma": Dot.Forma.CHIP,
 		"fondo": "030b07", "punto": "8dffb0", "onda": "34ff88", "radio": 8.0},
 }

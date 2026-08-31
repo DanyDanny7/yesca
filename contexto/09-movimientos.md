@@ -172,3 +172,52 @@ vacío que esté el campo: de 0.38 s lleno a 0.084 s vacío.
 lejos. Es puro telégrafo: se pueden tocar y contagiar desde el primer frame con
 su radio completo. Uno que parece más pequeño de lo que se puede tocar es
 generoso; al revés sería una trampa.
+
+
+## Telón de fondo por bioma
+
+Cada bioma tiene su fondo: estrellas, copos, líneas de corriente, células que
+laten, paño de billar, panal hexagonal, rejilla técnica, hojas, pavesas y pistas
+de circuito.
+
+### El primer intento estaba mal, y se midió
+
+La primera versión redibujaba el patrón entero cada frame. El panal costaba **un
+tercio del rendimiento** en una RTX 2050 — 94 fps contra 144 — que en un
+teléfono significa bajar de 60.
+
+Lo revelador fue el intento de arreglo: bajar de 170 hexágonos a 45 solo subió
+de 94 a **85 fps**. Es decir, casi nada. **El problema no era la cantidad de
+figuras sino reemitirlas todas cada frame**, y esa distinción es la que decide
+entre optimizar o rediseñar.
+
+### La solución: mosaico
+
+El patrón se genera **una vez** en una imagen de 128×128 que encaja consigo
+misma, y en pantalla se dibuja repetida con **una única llamada**. Resultado:
+los diez biomas a 144 fps, y generar un mosaico cuesta entre 0.1 y 8.9 ms, una
+sola vez y cacheado por tipo.
+
+La animación sale gratis desplazando el mosaico: cuesta exactamente lo mismo que
+tenerlo quieto, porque sigue siendo una sola llamada. Y la dirección cuenta la
+historia sin decir una palabra — la nieve cae, las pavesas suben, el río va de
+lado.
+
+### Detalles que hacen que encaje
+
+- Los píxeles se pintan **con envoltura**: una figura que se sale por un borde
+  entra por el opuesto, así que no hay costura.
+- Los pasos de todos los patrones dividen a 128. Las ondas del río tienen
+  exactamente un periodo por mosaico; el panal, dos celdas por eje.
+- **Semilla fija por tipo**: el fondo de un bioma es siempre el mismo dibujo. Si
+  se sembrara al azar, cambiaría de aspecto cada vez que se entra al nivel.
+- El mosaico guarda solo alfa, en blanco, y se tiñe al dibujarlo. Así el mismo
+  patrón sirve para cualquier color sin regenerarlo.
+
+### La restricción que mandó sobre todo
+
+El fondo no puede competir con los círculos. Alfas entre 0.05 y 0.13, escala
+grande, movimiento lento. Lo único que el jugador tiene que localizar a toda
+velocidad es un círculo de nueve píxeles, y un fondo con detalle o contraste se
+lo roba. El telón tampoco se sacude con el campo: un fondo que tiembla en cada
+eslabón convierte la pantalla en un mareo.

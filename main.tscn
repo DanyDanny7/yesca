@@ -1,10 +1,14 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/circle_button.gd" id="2_circle"]
+[ext_resource type="Script" path="res://scripts/fondo.gd" id="3_fondo"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
+
+[node name="Fondo" type="Node2D" parent="."]
+script = ExtResource("3_fondo")
 
 [node name="Dots" type="Node2D" parent="."]
 

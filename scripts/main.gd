@@ -240,6 +240,7 @@ const ANTICIPA_MAX := 2.0
 enum State { MENU, SELECT, READY, PLAYING, DEAD, WIN, FINAL, PAUSA, LOG, BRIEFING }
 enum Mode { CAMPANA, SIN_FIN }
 
+@onready var _fondo: Fondo = $Fondo
 @onready var _dots_root: Node2D = $Dots
 @onready var _explosions_root: Node2D = $Explosions
 
@@ -411,6 +412,9 @@ func _ready() -> void:
 			_best_label, _objetivo_label, _hint_label, _flash_label, _combos_root,
 			_btn_pausa]
 	_paleta = Niveles.paleta_neutra()
+	_fondo.configurar(
+		int(_paleta.get("telon", Fondo.Tipo.LISO)),
+		Color(str(_paleta.get("punto", "e8e8f0"))))
 	for i in VOCES_POP:
 		_voces_pop.append(_crear_voz(SND_POP))
 	_p_fallo = _crear_voz(SND_FALLO)
@@ -686,6 +690,11 @@ func _stage_color() -> Color:
 func _aplicar_paleta() -> void:
 	_paleta = Niveles.paleta(_nivel) if _mode == Mode.CAMPANA else Niveles.paleta_neutra()
 	RenderingServer.set_default_clear_color(Color(str(_paleta.get("fondo", "0d0d12"))))
+	# El telón se tiñe con el color de los círculos, no con el de la onda: así
+	# pertenece al mismo sitio sin llegar a parecer un círculo apagado.
+	_fondo.configurar(
+		int(_paleta.get("telon", Fondo.Tipo.LISO)),
+		Color(str(_paleta.get("punto", "e8e8f0"))))
 
 
 func _check_stage() -> void:
