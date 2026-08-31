@@ -174,7 +174,24 @@ const LOG_LINEAS := 34
 ## a velocidad normal se lo pierde. Cortar de golpe a la pantalla de resultado le
 ## roba justo la información que necesita para volver a intentarlo.
 const SLOWMO_FACTOR := 0.3
-const SLOWMO_DUR := 0.8
+## La victoria dura más que la derrota. Al ganar hay algo que mirar — la cadena
+## cerrándose — mientras que al perder por tiempo el campo está casi quieto y
+## alargarlo solo aburre.
+const SLOWMO_DUR_VICTORIA := 1.3
+const SLOWMO_DUR_DERROTA := 0.8
+
+## Anticipación: la cámara lenta arranca ANTES de ganar, no después.
+##
+## Al cerrar una cadena objetivo, para cuando el juego detecta la victoria el
+## momento bueno ya pasó y la cámara lenta solo enseña la cola. Sabiendo que
+## falta un eslabón se puede frenar el tiempo justo antes, que es cuando hay
+## algo que ver.
+##
+## Es más suave que la del final a propósito: así al ganar de verdad hay un
+## segundo frenazo que se nota.
+const ANTICIPA_FACTOR := 0.5
+## Tope para que una falsa alarma no deje el juego a medio gas.
+const ANTICIPA_MAX := 2.0
 
 ## PAUSA va al FINAL a propósito. Insertar un estado en medio desplaza los
 ## índices y rompe tools/simulacion.gd, que ya se quedó girando en vacío una vez
@@ -306,6 +323,9 @@ var _ts_base: float = 1.0
 ## curso.
 var _final_pendiente: int = -1
 var _slowmo_hasta: int = 0
+## Cámara lenta anticipada, aún sin haber ganado.
+var _anticipando: bool = false
+var _anticipa_hasta: int = 0
 ## Marca de dónde se perdió, para que quede visible bajo el mensaje.
 var _marca_muerte: Explosion
 ## Cuenta atrás para el próximo pitido de alarma.
@@ -386,6 +406,8 @@ func _process(delta: float) -> void:
 	if _final_pendiente >= 0 and Time.get_ticks_msec() >= _slowmo_hasta:
 		_rematar()
 
+	_actualizar_anticipacion()
+
 	if _state == State.PLAYING and _final_pendiente < 0:
 		# La victoria se comprueba ANTES que la derrota: si el último eslabón de
 		# una cascada cumple el objetivo justo cuando la barra llega a cero,
@@ -399,7 +421,10 @@ func _process(delta: float) -> void:
 
 	_alarma_tiempo(delta)
 	_destello = maxf(0.0, _destello - delta * DESTELLO_CAIDA)
-	_destello_rect.color.a = _destello * DESTELLO_MAX
+	# Un velo verde muy tenue mientras se anticipa: sin él, el frenazo se siente
+	# como que el juego se ha atascado en vez de como que algo va a pasar.
+	var velo := 0.12 if _anticipando else 0.0
+	_destello_rect.color.a = maxf(_destello * DESTELLO_MAX, velo)
 	_registrar(delta)
 	_aplicar_shake(delta)
 	_score_pop = maxf(0.0, _score_pop - delta * 4.0)
@@ -1129,8 +1154,58 @@ func _perder(motivo: String) -> void:
 ## último fallo se ven con calma antes de que aparezca el resultado.
 func _terminar(estado: State) -> void:
 	_final_pendiente = estado
-	_slowmo_hasta = Time.get_ticks_msec() + int(SLOWMO_DUR * 1000.0)
+	_anticipando = false
+	var dur := SLOWMO_DUR_VICTORIA if estado == State.WIN else SLOWMO_DUR_DERROTA
+	_slowmo_hasta = Time.get_ticks_msec() + int(dur * 1000.0)
 	Engine.time_scale = _ts_base * SLOWMO_FACTOR
+
+
+## Frena el tiempo cuando falta un movimiento para ganar.
+##
+## Si la jugada se tuerce y ya no está cerca, se restaura la velocidad: la
+## anticipación no puede castigar al que estuvo a punto y no lo consiguió.
+func _actualizar_anticipacion() -> void:
+	if _final_pendiente >= 0:
+		return
+	if _state != State.PLAYING or _mode != Mode.CAMPANA:
+		if _anticipando:
+			_fin_anticipacion()
+		return
+
+	var cerca := _a_punto_de_ganar()
+	if cerca and not _anticipando:
+		_anticipando = true
+		_anticipa_hasta = Time.get_ticks_msec() + int(ANTICIPA_MAX * 1000.0)
+		Engine.time_scale = _ts_base * ANTICIPA_FACTOR
+		_diag.evento("anticipacion pts=%d cadena=%d" % [_score, _best_cascade])
+	elif _anticipando and (not cerca or Time.get_ticks_msec() >= _anticipa_hasta):
+		_fin_anticipacion()
+
+
+func _fin_anticipacion() -> void:
+	_anticipando = false
+	Engine.time_scale = _ts_base
+
+
+## Si el objetivo se puede cumplir con el siguiente movimiento.
+##
+## Cada meta se mira de una forma: la cadena es exacta porque se sabe cuántos
+## eslabones faltan; en puntos hay que estimar, y solo cuenta si hay una cascada
+## viva capaz de rematar.
+func _a_punto_de_ganar() -> bool:
+	var n := Niveles.nivel(_nivel)
+	var v: int = n["valor"]
+	match int(n["meta"]):
+		Niveles.Meta.CADENA:
+			for id in _cadenas:
+				if int(_cadenas[id]["len"]) >= v - 1:
+					return true
+			return false
+		Niveles.Meta.PUNTOS, Niveles.Meta.PUNTOS_LIMPIOS:
+			return not _explosions.is_empty() and float(_score) >= float(v) * 0.88
+		Niveles.Meta.SEGUNDOS:
+			return _elapsed >= float(v) - 1.2
+	return false
 
 
 func _rematar() -> void:
@@ -1179,6 +1254,8 @@ func _empezar_partida() -> void:
 	_score_pop = 0.0
 	_t_alarma = 0.0
 	_destello = 0.0
+	_anticipando = false
+	Engine.time_scale = _ts_base
 	_stage_shown = _stage()
 	_diag.evento("PARTIDA modo=%s nivel=%d mov=%s" % [
 		"campana" if _mode == Mode.CAMPANA else "sinfin",

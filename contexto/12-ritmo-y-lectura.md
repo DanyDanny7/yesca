@@ -25,10 +25,44 @@ fallar un toque, **queda clavado un anillo donde tocaste**.
 El mensaje dice POR QUÉ perdiste; la marca dice DÓNDE. Sin ella el jugador lee
 "fallaste el toque" y se queda sin saber por cuánto.
 
-## Cámara lenta en el último movimiento
+## Cámara lenta en el último movimiento, anticipada
 
-Al ganar o perder, el mundo sigue moviéndose a **0.3x durante 0.8 s** antes de
-que aparezca la pantalla de resultado.
+Al ganar o perder, el mundo sigue moviéndose a **0.3x** antes de que aparezca la
+pantalla de resultado: 1.3 s al ganar y 0.8 s al perder. La victoria dura más
+porque hay algo que mirar — la cadena cerrándose — mientras que al perder por
+tiempo el campo está casi quieto y alargarlo solo aburre.
+
+### El problema: llegaba tarde
+
+Jugando: *"cuando ganas por hacer cadenas, la cámara lenta aún no se percibe"*.
+Y era cierto. En un objetivo de cadena, cuando el juego detecta la victoria el
+momento bueno **ya pasó**: la cámara lenta solo enseñaba la cola.
+
+La solución es **anticiparla**, que es posible porque se puede saber que falta
+un movimiento:
+
+| Objetivo | Cómo se sabe |
+|---|---|
+| `CADENA` | exacto: alguna cadena viva llegó a N-1 |
+| `PUNTOS` | estimado: hay cascada viva y el marcador pasa del 88% |
+| `SEGUNDOS` | exacto: falta menos de 1.2 s |
+
+El resultado son **dos escalones de frenada**, y eso es lo que lo hace legible:
+
+| Momento | Velocidad |
+|---|---|
+| falta un eslabón | 50% — algo va a pasar |
+| victoria | 30% — remate |
+| tras 1.3 s | normal |
+
+Dos guardas que hicieron falta. Si la jugada se tuerce y ya no está cerca, se
+restaura la velocidad: la anticipación no puede castigar al que estuvo a punto y
+no lo consiguió. Y hay un tope de 2 s para que una falsa alarma no deje el juego
+a medio gas.
+
+Se añade además un velo verde muy tenue mientras se anticipa. Sin él, el
+frenazo se siente como que el juego se ha atascado en vez de como que algo va a
+pasar.
 
 Ese es justo el momento que el jugador quiere entender, y a velocidad normal se
 lo pierde. Cortar de golpe le roba la información que necesita para volver a
