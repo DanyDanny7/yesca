@@ -75,6 +75,12 @@ extends Node2D
 @export var volumen_musica: float = -13.0
 
 @export_group("Pruebas")
+## Abre toda la campaña sin tener que superarla.
+##
+## ATENCIÓN: hay que ponerlo en false antes de publicar. Con esto encendido no
+## existe progresión: el jugador entra al nivel 31 desde el primer arranque y se
+## pierde entera la curva que ordena los biomas de menos a más hostil.
+@export var todos_los_niveles: bool = true
 @export var forzar_movimiento: bool = false
 @export var movimiento_prueba: Dot.Movimiento = Dot.Movimiento.REBOTE
 
@@ -417,7 +423,10 @@ func _ready() -> void:
 	_ts_base = Engine.time_scale
 	_diag = Diagnostico.new()
 	_cargar()
-	_diag.evento("opciones sonido=%s musica=%s vibra=%s" % [sonido, musica, vibracion])
+	_diag.evento("opciones sonido=%s musica=%s vibra=%s sacudida=%s" % [
+		sonido, musica, vibracion, sacudida])
+	if todos_los_niveles:
+		_diag.evento("PRUEBAS: campaña abierta entera (%d niveles)" % Niveles.total())
 	_sonar_musica()
 	_poblar_campo()
 	_ir_a(State.MENU)
@@ -1671,6 +1680,8 @@ func _cargar() -> void:
 	else:
 		vibracion = bool(cfg.get_value("opciones", "vibracion", true))
 	sacudida = bool(cfg.get_value("opciones", "sacudida", true))
+	if todos_los_niveles:
+		_nivel_max = Niveles.total() - 1
 
 
 func _guardar() -> void:

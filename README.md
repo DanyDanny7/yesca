@@ -74,6 +74,14 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
   perfiles de jugador para ver si la economía separa el juego bueno del malo.
   Ninguno mide diversión.
 
+## Antes de publicar
+
+- [ ] **`todos_los_niveles` a false** en el inspector de `Main`, grupo Pruebas.
+      Está en true para poder testear cualquier bioma sin superar la campaña, y
+      con eso encendido no existe progresión: se entra al nivel 31 desde el
+      primer arranque y se pierde la curva entera.
+- [ ] Icono propio de la app (ahora sale el de Godot).
+
 ## Android
 
 ```powershell
