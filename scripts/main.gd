@@ -38,10 +38,19 @@ extends Node2D
 ## El game feel no es maquillaje: es donde vive lo pegajoso. Dos juegos con la
 ## misma mecánica, uno adictivo y otro muerto, se diferencian solo aquí.
 @export_group("Game feel")
-## Sacudida que añade cada eslabón, y tope para que una cascada larga no
-## convierta la pantalla en una batidora.
-@export var shake_por_eslabon: float = 3.0
-@export var shake_max: float = 20.0
+## Sacudida del primer eslabón, y tope para que una cascada larga no convierta
+## la pantalla en una batidora.
+@export var shake_por_eslabon: float = 2.6
+@export var shake_max: float = 22.0
+## Cuánto amplifica cada eslabón adicional el golpe del siguiente.
+##
+## Sin esto la sacudida era idéntica en todos los eslabones, y eso es justo lo
+## que impide sentir el choque: si el ×2 mueve lo mismo que el ×10, el número
+## sube pero la mano no se entera. Escalando, la cadena se nota crecer.
+@export var shake_escalado: float = 0.22
+## Golpe extra al cerrar un hito de cadena. Coincide con el sonido de premio,
+## así que oído y tacto dicen lo mismo en el mismo instante.
+@export var shake_hito: float = 7.0
 @export var shake_amortiguacion: float = 9.0
 ## Congelación en el impacto, en segundos. Es lo que se lee como "golpe": sin
 ## ella la cascada se ve fluida y blanda.
@@ -659,7 +668,17 @@ func _cobrar_punto(id: int, pos: Vector2) -> void:
 	_best_cascade = maxi(_best_cascade, n)
 	_time_left = minf(time_max, _time_left + reward_base + reward_step * (n - 1))
 
-	_shake = minf(shake_max, _shake + shake_por_eslabon)
+	var golpe := shake_por_eslabon * (1.0 + shake_escalado * float(n - 1))
+	if n % HITO_CADENA == 0:
+		golpe += shake_hito
+	# El golpe se IMPONE, no se suma.
+	#
+	# Sumando, cuatro eslabones seguidos ya tocaban el tope y a partir de ahí un
+	# impacto mayor no movía nada: justo lo contrario de lo que se busca. Con el
+	# máximo, cada eslabón produce exactamente la sacudida que le corresponde por
+	# su longitud, y los pequeños no se apilan hasta convertir la pantalla en una
+	# batidora.
+	_shake = minf(shake_max, maxf(_shake, golpe))
 	_hitstop = minf(hitstop_max, _hitstop + hitstop_por_eslabon)
 	_score_pop = 1.0
 	# El tono sube con cada eslabón. Es el truco más viejo del género y sigue

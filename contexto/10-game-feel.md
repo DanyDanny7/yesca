@@ -53,6 +53,17 @@ habría sido muy visible.
 
 ## Decisiones
 
+- **La sacudida escala con la longitud de la cadena.** Antes era idéntica en
+  todos los eslabones, y eso es justo lo que impide sentir el choque: si el ×2
+  mueve lo mismo que el ×10, el número sube pero la mano no se entera. Ahora va
+  de 2.5 px en el primer eslabón a 6.7 px en el noveno, con un golpe extra de
+  11 px en cada hito de cinco — que coincide con el sonido de premio, así que
+  oído y tacto dicen lo mismo en el mismo instante.
+- **El golpe se impone, no se suma.** Sumando impulsos, cuatro eslabones
+  seguidos ya tocaban el tope y a partir de ahí un impacto mayor no movía nada:
+  lo contrario de lo que se busca. Tomando el máximo, cada eslabón produce
+  exactamente la sacudida que le toca por su longitud, y los pequeños no se
+  apilan hasta convertir la pantalla en una batidora.
 - **La sacudida mueve los contenedores del campo, no una cámara.** Así el HUD se
   queda quieto, que es lo correcto: sacudir los números los vuelve ilegibles
   justo cuando el jugador quiere leerlos.
