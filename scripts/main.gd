@@ -121,6 +121,13 @@ extends Node2D
 @export var respawn_base: float = 0.32
 @export var respawn_step: float = 0.03
 @export var respawn_max: float = 0.6
+## Cuánto se acelera la reposición con el campo vacío.
+##
+## Con ritmo fijo daba igual que quedaran 24 círculos o ninguno: entraba uno
+## cada 0.4 s. En los biomas de cascada grande —corriente, enjambre— eso dejaba
+## diez segundos sin nada que tocar y con la barra bajando, que es tiempo muerto
+## y además injusto: te castiga por haber jugado bien.
+@export var respawn_vacio: float = 0.22
 
 @export_subgroup("Legibilidad")
 @export var speed_step: float = 8.0
@@ -160,7 +167,7 @@ const COMBO_SIZE := Vector2(240.0, 100.0)
 const STAGE_COLOR_TOPE := 10.0
 const SAVE_PATH := "user://cadena.cfg"
 const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
-		"enjambre", "huida"]
+		"enjambre", "huida", "brasa", "circuito"]
 ## Fuerzas de los modos que Main dirige. Bajas a propósito: el movimiento tiene
 ## que seguir siendo legible, no convertirse en una sopa.
 const ENJAMBRE_VISTA := 220.0
@@ -640,7 +647,9 @@ func _chain_radius() -> float:
 
 
 func _respawn_interval() -> float:
-	return minf(respawn_max, respawn_base + respawn_step * (_stage() - 1))
+	var base := minf(respawn_max, respawn_base + respawn_step * (_stage() - 1))
+	var llenado := clampf(float(_dots.size()) / float(maxi(1, target_dots)), 0.0, 1.0)
+	return base * lerpf(respawn_vacio, 1.0, llenado)
 
 
 func _speed_bonus() -> float:
@@ -843,21 +852,53 @@ func _refill_field(delta: float) -> void:
 	var fuera := d.radius * 2.0
 	var modo := _movimiento_actual()
 
+	var rumbo := Vector2.ZERO
 	if modo == Dot.Movimiento.NIEVE:
 		# La nieve solo tiene sentido entrando por arriba.
 		d.position = Vector2(randf() * rect.x, -fuera)
+		rumbo = Vector2.DOWN
+	elif modo == Dot.Movimiento.CORRIENTE:
+		# El río entra siempre por la izquierda y corre hacia la derecha. Un
+		# río con dos sentidos no es un río.
+		d.position = Vector2(-fuera, randf_range(fuera, rect.y - fuera))
+		rumbo = Vector2.RIGHT
+	elif modo == Dot.Movimiento.BRASA:
+		# Las pavesas nacen abajo, como es debido.
+		d.position = Vector2(randf() * rect.x, rect.y + fuera)
+		rumbo = Vector2.UP
+	elif modo == Dot.Movimiento.CIRCUITO:
+		# En el circuito solo hay cuatro rumbos posibles, y el de entrada tiene
+		# que ser uno de ellos o el primer tramo saldría torcido.
+		match randi() % 4:
+			0:
+				d.position = Vector2(randf() * rect.x, -fuera)
+				rumbo = Vector2.DOWN
+			1:
+				d.position = Vector2(randf() * rect.x, rect.y + fuera)
+				rumbo = Vector2.UP
+			2:
+				d.position = Vector2(-fuera, randf() * rect.y)
+				rumbo = Vector2.RIGHT
+			_:
+				d.position = Vector2(rect.x + fuera, randf() * rect.y)
+				rumbo = Vector2.LEFT
 	else:
 		match randi() % 4:
 			0: d.position = Vector2(randf() * rect.x, -fuera)
 			1: d.position = Vector2(randf() * rect.x, rect.y + fuera)
 			2: d.position = Vector2(-fuera, randf() * rect.y)
 			_: d.position = Vector2(rect.x + fuera, randf() * rect.y)
+		# Apunta al tercio central para que cruce el campo en vez de rozar el
+		# borde y volver a salir sin haber estado nunca en juego.
+		var objetivo := Vector2(
+			randf_range(rect.x * 0.33, rect.x * 0.67),
+			randf_range(rect.y * 0.33, rect.y * 0.67))
+		rumbo = (objetivo - d.position).normalized()
 
-	# Apunta al tercio central para que cruce el campo en vez de rozar el borde.
-	var objetivo := Vector2(
-		randf_range(rect.x * 0.33, rect.x * 0.67),
-		randf_range(rect.y * 0.33, rect.y * 0.67))
-	_preparar_dot(d, modo, (objetivo - d.position).normalized())
+	_preparar_dot(d, modo, rumbo)
+	# Los que llegan durante la partida entran creciendo: se leen como que venían
+	# de lejos, y de paso el campo parece repoblarse antes de estar lleno.
+	d.entrar_creciendo()
 
 	_dots_root.add_child(d)
 	_dots.append(d)
@@ -1502,7 +1543,14 @@ func _poblar_campo() -> void:
 		d.position = Vector2(
 			randf_range(SPAWN_MARGIN, rect.x - SPAWN_MARGIN),
 			randf_range(SPAWN_MARGIN, rect.y - SPAWN_MARGIN))
-		_preparar_dot(d, modo, Vector2.from_angle(randf() * TAU))
+		var rumbo := Vector2.from_angle(randf() * TAU)
+		if modo == Dot.Movimiento.CORRIENTE:
+			rumbo = Vector2.RIGHT
+		elif modo == Dot.Movimiento.BRASA:
+			rumbo = Vector2.UP
+		elif modo == Dot.Movimiento.CIRCUITO:
+			rumbo = [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT][randi() % 4]
+		_preparar_dot(d, modo, rumbo)
 		_dots_root.add_child(d)
 		_dots.append(d)
 
@@ -1516,6 +1564,7 @@ func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 	d.modo = modo
 	d.color = Color(str(_paleta.get("punto", "e8e8f0")))
 	d.radius = float(_paleta.get("radio", 9.0))
+	d.forma = int(_paleta.get("forma", Dot.Forma.CIRCULO))
 	var bonus := _speed_bonus()
 	var rapidez := randf_range(dot_speed_min + bonus, dot_speed_max + bonus)
 	if speed_variance > 0.0:

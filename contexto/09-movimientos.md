@@ -104,3 +104,71 @@ la alternativa es reservarle una franja al HUD y encoger el campo.
   inertes que no contagian, y atracción hacia el punto donde tocas.
 - El objetivo de **vaciar la pantalla** resultó demasiado duro para el nivel 4 y
   se movió al 8, como cierre del primer bioma.
+
+
+# Biomas: regla, paleta y forma
+
+Un bioma son ahora tres cosas, y las tres tienen que decir lo mismo.
+
+| Bioma | Movimiento | Forma | Paleta |
+|---|---|---|---|
+| Campo abierto | rebote | círculo | neutra |
+| Ventisca | nieve | **copo** | hielo |
+| Río | corriente | círculo | agua |
+| Enjambre | enjambre | círculo | violeta |
+| Billar | choque | **bola con brillo** | tapete |
+| Panal | abeja | **abeja** | miel sobre negro |
+| Estampida | huida | **dron orientado** | alarma |
+| Otoño | nieve | **hoja que voltea** | ámbar |
+| Brasas | brasa | **pavesa con halo** | rescoldo |
+| Circuito | circuito | **rombo** | fósforo |
+
+## Lo que no se tematiza
+
+La barra de tiempo (verde, ámbar, rojo) y el anillo gris del fallo. Esos colores
+no decoran, **informan**, y cambiarlos por bioma obligaría al jugador a
+reaprender a leerlos diez veces. Se tematiza el mundo; la interfaz se queda
+quieta.
+
+## Legibilidad como restricción, no como resultado
+
+El círculo es lo único que hay que localizar a toda velocidad, así que ninguna
+paleta puede comprometerlo. Contraste medido en los diez: entre **6.3:1 y
+10.9:1**, todos muy por encima del 4.5:1 que sería el mínimo.
+
+Las formas se dibujan a mano y a nueve píxeles no cabe detalle: lo que las
+distingue es la **silueta**. El copo es radial, la hoja apuntada, el rombo
+anguloso, el dron triangular. A ese tamaño, la silueta es toda la información.
+
+Dos formas llevan orientación: el **dron** mira hacia donde va, lo que delata su
+trayectoria antes de moverse — imprescindible en un bioma que huye de ti. Y la
+**hoja** voltea despacio, como si cayera.
+
+## Movimientos nuevos
+
+- **Brasa**: suben y se renuevan por abajo. Es la nieve del revés, y cambia la
+  lectura más de lo que parece: se caza hacia arriba.
+- **Circuito**: solo horizontal y vertical, con giros de noventa grados. Las
+  trayectorias más predecibles del juego, así que lo difícil deja de ser
+  adivinar y pasa a ser esperar al cruce.
+
+## El río corría en dos sentidos
+
+Jugando el nivel 8: la pantalla se vaciaba y no se repoblaba. Dos fallos
+encadenados.
+
+**El río iba en las dos direcciones.** Los círculos entraban por un borde al
+azar apuntando al centro, así que unos iban a la derecha y otros a la izquierda.
+La pista del nivel decía "todos van en la misma dirección" y no era cierto. Ahora
+entran siempre por la izquierda.
+
+**La reposición era de ritmo fijo.** Daba igual que quedaran 24 círculos o
+ninguno: entraba uno cada 0.4 s. En los biomas de cascada grande eso dejaba diez
+segundos sin nada que tocar y con la barra bajando — tiempo muerto, y además
+injusto, porque te castigaba por haber jugado bien. Ahora el ritmo escala con lo
+vacío que esté el campo: de 0.38 s lleno a 0.084 s vacío.
+
+**Los círculos entran creciendo**, de pequeños a su tamaño, como si vinieran de
+lejos. Es puro telégrafo: se pueden tocar y contagiar desde el primer frame con
+su radio completo. Uno que parece más pequeño de lo que se puede tocar es
+generoso; al revés sería una trampa.
