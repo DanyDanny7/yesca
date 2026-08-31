@@ -64,9 +64,14 @@ extends Node2D
 @export var sonido: bool = true
 @export var sacudida: bool = true
 @export var musica: bool = true
-## Apagada de momento: es el principal sospechoso de un cierre que solo ocurre
-## en el teléfono. El interruptor sigue en la pausa para poder volver a probarla.
-@export var vibracion: bool = false
+## Encendida otra vez.
+##
+## Estuvo apagada por sospechosa del cierre en el teléfono, pero el culpable
+## resultó ser el renderizador: OpenGL traducido por ANGLE sobre una GPU
+## Xclipse. La vibración nunca estuvo probada, solo señalada. Vuelve encendida y
+## esta vez con la caja negra contando cuántas se disparan por segundo, así que
+## si diera problemas se vería en el registro.
+@export var vibracion: bool = true
 @export var volumen_musica: float = -13.0
 
 @export_group("Pruebas")
@@ -1553,14 +1558,14 @@ func _cargar() -> void:
 	_nivel_max = clampi(int(cfg.get_value("progreso", "nivel_max", 0)), 0, Niveles.total() - 1)
 	sonido = bool(cfg.get_value("opciones", "sonido", true))
 	musica = bool(cfg.get_value("opciones", "musica", true))
-	# La vibración se fuerza a apagada una vez, aunque el jugador la tuviera
-	# encendida de antes: es sospechosa de tumbar la app y no vale dejarla
-	# encendida solo porque estaba guardada así.
-	if int(cfg.get_value("opciones", "version", 1)) < 2:
-		vibracion = false
+	# La versión 2 apagó la vibración por sospechosa. Al encontrarse la causa
+	# real —el renderizador— la 3 la devuelve encendida, incluso si quedó
+	# guardada como apagada en el intervalo.
+	if int(cfg.get_value("opciones", "version", 1)) < 3:
+		vibracion = true
 		_guardar()
 	else:
-		vibracion = bool(cfg.get_value("opciones", "vibracion", false))
+		vibracion = bool(cfg.get_value("opciones", "vibracion", true))
 	sacudida = bool(cfg.get_value("opciones", "sacudida", true))
 
 
@@ -1572,7 +1577,7 @@ func _guardar() -> void:
 	cfg.set_value("opciones", "musica", musica)
 	cfg.set_value("opciones", "vibracion", vibracion)
 	cfg.set_value("opciones", "sacudida", sacudida)
-	cfg.set_value("opciones", "version", 2)
+	cfg.set_value("opciones", "version", 3)
 	cfg.save(SAVE_PATH)
 
 
