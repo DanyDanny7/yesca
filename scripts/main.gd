@@ -827,6 +827,19 @@ func _empezar_transicion() -> void:
 	_fondo_cambiado = false
 	_diag.evento("bioma sin fin -> %s" % _bioma_destino)
 	_sonar(SND_CADENA, 0.85, -6.0)
+	# El nombre del bioma, y si es de defensa, la regla que acaba de cambiar.
+	#
+	# Sin este aviso los biomas de defensa no podrían estar en el modo sin fin:
+	# perder de golpe por algo que nunca antes había matado se lee como una
+	# injusticia, aunque sea justo. No es el riesgo lo que molesta, es el riesgo
+	# que no se anuncia.
+	var aviso: String = _bioma_destino
+	if bool(Niveles.paleta_de(_bioma_destino).get("defender", false)):
+		if str(Niveles.paleta_de(_bioma_destino).get("defensa", "suelo")) == "planeta":
+			aviso += "   ·   ¡no dejes que lleguen al planeta!"
+		else:
+			aviso += "   ·   ¡no dejes que toquen el suelo!"
+	_flash(aviso)
 
 
 func _tick_transicion(delta: float) -> void:
@@ -862,6 +875,16 @@ func _tick_transicion(delta: float) -> void:
 		d.radius = float(nueva.get("radio", 9.0))
 		d.modo = modo
 		d.numero = _numero_de(d.forma)
+		# El meteoro NO rebota: es lo que hace que la lluvia converja. Pero un
+		# target convertido a mitad de partida conserva el rumbo que traía, y con
+		# ese modo saldría de la pantalla para no volver, dejando un hueco en el
+		# campo que no se puede rellenar ni tocar. Hay que reapuntarlo.
+		if modo == Dot.Movimiento.METEORO:
+			var diana := _diana_planeta(get_viewport_rect().size)
+			d.velocity = (diana - d.position).normalized() * maxf(1.0, d.velocity.length())
+		elif modo == Dot.Movimiento.BOMBARDEO and d.velocity.y <= 0.0:
+			# Lo mismo por otro motivo: un proyectil que sube nunca amenaza nada.
+			d.velocity = Vector2(d.velocity.x * 0.3, absf(d.velocity.y) + 1.0)
 		d.queue_redraw()
 
 	if _transicion >= 1.0:

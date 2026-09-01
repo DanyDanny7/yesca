@@ -346,17 +346,19 @@ static func biomas() -> Array:
 	return vistos
 
 
-## Los biomas aptos para el modo sin fin.
+## Los biomas del modo sin fin: todos.
 ##
-## Quedan fuera los de defensa: perder porque un proyectil tocó el suelo tiene
-## sentido en un nivel que avisa de ello, pero en una partida sin fin aparecería
-## de la nada a los tres minutos y se leería como una injusticia.
+## Durante un tiempo los de defensa quedaron fuera, con el argumento de que
+## perder porque un proyectil toca el suelo aparecería de la nada a los tres
+## minutos y se leería como una injusticia. El argumento no era malo, pero la
+## conclusión sí: quitarlos convertía el modo sin fin en una versión recortada
+## del juego, y dos de las cosas más memorables que tiene no salían nunca.
+##
+## Lo que hacía injusta la derrota no era el bioma, era **no haber avisado**. El
+## aviso se da ahora al entrar (ver `_empezar_transicion`), y con eso el riesgo
+## deja de venir de la nada y pasa a ser parte del trato.
 static func biomas_sinfin() -> Array:
-	var aptos: Array = []
-	for b in biomas():
-		if not bool(PALETAS.get(b, {}).get("defender", false)):
-			aptos.append(b)
-	return aptos
+	return biomas()
 
 
 ## El movimiento con el que juega un bioma, tomado de su primer nivel.
