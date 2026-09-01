@@ -66,13 +66,24 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
 - `scripts/explosion.gd`, `scripts/circle_button.gd` — nodos que se dibujan
   solos con `_draw()`. Sin sprites ni escenas: para formas geométricas no hacen
   falta.
+- `scripts/arte.gd` — carga de assets intercambiables. Si existe el fichero
+  manda el fichero; si no, se dibuja como siempre. El dibujo procedural no
+  desaparece, pasa a ser el respaldo. Ver `contexto/13-arte-intercambiable.md`.
+- `arte/targets/` y `arte/fondos/` — donde se dejan los PNG (o SVG) que
+  sustituyen formas y mosaicos. Vacías de serie: el juego arranca igual.
 - `audio/` — los efectos y la música, generados por síntesis con
   `tools/generar_audio.py`. Se versionan como código, no como binarios opacos:
   cambiar el timbre es editar una fórmula.
 - `tools/` — utilidades de desarrollo, fuera del juego. `calibracion.gd` mide
   el reparto de cadenas; `simulacion.gd` juega partidas enteras con dos
   perfiles de jugador para ver si la economía separa el juego bueno del malo.
-  Ninguno mide diversión.
+  Ninguno mide diversión. `exportar_arte.gd` vuelca todo el arte procedural a
+  PNG en `arte_exportado/`, para tener de dónde partir al dibujar:
+
+      godot --path . --script tools/exportar_arte.gd
+
+  Tiene que correr con ventana, no en headless: los targets se capturan
+  renderizando de verdad.
 
 ## Antes de publicar
 

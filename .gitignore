@@ -19,3 +19,7 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Arte exportado: se regenera con tools/exportar_arte.gd y pesa 54 PNG.
+# Lo que se versiona es el arte de VERDAD, el que va en arte/.
+/arte_exportado/

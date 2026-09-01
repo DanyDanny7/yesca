@@ -62,6 +62,13 @@ const LADO := 128
 ## Los mosaicos se guardan por tipo: generar uno cuesta unos milisegundos y no
 ## hay motivo para repetirlo cada vez que se entra al mismo bioma.
 static var _cache: Dictionary = {}
+## Qué telones vienen de un fichero y no del generador.
+##
+## Importa porque los dos se dibujan con reglas distintas: el patrón generado se
+## pinta en blanco y se tiñe con el color del bioma, mientras que un asset se
+## respeta tal como lo dibujó quien lo hizo. Es la misma regla que en los
+## targets: un asset manda, incluido su color.
+static var _es_asset: Dictionary = {}
 
 var tipo: Tipo = Tipo.LISO
 var color: Color = Color("ffffff")
@@ -76,6 +83,7 @@ var _deriva: Vector2 = Vector2.ZERO
 ## puede repetirse hacia arriba. La banda se repite solo en horizontal y se ancla
 ## abajo, que es donde tiene sentido una ciudad.
 var _tex_banda: ImageTexture
+var _tipo_banda: Tipo = Tipo.LISO
 var _color_banda: Color = Color("ffffff")
 ## Si los píxeles se envuelven también en vertical. En el mosaico sí; en la
 ## banda no, o los tejados aparecerían asomando por abajo.
@@ -108,6 +116,7 @@ func configurar(nuevo_tipo: Tipo, nuevo_color: Color,
 	_scroll_banda = 0.0
 	_deriva = _deriva_de(tipo)
 	_tex = _mosaico(tipo)
+	_tipo_banda = banda
 	_tex_banda = _mosaico(banda) if banda != Tipo.LISO else null
 	_banda_arriba = banda == Tipo.AURORA
 	set_process(_deriva != Vector2.ZERO or _fugaces or _banda_arriba)
@@ -143,6 +152,12 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+## Con qué color se modula un telón: el del bioma si lo generamos nosotros,
+## blanco si viene de un fichero.
+func _tinte(t: Tipo) -> Color:
+	return Color.WHITE if _es_asset.get(t, false) else color
+
+
 func _draw() -> void:
 	if _tex == null and _tex_banda == null:
 		return
@@ -154,7 +169,7 @@ func _draw() -> void:
 			_tex,
 			Rect2(_scroll - Vector2(LADO, LADO), r + Vector2(LADO, LADO) * 2.0),
 			true,
-			color)
+			_tinte(tipo))
 
 	# La banda va anclada a un borde y con la altura EXACTA de su textura: así
 	# se repite en horizontal y no en vertical.
@@ -166,7 +181,7 @@ func _draw() -> void:
 			_tex_banda,
 			Rect2(Vector2(x, y), Vector2(r.x + float(LADO), alto)),
 			true,
-			_color_banda)
+			_color_banda if not _es_asset.get(_tipo_banda, false) else Color.WHITE)
 
 	if marco == Marco.MESA:
 		_dibujar_mesa(r)
@@ -281,6 +296,16 @@ func _mosaico(t: Tipo) -> ImageTexture:
 		return null
 	if _cache.has(t):
 		return _cache[t]
+
+	# Un asset sustituye al patrón generado. Tiene que ser tileable por su
+	# cuenta: aquí se repite sin más, y una imagen que no case consigo misma
+	# deja una rejilla de costuras visible por toda la pantalla.
+	var propio := Arte.fondo(t)
+	if propio != null:
+		var tex_propia := ImageTexture.create_from_image(propio.get_image())
+		_cache[t] = tex_propia
+		_es_asset[t] = true
+		return tex_propia
 
 	var banda := t in [Tipo.HORIZONTE, Tipo.HORIZONTE_ROTO, Tipo.AURORA, Tipo.BANDERINES]
 	_wrap_y = not banda

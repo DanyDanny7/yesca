@@ -109,6 +109,19 @@ func _draw() -> void:
 	# solo aquí: los targets se ven un 25% más grandes y no encadenan ni un
 	# píxel más lejos. El radio de toque es aparte y tampoco se toca.
 	var r := radius * ESCALA_VISUAL * lerpf(ENTRADA_MIN, 1.0, _entrada)
+	
+	# Si hay un asset para esta forma, manda el asset. El dibujo de
+	# abajo pasa a ser el respaldo: cubre las formas sin fichero y
+	# mantiene el juego jugable si un asset falta o viene roto.
+	var tex := Arte.target(forma, numero)
+	if tex != null:
+		var lado := r * Arte.LIENZO_EN_RADIOS
+		# Sin tinte: el color de la paleta manda sobre las formas de
+		# código, pero un asset lo pinta quien lo dibuja.
+		draw_texture_rect(tex,
+			Rect2(Vector2(-lado, -lado) * 0.5, Vector2(lado, lado)), false)
+		return
+	
 	match forma:
 		Forma.COPO: _copo(r)
 		Forma.ABEJA: _abeja(r)

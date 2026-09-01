@@ -1,0 +1,5 @@
+Deja aquí los PNG/SVG que sustituyan formas de target.
+El nombre es el de la forma: abeja.png, copo.png, burbuja.png, globo.png…
+Variantes por instancia: bola_7.png, globo_3.png (se cae a bola.png si no está).
+El lienzo mide 5.4 radios de ancho y el target va centrado.
+Se dibuja tal cual: el color lo pones tú, la paleta no lo tiñe.

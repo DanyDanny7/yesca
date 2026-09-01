@@ -1,0 +1,4 @@
+Deja aquí los PNG/SVG que sustituyan mosaicos de fondo.
+El nombre es el del telón: panal.png, azulejos.png, confeti.png…
+TIENE que ser tileable consigo mismo o se ve una rejilla de costuras.
+Se dibuja tal cual, sin teñir: el color lo pones tú.
