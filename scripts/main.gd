@@ -139,6 +139,12 @@ extends Node2D
 @export var speed_step: float = 8.0
 
 @export_subgroup("Sin fin")
+## Lo que cuesta un impacto en el modo sin fin, en segundos de barra.
+##
+## En la campaña un impacto acaba la partida; aquí solo muerde. Tiene que doler
+## lo bastante para que defender siga importando, sin borrar de un golpe una
+## partida de tres minutos.
+@export var coste_impacto: float = 6.0
 ## Cada cuántos escalones cambia de bioma la partida sin fin.
 @export var escalones_por_bioma: int = 2
 ## Cuánto tarda el barrido en cruzar la pantalla.
@@ -720,7 +726,7 @@ func _drain_rate() -> float:
 	var d := drain_base + drain_step * _pasos_presion(_stage())
 	# Un bioma puede pedir que el reloj apriete menos. Lo usan los de defensa,
 	# donde la amenaza tiene que ser lo que cae, no la barra.
-	return d * float(_paleta.get("drain_mult", 1.0))
+	return d if _ajuste_de_campana() else d * float(_paleta.get("drain_mult", 1.0))
 
 
 func _chain_radius() -> float:
@@ -730,14 +736,36 @@ func _chain_radius() -> float:
 ## Cuántos targets caben a la vez. Los biomas de defensa piden muchos menos:
 ## veinticinco proyectiles cayendo no son una amenaza, son una pared.
 func _target_dots() -> int:
+	if _ajuste_de_campana():
+		return maxi(1, target_dots)
 	return maxi(1, int(_paleta.get("targets", target_dots)))
+
+
+## Si hay que ignorar los ajustes que un bioma de defensa trae para la campaña.
+##
+## Asedio y Lluvia de meteoros vienen con diez objetivos y el desagüe al 45%.
+## Eso NO es identidad del bioma, es calibración de su nivel: con veinticinco
+## proyectiles cayendo a la vez la campaña era una muralla, y con el desagüe
+## normal se perdía por reloj antes de que la mecánica llegara a jugarse.
+##
+## En sin fin las dos cosas hacen daño. La escasez deja el campo desierto justo
+## cuando el resto de biomas trae veinticinco, y medido salía que el jugador que
+## sabe esperar a que se junten no encontraba grupo, no tocaba y moría de reloj:
+## el juego premiaba jugar mal. Y el desagüe rebajado regalaba un respiro cada
+## vez que tocaba defensa.
+##
+## Así que en sin fin estos biomas conservan su aspecto y su amenaza, pero no la
+## calibración hecha a la medida de su nivel.
+func _ajuste_de_campana() -> bool:
+	return _mode == Mode.SIN_FIN and _es_defensa()
 
 
 func _respawn_interval() -> float:
 	var base := minf(respawn_max, respawn_base + respawn_step * (_stage() - 1))
 	# Cada bioma puede pedir su propio ritmo. El asedio nace de aquí: proyectiles
 	# lentos pero muy seguidos es una amenaza distinta a pocos y rápidos.
-	base *= float(_paleta.get("respawn_mult", 1.0))
+	if not _ajuste_de_campana():
+		base *= float(_paleta.get("respawn_mult", 1.0))
 	# La aceleración por campo vacío NO aplica en los biomas de defensa. Está
 	# pensada para cuando el jugador limpia el campo de una cascada, pero ahí el
 	# campo está escaso por diseño, así que se disparaba siempre y soltaba una
@@ -782,7 +810,15 @@ func _aplicar_paleta() -> void:
 		int(_paleta.get("banda", Fondo.Tipo.LISO)),
 		Color(str(_paleta.get("banda_color", "ffffff"))),
 		int(_paleta.get("marco", Fondo.Marco.NADA)),
-		bool(_paleta.get("fugaces", false)))
+		bool(_paleta.get("fugaces", false)),
+		_bioma_actual())
+
+
+## El nombre del bioma en curso, venga de la campaña o de la rotación sin fin.
+func _bioma_actual() -> String:
+	if _mode == Mode.CAMPANA:
+		return str(Niveles.nivel(_nivel).get("bioma", ""))
+	return _bioma_actual_sinfin()
 
 
 ## El bioma que toca ahora mismo en el modo sin fin.
@@ -873,6 +909,7 @@ func _tick_transicion(delta: float) -> void:
 		d.forma = int(nueva.get("forma", Dot.Forma.CIRCULO))
 		d.color = Color(str(nueva.get("punto", "e8e8f0")))
 		d.radius = float(nueva.get("radio", 9.0))
+		d.escala = float(nueva.get("escala", 1.0))
 		d.modo = modo
 		d.numero = _numero_de(d.forma)
 		# El meteoro NO rebota: es lo que hace que la lluvia converja. Pero un
@@ -1097,9 +1134,12 @@ func _check_impactos() -> void:
 	# ve nada.
 	var pantalla := get_viewport_rect().size
 	var contra_planeta := str(_paleta.get("defensa", "suelo")) == "planeta"
-	var centro := Fondo.planeta_centro(pantalla)
-	var radio := Fondo.planeta_radio(pantalla)
-	var suelo := pantalla.y - ALTURA_CIUDAD
+	# La geometría se le pregunta al Fondo y no se calcula aquí: es él quien
+	# sabe si el bioma se está dibujando por código o desde un asset, y las dos
+	# cosas caen en sitios distintos.
+	var centro := _fondo.planeta_centro(pantalla)
+	var radio := _fondo.planeta_radio(pantalla)
+	var suelo := pantalla.y - _fondo.altura_ciudad(pantalla, ALTURA_CIUDAD)
 	for d in _dots:
 		var toca := false
 		if contra_planeta:
@@ -1129,6 +1169,25 @@ func _impacto_ciudad(pos: Vector2, contra_planeta: bool = false) -> void:
 	_shake = shake_max
 	_sonar(SND_FIN, 0.7)
 	_vibrar(180)
+	
+	# En la CAMPAÑA el impacto acaba la partida: el nivel va de eso y su
+	# pista lo avisa antes de empezar.
+	#
+	# En SIN FIN no. Ahí los biomas de defensa son 2 de 17 y llegan por sorteo
+	# a los tres minutos; terminar de golpe una partida larga por una regla que
+	# el resto del rato no existía se lee como una injusticia, y era el motivo
+	# por el que estos dos biomas estuvieron fuera de la rotación. Cobrarlo en
+	# tiempo mantiene la amenaza —un mordisco así se nota— sin tirar el trabajo
+	# de tres minutos.
+	#
+	# Medido: con la derrota instantánea, el jugador que espera a que se junten
+	# los objetivos puntuaba MENOS que el que toca al azar. Los biomas de
+	# defensa traen pocos objetivos, así que el que sabe esperar no encontraba
+	# grupo, no tocaba, y moría de reloj. El juego premiaba jugar mal.
+	if _mode == Mode.SIN_FIN:
+		_flash("¡Impacto!   -%d s" % int(coste_impacto))
+		_time_left = maxf(0.0, _time_left - coste_impacto)
+		return
 	_perder("Impactó la Tierra" if contra_planeta else "Impactó la ciudad")
 
 
@@ -1262,8 +1321,8 @@ func _alta_dot() -> void:
 ## hilo según se acercan, y la lluvia se leería como una fila. Repartiendo la
 ## diana por el disco convergen sin encimarse.
 func _diana_planeta(pantalla: Vector2) -> Vector2:
-	var centro := Fondo.planeta_centro(pantalla)
-	var radio := Fondo.planeta_radio(pantalla)
+	var centro := _fondo.planeta_centro(pantalla)
+	var radio := _fondo.planeta_radio(pantalla)
 	return centro + Vector2.from_angle(randf() * TAU) * radio * sqrt(randf()) * 0.8
 
 
@@ -1983,6 +2042,7 @@ func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 	d.modo = modo
 	d.color = Color(str(_paleta.get("punto", "e8e8f0")))
 	d.radius = float(_paleta.get("radio", 9.0))
+	d.escala = float(_paleta.get("escala", 1.0))
 	d.forma = int(_paleta.get("forma", Dot.Forma.CIRCULO))
 	d.numero = _numero_de(d.forma)
 	var bonus := _speed_bonus()

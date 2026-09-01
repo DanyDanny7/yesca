@@ -98,8 +98,17 @@ func _draw() -> void:
 		return
 
 	draw_circle(Vector2.ZERO, radius, Color(color, 0.16 * fade))
+	# El anillo va a DOS pasadas: una oscura ancha debajo y la viva encima.
+	#
+	# La regla no es "el anillo es claro", es "el anillo contrasta contra su
+	# fondo". Con una sola pasada, en el único bioma de fondo claro —Ducha— un
+	# anillo pálido sobre azulejo pálido no existe. El contorno oscuro lo
+	# resuelve sin tener que saber sobre qué se está dibujando: donde el fondo
+	# ya es oscuro no se nota, y donde es claro salva la lectura.
+	#
 	# 32 segmentos en vez de 64: a este tamaño no se distingue y son la mitad de
 	# vértices por anillo, con decenas de anillos vivos en una cascada grande.
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 32, Color(0.06, 0.075, 0.1, fade * 0.85), 6.0, true)
 	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 32, Color(color, fade), 3.0, true)
 
 	# Las esquirlas adelantan al anillo y se encogen: dan la lectura de que algo
