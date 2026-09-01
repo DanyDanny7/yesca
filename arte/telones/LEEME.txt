@@ -1,0 +1,21 @@
+QUE VA AQUI
+  El fondo de PANTALLA COMPLETA, pintado entero. Un fichero por telon.
+  Manda sobre el azulejo de arte/fondos/: si estan los dos, gana este.
+
+NOMBRES
+  Los mismos que en arte/fondos/ (estrellas, panal, tapete, tierra...)
+
+COMO SE COLOCA
+  Se escala para CUBRIR la pantalla, centrado y sin deformarse, y se
+  recorta lo que sobra. Asi que deja aire en los bordes: en un telefono
+  mas estrecho se come los lados. Referencia comoda: 1080x1920.
+
+LO QUE SE PIERDE
+  El desplazamiento. Hoy la nieve cae, el rio corre y las pavesas
+  suben porque el azulejo se mueve; una imagen que no se repite no
+  puede moverse sin descubrir su borde, asi que queda quieta.
+  Es un cambio real de sensacion, no solo de dibujo.
+
+LO QUE NO SE PIERDE
+  La banda (aurora, ciudad, banderines) y el marco (mesa de billar,
+  banera, planeta) se siguen dibujando ENCIMA.

@@ -8,7 +8,15 @@ para redibujar. Lo que sustituye de verdad va en `arte/`.
 
 1. El **nombre del fichero manda**. `abeja.png` sustituye a la abeja;
    cualquier otro nombre no lo lee nadie.
-2. Se deja en `arte/targets/` o `arte/fondos/` según sea forma o fondo.
+2. Se deja en la carpeta que le toca, y son cuatro:
+
+   | carpeta | qué es | ojo con |
+   |---|---|---|
+   | `arte/targets/` | lo que se revienta | proporción del lienzo |
+   | `arte/fondos/` | mosaico que **se repite** | tiene que casar consigo mismo |
+   | `arte/telones/` | fondo de **pantalla completa** | pierde el desplazamiento |
+   | `arte/explosiones/` | las detonaciones | `cadena`, `fallo`, `impacto` |
+
 3. PNG con transparencia, SVG, WebP o JPG. Nada más que hacer: el juego
    lo coge al arrancar, y si lo quitas vuelve el dibujo de código.
 
@@ -53,11 +61,36 @@ dirección de vuelo y la animación de aparición.
 <tr><td align="center"><img src="targets/globo_8.png" width="96"><br><code>globo_8.png</code></td><td align="center"><img src="targets/meteoro.png" width="96"><br><code>meteoro.png</code></td><td align="center"><img src="targets/robot.png" width="96"><br><code>robot.png</code></td><td align="center"><img src="targets/hormiga.png" width="96"><br><code>hormiga.png</code></td></tr>
 </table>
 
-## Fondos
+## Explosiones
 
-Se repiten en mosaico, así que **tienen que casar consigo mismos**: una
-imagen que no encaje deja una rejilla de costuras por toda la pantalla.
-Salen aquí ya compuestos sobre el color de su bioma, que es como se ven.
+Tres, y el nombre del fichero dice cuál es: `cadena` para el tap y cada
+eslabón de la cascada, `fallo` para el toque errado, `impacto` para cuando
+algo llega a la ciudad o al planeta y se acaba la partida.
+
+El lienzo mide **3.0 radios**, menos que el de un target porque no hay
+cola, pero más de dos: las esquirlas adelantan al anillo hasta un 28%.
+
+**Basta una imagen quieta.** El nodo la escala al radio de cada instante
+y la desvanece al final, así que el crecimiento y el apagado ya están
+puestos; lo que hay que dibujar es el momento de más energía.
+
+<table>
+<tr><td align="center"><img src="explosiones/cadena.png" width="96"><br><code>cadena.png</code></td><td align="center"><img src="explosiones/fallo.png" width="96"><br><code>fallo.png</code></td><td align="center"><img src="explosiones/impacto.png" width="96"><br><code>impacto.png</code></td></tr>
+</table>
+
+## Fondos en mosaico
+
+Se repiten, así que **tienen que casar consigo mismos**: una imagen que no
+encaje deja una rejilla de costuras por toda la pantalla. Salen aquí ya
+compuestos sobre el color de su bioma, que es como se ven.
+
+Si prefieres pintar el fondo entero en vez de un azulejo, va en
+`arte/telones/` con el mismo nombre y manda sobre el mosaico. Se escala
+para **cubrir** la pantalla, centrada y sin deformarse, así que conviene
+dejar aire en los bordes: en un teléfono más estrecho se recorta por los
+lados. Lo que se pierde es el desplazamiento —la nieve cayendo, el río
+corriendo, las pavesas subiendo—, porque una imagen que no se repite no
+puede moverse sin descubrir su borde.
 
 <table>
 <tr><td align="center"><img src="fondos/estrellas.png" width="96"><br><code>estrellas.png</code></td><td align="center"><img src="fondos/copos.png" width="96"><br><code>copos.png</code></td><td align="center"><img src="fondos/corriente.png" width="96"><br><code>corriente.png</code></td><td align="center"><img src="fondos/celulas.png" width="96"><br><code>celulas.png</code></td></tr>

@@ -1097,6 +1097,7 @@ func _impacto_ciudad(pos: Vector2, contra_planeta: bool = false) -> void:
 	e.position = pos
 	e.max_radius = tap_radius * 1.6
 	e.color = Color("ff7a3c")
+	e.tipo = Explosion.Tipo.IMPACTO
 	e.grow_time = 0.18
 	e.hold_time = 0.5
 	e.decay_time = 0.6
@@ -1361,6 +1362,7 @@ func _spawn_explosion(pos: Vector2, radius: float, chain_id: int) -> void:
 	var e := Explosion.new()
 	e.position = pos
 	e.max_radius = radius
+	e.tipo = Explosion.Tipo.CADENA
 	e.chain_id = chain_id
 	e.color = _stage_color()
 	_explosions_root.add_child(e)
@@ -1378,6 +1380,7 @@ func _marcar_muerte(pos: Vector2) -> void:
 	e.position = pos
 	e.max_radius = tap_tolerance
 	e.color = Explosion.COLOR_FALLO
+	e.tipo = Explosion.Tipo.FALLO
 	e.grow_time = 0.12
 	e.hold_time = 9999.0
 	e.decay_time = 0.3
@@ -1390,6 +1393,7 @@ func _spawn_effect(pos: Vector2) -> void:
 	e.position = pos
 	e.max_radius = tap_tolerance
 	e.color = Explosion.COLOR_FALLO
+	e.tipo = Explosion.Tipo.FALLO
 	e.hold_time = 0.1
 	_explosions_root.add_child(e)
 	_effects.append(e)
@@ -1700,6 +1704,7 @@ func _anillo_fiesta(pos: Vector2, indice: int) -> void:
 	var e := Explosion.new()
 	e.position = pos
 	e.max_radius = randf_range(90.0, 170.0)
+	e.tipo = Explosion.Tipo.CADENA
 	e.color = Color(str(_paleta.get("onda", "6de3a0")))
 	e.grow_time = randf_range(0.2, 0.45)
 	e.hold_time = 0.2

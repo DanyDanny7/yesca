@@ -30,7 +30,18 @@ extends RefCounted
 ## punto de partida que editar.
 
 const DIR_TARGETS := "res://arte/targets/"
+## Mosaicos que se repiten. Tienen que casar consigo mismos.
 const DIR_FONDOS := "res://arte/fondos/"
+## Imágenes de pantalla completa. NO se repiten: se escalan para cubrir.
+##
+## Son dos carpetas y no una porque son dos encargos distintos, y confundirlos
+## se paga caro en las dos direcciones: un mosaico estirado a pantalla completa
+## se ve borroso, y un cuadro repetido en baldosas deja una rejilla de costuras
+## por todas partes. El nombre de la carpeta obliga a decidir cuál se está
+## entregando.
+const DIR_TELONES := "res://arte/telones/"
+## Detonaciones.
+const DIR_EXPLOSIONES := "res://arte/explosiones/"
 
 ## Cuántos radios de ancho tiene el lienzo de un target.
 ##
@@ -42,6 +53,16 @@ const DIR_FONDOS := "res://arte/fondos/"
 ## "radio" del target es 1/5.4 del ancho de la imagen. En un lienzo de 512, el
 ## cuerpo principal mide unos 190 px de diámetro y el resto es aire.
 const LIENZO_EN_RADIOS := 5.4
+
+## Cuántos radios de ancho tiene el lienzo de una explosión.
+##
+## Menos que el de un target porque una detonación es redonda y no tiene cola,
+## pero más de dos: las esquirlas adelantan al anillo hasta un 28%, y sin margen
+## se recortarían justo en el momento de más energía.
+const EXPLOSION_EN_RADIOS := 3.0
+
+## Nombres de fichero por tipo de detonación, en el orden de Explosion.Tipo.
+const NOMBRE_EXPLOSION := ["cadena", "fallo", "impacto"]
 
 ## Nombres de fichero por forma, en el orden del enum Dot.Forma.
 const NOMBRE_FORMA := [
@@ -84,6 +105,29 @@ static func fondo(tipo: int) -> Texture2D:
 	if tipo < 0 or tipo >= NOMBRE_FONDO.size():
 		return null
 	return _buscar(DIR_FONDOS + NOMBRE_FONDO[tipo])
+
+
+## La imagen de pantalla completa de un telón, si la hay.
+##
+## Manda sobre el mosaico: si existen las dos, se usa esta. Lo que se pierde al
+## entregar una pantalla completa es el desplazamiento —la nieve que cae, el río
+## que corre, las pavesas que suben—, porque una imagen que no se repite no
+## puede desplazarse sin descubrir su borde.
+static func telon(tipo: int) -> Texture2D:
+	if tipo < 0 or tipo >= NOMBRE_FONDO.size():
+		return null
+	return _buscar(DIR_TELONES + NOMBRE_FONDO[tipo])
+
+
+## El asset de un tipo de detonación, si lo hay.
+##
+## Se dibuja escalado al radio que tenga la explosión en cada instante y con su
+## desvanecido, así que una sola imagen quieta sirve: la animación la pone el
+## nodo, no el fichero.
+static func explosion(tipo: int) -> Texture2D:
+	if tipo < 0 or tipo >= NOMBRE_EXPLOSION.size():
+		return null
+	return _buscar(DIR_EXPLOSIONES + NOMBRE_EXPLOSION[tipo])
 
 
 ## Busca el asset probando las extensiones que Godot importa como textura.

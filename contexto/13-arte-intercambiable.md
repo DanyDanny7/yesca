@@ -27,15 +27,26 @@ tarea.
 
 ## Dónde van las cosas
 
-```
-arte/targets/<forma>.png     circulo, copo, abeja, hoja, bola, dron, chispa,
-                             chip, avion, misil, pez, estrella, bala, llama,
-                             burbuja, globo
-arte/fondos/<telon>.png      liso, estrellas, copos, corriente, celulas,
-                             tapete, panal, rejilla, hojas, pavesas, trazas,
-                             estelas, horizonte, horizonte_roto, aurora,
-                             azulejos, confeti, banderines
-```
+Cuatro carpetas, y cuál se elige **es parte del encargo**:
+
+| carpeta | qué es | lo que hay que vigilar |
+|---|---|---|
+| `arte/targets/` | lo que se revienta | la proporción del lienzo |
+| `arte/fondos/` | azulejo que **se repite** | tiene que casar consigo mismo |
+| `arte/telones/` | fondo de **pantalla completa** | pierde el desplazamiento |
+| `arte/explosiones/` | las detonaciones | `cadena`, `fallo`, `impacto` |
+
+Cada una lleva su `LEEME.txt` con los nombres válidos y las trampas, para que
+quien dibuja no tenga que leer este documento ni el código.
+
+Mosaico y pantalla completa son dos carpetas y no una a propósito. Confundirlos
+se paga en las dos direcciones: un azulejo estirado a pantalla completa se ve
+borroso, y un cuadro repetido en baldosas deja una rejilla de costuras por todas
+partes. El nombre de la carpeta obliga a decidir cuál se está entregando, y esa
+decisión no puede quedar implícita porque **no hay forma fiable de adivinarla
+mirando la imagen**.
+
+Si existen las dos para el mismo telón, gana la de pantalla completa.
 
 También valen `.svg`, `.webp` y `.jpg`. Godot importa el SVG rasterizándolo al
 importar, así que no escala mejor que un PNG en tiempo de ejecución; la ventaja
@@ -97,6 +108,24 @@ Dos detalles del exportador que son decisiones, no casualidades:
   porque a un asset no se le aplica tinte. Exportarlo compuesto hace que lo que
   ves sea lo que hay.
 
+## Las explosiones
+
+Una detonación no es una imagen: crece con un frenazo al final, se sostiene
+—esa es la ventana en la que un punto puede contagiarse— y se apaga. Aun así
+**basta con entregar una imagen quieta**, porque el nodo la escala al radio de
+cada instante y la desvanece al final. Lo que hay que dibujar es el momento de
+más energía.
+
+Hasta ahora las tres detonaciones se distinguían solo por el color, que basta
+para dibujarlas pero no para sustituirlas: un asset necesita saber **cuál** está
+reemplazando. De ahí el enum `Explosion.Tipo`, que es todo lo que hizo falta
+añadir.
+
+El precio de sustituirlas: hoy la detonación toma el color del bioma, y un asset
+se dibuja tal cual, así que pasaría a ser la misma en los diecisiete. No es poco
+—el color de la onda es parte de la identidad de cada bioma— y conviene decidirlo
+a sabiendas.
+
 ## Lo que se pierde al sustituir
 
 Las formas que se animan por dentro quedan **congeladas**: las alas de la abeja,
@@ -110,6 +139,11 @@ fichero devuelve la animación.
 
 Lo que **no** se pierde: la rotación hacia la dirección de vuelo (la aplica el
 nodo, no el dibujo) ni la animación de entrada al aparecer.
+
+Y en los fondos de pantalla completa se pierde otra cosa distinta: **el
+desplazamiento**. Hoy la nieve cae, el río corre y las pavesas suben porque el
+azulejo se mueve, y una imagen que no se repite no puede moverse sin descubrir su
+borde. Es un cambio de sensación, no solo de dibujo. El azulejo lo conserva.
 
 ## Verificación
 

@@ -1,0 +1,24 @@
+QUE VA AQUI
+  Las detonaciones. Tres, y el nombre dice cual es.
+
+NOMBRES
+  cadena.png    el tap y cada eslabon de la cascada
+  fallo.png     el toque errado; se ve igual pero no contagia nada
+  impacto.png   algo llego a la ciudad o al planeta: fin de partida
+
+  No hace falta entregar las tres. La que no este sigue dibujandose
+  por codigo.
+
+BASTA UNA IMAGEN QUIETA
+  El juego la escala al radio de cada instante y la desvanece al
+  final, asi que el crecimiento y el apagado ya estan puestos.
+  Lo que hay que dibujar es el momento de MAS energia.
+
+EL LIENZO
+  Cuadrado, 3 radios de ancho. Menos que un target porque no hay cola,
+  pero mas de dos: las esquirlas adelantan al anillo hasta un 28%.
+
+EL COLOR
+  Se dibuja tal cual. Hoy la detonacion toma el color del bioma; con
+  un asset deja de hacerlo y es la misma en los 17. Decision a tomar
+  a sabiendas.

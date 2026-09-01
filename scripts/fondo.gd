@@ -160,13 +160,33 @@ func _tinte(t: Tipo) -> Color:
 	return Color.WHITE if _es_asset.get(t, false) else color
 
 
-func _draw() -> void:
-	if _tex == null and _tex_banda == null:
+## Dibuja una imagen cubriendo la pantalla entera, centrada y sin deformarla.
+##
+## Se escala por el lado que más falta haga y se recorta lo que sobre, como el
+## `cover` de la web. Estirarla a la fuerza deformaría el dibujo, y encajarla
+## entera dejaría franjas vacías a los lados en cuanto la pantalla no tuviera
+## exactamente su proporción, que es lo normal entre teléfonos.
+func _cubrir(tex: Texture2D, r: Vector2) -> void:
+	var t := Vector2(tex.get_size())
+	if t.x <= 0.0 or t.y <= 0.0:
 		return
+	var escala := maxf(r.x / t.x, r.y / t.y)
+	var tam := t * escala
+	draw_texture_rect(tex, Rect2((r - tam) * 0.5, tam), false)
+
+
+func _draw() -> void:
 	var r := get_viewport_rect().size
+	# Una imagen de pantalla completa manda sobre el mosaico. Se dibuja antes de
+	# la banda y el marco, que se siguen pintando encima.
+	var lienzo := Arte.telon(tipo)
+	if lienzo != null:
+		_cubrir(lienzo, r)
+	elif _tex == null and _tex_banda == null:
+		return
 	# Una sola llamada para todo el telón. Se dibuja un mosaico de más en cada
 	# lado para que el desplazamiento no descubra el borde.
-	if _tex != null:
+	if _tex != null and lienzo == null:
 		draw_texture_rect(
 			_tex,
 			Rect2(_scroll - Vector2(LADO, LADO), r + Vector2(LADO, LADO) * 2.0),

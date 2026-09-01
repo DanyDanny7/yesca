@@ -28,15 +28,18 @@ func _initialize() -> void:
 func _correr() -> void:
 	var dir_t := SALIDA + "targets/"
 	var dir_f := SALIDA + "fondos/"
+	var dir_e := SALIDA + "explosiones/"
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir_t))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir_f))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir_e))
 
 	var n_f := _exportar_fondos(dir_f)
 	var n_t := await _exportar_targets(dir_t)
+	var n_e := await _exportar_explosiones(dir_e)
 	_escribir_referencia(SALIDA)
 
 	print("")
-	print("%d targets y %d fondos en %s" % [n_t, n_f, SALIDA])
+	print("%d targets, %d fondos y %d explosiones en %s" % [n_t, n_f, n_e, SALIDA])
 	print("El lienzo de un target mide %.1f radios de ancho (%d px para radio %.1f)." % [
 			Arte.LIENZO_EN_RADIOS, LADO_TARGET,
 			float(LADO_TARGET) / Arte.LIENZO_EN_RADIOS])
@@ -64,7 +67,15 @@ func _escribir_referencia(dir: String) -> void:
 	t.append("")
 	t.append("1. El **nombre del fichero manda**. `abeja.png` sustituye a la abeja;")
 	t.append("   cualquier otro nombre no lo lee nadie.")
-	t.append("2. Se deja en `arte/targets/` o `arte/fondos/` según sea forma o fondo.")
+	t.append("2. Se deja en la carpeta que le toca, y son cuatro:")
+	t.append("")
+	t.append("   | carpeta | qué es | ojo con |")
+	t.append("   |---|---|---|")
+	t.append("   | `arte/targets/` | lo que se revienta | proporción del lienzo |")
+	t.append("   | `arte/fondos/` | mosaico que **se repite** | tiene que casar consigo mismo |")
+	t.append("   | `arte/telones/` | fondo de **pantalla completa** | pierde el desplazamiento |")
+	t.append("   | `arte/explosiones/` | las detonaciones | `cadena`, `fallo`, `impacto` |")
+	t.append("")
 	t.append("3. PNG con transparencia, SVG, WebP o JPG. Nada más que hacer: el juego")
 	t.append("   lo coge al arrancar, y si lo quitas vuelve el dibujo de código.")
 	t.append("")
@@ -98,11 +109,34 @@ func _escribir_referencia(dir: String) -> void:
 	t.append("")
 	t.append(_tabla(Arte.NOMBRE_FORMA, "targets/", _todas_las_variantes()))
 	t.append("")
-	t.append("## Fondos")
+	t.append("## Explosiones")
 	t.append("")
-	t.append("Se repiten en mosaico, así que **tienen que casar consigo mismos**: una")
-	t.append("imagen que no encaje deja una rejilla de costuras por toda la pantalla.")
-	t.append("Salen aquí ya compuestos sobre el color de su bioma, que es como se ven.")
+	t.append("Tres, y el nombre del fichero dice cuál es: `cadena` para el tap y cada")
+	t.append("eslabón de la cascada, `fallo` para el toque errado, `impacto` para cuando")
+	t.append("algo llega a la ciudad o al planeta y se acaba la partida.")
+	t.append("")
+	t.append("El lienzo mide **%.1f radios**, menos que el de un target porque no hay" % Arte.EXPLOSION_EN_RADIOS)
+	t.append("cola, pero más de dos: las esquirlas adelantan al anillo hasta un 28%.")
+	t.append("")
+	t.append("**Basta una imagen quieta.** El nodo la escala al radio de cada instante")
+	t.append("y la desvanece al final, así que el crecimiento y el apagado ya están")
+	t.append("puestos; lo que hay que dibujar es el momento de más energía.")
+	t.append("")
+	t.append(_tabla([], "explosiones/", Arte.NOMBRE_EXPLOSION))
+	t.append("")
+	t.append("## Fondos en mosaico")
+	t.append("")
+	t.append("Se repiten, así que **tienen que casar consigo mismos**: una imagen que no")
+	t.append("encaje deja una rejilla de costuras por toda la pantalla. Salen aquí ya")
+	t.append("compuestos sobre el color de su bioma, que es como se ven.")
+	t.append("")
+	t.append("Si prefieres pintar el fondo entero en vez de un azulejo, va en")
+	t.append("`arte/telones/` con el mismo nombre y manda sobre el mosaico. Se escala")
+	t.append("para **cubrir** la pantalla, centrada y sin deformarse, así que conviene")
+	t.append("dejar aire en los bordes: en un teléfono más estrecho se recorta por los")
+	t.append("lados. Lo que se pierde es el desplazamiento —la nieve cayendo, el río")
+	t.append("corriendo, las pavesas subiendo—, porque una imagen que no se repite no")
+	t.append("puede moverse sin descubrir su borde.")
 	t.append("")
 	t.append(_tabla_fondos())
 	t.append("")
@@ -240,6 +274,59 @@ func _color_de_forma(forma: int) -> Color:
 		if int(pal.get("forma", -1)) == forma:
 			return Color(str(pal.get("punto", "e8e8f0")))
 	return Color("e8e8f0")
+
+
+## Las tres detonaciones, capturadas en su instante de más energía.
+##
+## Se dejan crecer de verdad en vez de forzar el radio: el crecimiento tiene un
+## frenazo al final —un ease-out cúbico— y las esquirlas van adelantadas a la
+## fase, así que un fotograma sintético no se parecería al que se ve jugando.
+func _exportar_explosiones(dir: String) -> int:
+	var vp := SubViewport.new()
+	vp.size = Vector2i(LADO_TARGET, LADO_TARGET)
+	vp.transparent_bg = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(vp)
+
+	var radio := float(LADO_TARGET) / Arte.EXPLOSION_EN_RADIOS
+
+	var hechos := 0
+	for tipo in Arte.NOMBRE_EXPLOSION.size():
+		var e := Explosion.new()
+		e.tipo = tipo
+		e.max_radius = radio
+		e.color = _color_de_explosion(tipo)
+		e.position = Vector2(LADO_TARGET, LADO_TARGET) * 0.5
+		vp.add_child(e)
+
+		# Se espera a que termine de crecer, con un tope por si algún día el
+		# tiempo de crecimiento cambia y nunca llega.
+		var vueltas := 0
+		while e.radius < e.max_radius * 0.999 and vueltas < 240:
+			await process_frame
+			vueltas += 1
+		await process_frame
+
+		var img := vp.get_texture().get_image()
+		var nombre: String = Arte.NOMBRE_EXPLOSION[tipo]
+		img.save_png(dir + nombre + ".png")
+		print("explosión  %s" % nombre)
+		hechos += 1
+
+		e.queue_free()
+		vp.remove_child(e)
+
+	vp.queue_free()
+	return hechos
+
+
+## El color con el que se ve cada detonación jugando.
+func _color_de_explosion(tipo: int) -> Color:
+	if tipo == Explosion.Tipo.FALLO:
+		return Explosion.COLOR_FALLO
+	if tipo == Explosion.Tipo.IMPACTO:
+		return Color("ff7a3c")
+	return Color(str(Niveles.paleta_de("Cielo abierto").get("onda", "8ec5ff")))
 
 
 # --- fondos ----------------------------------------------------------------

@@ -1,4 +1,21 @@
-Deja aquí los PNG/SVG que sustituyan mosaicos de fondo.
-El nombre es el del telón: panal.png, azulejos.png, confeti.png…
-TIENE que ser tileable consigo mismo o se ve una rejilla de costuras.
-Se dibuja tal cual, sin teñir: el color lo pones tú.
+QUE VA AQUI
+  El azulejo que se REPITE por toda la pantalla. Un fichero por telon.
+
+NOMBRES
+  estrellas  copos  corriente  celulas  tapete  panal  rejilla  hojas
+  pavesas  trazas  estelas  horizonte  horizonte_roto  aurora
+  azulejos  confeti  banderines  placas  tierra
+
+OJO
+  Tiene que casar CONSIGO MISMO. Una imagen que no encaje por los
+  bordes deja una rejilla de costuras visible por toda la pantalla.
+  El generado mide 128x128; puedes entregar mas grande, pero cuadrado
+  y con periodo que divida el lado o volveran las costuras.
+
+  Si prefieres pintar el fondo entero en vez de un azulejo, va en
+  arte/telones/ con el mismo nombre.
+
+EL COLOR
+  Se dibuja tal cual, sin tenir. En arte_exportado/fondos/ estan los
+  actuales YA COMPUESTOS sobre el color de su bioma, para ver como
+  quedan de verdad.

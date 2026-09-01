@@ -10,6 +10,17 @@ extends Node2D
 ## También se usa, con otro color y sin registrarse en la lista de detonaciones
 ## activas, como marca de tap fallado: se ve igual pero no contagia nada.
 
+## Para qué es esta detonación.
+##
+## Hasta ahora las tres se distinguían solo por el color, que basta para
+## dibujarlas pero no para sustituirlas: un asset necesita saber CUÁL está
+## reemplazando.
+enum Tipo {
+	CADENA,   ## el tap y cada eslabón de la cascada
+	FALLO,    ## marca de toque fallado; se ve igual pero no contagia
+	IMPACTO,  ## algo llegó a la ciudad o al planeta y la partida se acabó
+}
+
 const COLOR_ACTIVA := Color("ff5470")
 const COLOR_FALLO := Color("6a6a7a")
 ## Esquirlas que salen despedidas. Se dibujan dentro de la propia detonación en
@@ -22,6 +33,7 @@ const ESQUIRLAS := 7
 @export var hold_time: float = 0.6
 @export var decay_time: float = 0.3
 @export var color: Color = COLOR_ACTIVA
+@export var tipo: Tipo = Tipo.CADENA
 
 ## A qué cadena pertenece esta detonación.
 ##
@@ -69,6 +81,21 @@ func _draw() -> void:
 	if _t > grow_time + hold_time:
 		fade = 1.0 - (_t - grow_time - hold_time) / decay_time
 	fade = clampf(fade, 0.0, 1.0)
+
+	# Si hay asset, manda el asset. Se escala al radio de este instante y se
+	# desvanece con él, así que una imagen quieta basta: el crecimiento, la
+	# sostenida y el apagado los pone el nodo.
+	#
+	# No se tiñe con el color del bioma, igual que los targets: el color lo pone
+	# quien dibuja. El precio es que la detonación deja de cambiar de color por
+	# bioma, y hay que decidirlo a sabiendas.
+	var tex := Arte.explosion(tipo)
+	if tex != null:
+		var lado := radius * Arte.EXPLOSION_EN_RADIOS
+		draw_texture_rect(tex,
+				Rect2(Vector2(-lado, -lado) * 0.5, Vector2(lado, lado)),
+				false, Color(1, 1, 1, fade))
+		return
 
 	draw_circle(Vector2.ZERO, radius, Color(color, 0.16 * fade))
 	# 32 segmentos en vez de 64: a este tamaño no se distingue y son la mitad de

@@ -1,5 +1,24 @@
-Deja aquí los PNG/SVG que sustituyan formas de target.
-El nombre es el de la forma: abeja.png, copo.png, burbuja.png, globo.png…
-Variantes por instancia: bola_7.png, globo_3.png (se cae a bola.png si no está).
-El lienzo mide 5.4 radios de ancho y el target va centrado.
-Se dibuja tal cual: el color lo pones tú, la paleta no lo tiñe.
+QUE VA AQUI
+  Lo que el jugador revienta. Un fichero por forma.
+
+NOMBRES  (el nombre manda: otro nombre no lo lee nadie)
+  circulo  copo  abeja  hoja  bola  dron  chispa  chip  avion  misil
+  pez  estrella  bala  llama  burbuja  globo  meteoro  robot  hormiga
+
+  Variantes por instancia: bola_7.png, globo_3.png
+  Si no esta la variante, se usa la generica: bola.png
+
+EL LIENZO
+  Cuadrado, y mide 5.4 radios de ancho. La forma va CENTRADA y ocupa
+  mas o menos el tercio central; el aire de alrededor no sobra, es
+  para las colas (el cordel del globo llega a 2.65 radios).
+  Respetar la proporcion o la forma saldra de otro tamano que el resto.
+
+EL COLOR
+  Se dibuja tal cual. No se tine con la paleta del bioma: el color lo
+  pones tu. Las paletas de los 14 biomas estan en arte_exportado/README.md
+
+LO QUE SE PIERDE
+  Cinco formas se animan por dentro y al sustituirlas quedan QUIETAS:
+  abeja (alas), pez (cola), estrella (titileo), llama (ondeo) y
+  globo (cordel). Borrar el fichero devuelve la animacion.
