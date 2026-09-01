@@ -26,6 +26,16 @@ de contenido — puzzle con niveles a mano, RPG, cualquier cosa que exija
 producir 40 niveles o texto. El contenido tiene que escalar solo:
 procedural, endless, emergente.
 
+**Asedio dispara misiles, no balas.** (2026-08-31)
+Decidido, sin construir. Una bala es munición de arma corta: se lee como algo
+disparado a alguien, no como algo que cae sobre una ciudad. Un misil trae su
+propia narrativa —viene de lejos, va dirigido, y explota al llegar— y es la que
+el bioma cuenta con el horizonte roto ardiendo de fondo.
+
+El cambio es una línea, porque `Dot.Forma.MISIL` ya está dibujada y quedó
+huérfana: ningún bioma la usa. Se aplica cuando toque tocar diseño; de momento
+solo consta la decisión.
+
 **Nombre: Yesca.** (2026-08-31)
 El proyecto se llamó `juego-test-1` mientras el concepto estaba sin validar, y
 el concepto se llamó *Cadena* por su mecánica. Publicarlo obligó a separar las

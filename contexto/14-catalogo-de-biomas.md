@@ -184,9 +184,15 @@ Un choque puede regalarte la cadena o arruinártela.
 
 | | |
 |---|---|
-| **Objetivo** | Proyectil tipo bala, orientado a la caída. |
+| **Objetivo** | **Misil**, orientado a la caída: morro apuntado y aletas traseras. |
 | **Fondo** | Estelas, y en la banda inferior **la misma ciudad de papel, pero rota y ardiendo**: siluetas quebradas en naranja. |
 | **Movimiento** | Bombardeo. Caen de arriba abajo zigzagueando en ese. |
+
+> **Decidido el 2026-08-31, sin construir todavía.** El bioma sigue dibujando
+> una bala. El cambio es una línea —`Dot.Forma.BALA` a `Dot.Forma.MISIL` en la
+> paleta de Asedio— porque la forma del misil ya está dibujada y ahora mismo no
+> la usa ningún bioma. Hasta que se aplique, esta ficha describe la intención y
+> no lo que se ve en pantalla.
 
 **Si uno toca el suelo, se acabó la partida.** Es una de las dos derrotas del
 juego que no vienen de la barra de tiempo, y por eso se lee distinto: explosión
