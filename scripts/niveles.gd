@@ -66,6 +66,17 @@ const LISTA: Array[Dictionary] = [
 		"meta": Meta.PUNTOS_LIMPIOS, "valor": 250, "escalon": 2,
 		"pista": "un solo fallo y se acabó; van todos al mismo sitio, no hay excusa"},
 
+	# --- Hormigas: muchas, lentas y pegadas. Aqui se aprende a encadenar ---
+	{"bioma": "Hormigas", "mov": Dot.Movimiento.HORMIGA,
+		"meta": Meta.PUNTOS, "valor": 380, "escalon": 2,
+		"pista": "son muchas y van despacio: deja que se junten"},
+	{"bioma": "Hormigas", "mov": Dot.Movimiento.HORMIGA,
+		"meta": Meta.CADENA, "valor": 12, "escalon": 2,
+		"pista": "con este gentío, doce seguidas es cuestión de elegir bien"},
+	{"bioma": "Hormigas", "mov": Dot.Movimiento.HORMIGA,
+		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
+		"pista": "no dejan de venir: aquí el problema nunca es a quién tocar"},
+
 	# --- Enjambre: se buscan entre si. El grupo viene servido --------------
 	{"bioma": "Enjambre", "mov": Dot.Movimiento.ENJAMBRE,
 		"meta": Meta.CADENA, "valor": 10, "escalon": 2,
@@ -132,6 +143,17 @@ const LISTA: Array[Dictionary] = [
 		"meta": Meta.PUNTOS_LIMPIOS, "valor": 350, "escalon": 4,
 		"pista": "un fallo y se acabó, y aquí todo va hacia arriba"},
 
+	# --- Caza de robots: pocos, esquivos y con un tiron antes de cada giro -
+	{"bioma": "Caza de robots", "mov": Dot.Movimiento.PATRULLA,
+		"meta": Meta.PUNTOS, "valor": 420, "escalon": 3,
+		"pista": "se paran un instante antes de virar: ese es tu momento"},
+	{"bioma": "Caza de robots", "mov": Dot.Movimiento.PATRULLA,
+		"meta": Meta.CADENA, "valor": 7, "escalon": 4,
+		"pista": "cuesta juntarlos; cuando coincidan tres, no lo pienses"},
+	{"bioma": "Caza de robots", "mov": Dot.Movimiento.PATRULLA,
+		"meta": Meta.SEGUNDOS, "valor": 50, "escalon": 4,
+		"pista": "entran por los cuatro lados: no te quedes mirando a uno"},
+
 	# --- Circuito: angulos rectos. Predecible pero exigente ----------------
 	{"bioma": "Circuito", "mov": Dot.Movimiento.CIRCUITO,
 		"meta": Meta.PUNTOS, "valor": 450, "escalon": 3,
@@ -185,7 +207,18 @@ const LISTA: Array[Dictionary] = [
 		"pista": "zigzaguean, así que no basta con mirar dónde están ahora"},
 	{"bioma": "Asedio", "mov": Dot.Movimiento.BOMBARDEO,
 		"meta": Meta.SEGUNDOS, "valor": 65, "escalon": 3,
-		"pista": "el último de todos. Aguanta el bombardeo entero"},
+		"pista": "aguanta el bombardeo entero"},
+
+	# --- Lluvia de meteoros: todos caen hacia el planeta --------------------
+	{"bioma": "Lluvia de meteoros", "mov": Dot.Movimiento.METEORO,
+		"meta": Meta.SEGUNDOS, "valor": 40, "escalon": 1,
+		"pista": "van todos a la Tierra: si uno llega, se acabó"},
+	{"bioma": "Lluvia de meteoros", "mov": Dot.Movimiento.METEORO,
+		"meta": Meta.PUNTOS, "valor": 420, "escalon": 2,
+		"pista": "aceleran al caer, así que el que ignoras ahora vuelve peor"},
+	{"bioma": "Lluvia de meteoros", "mov": Dot.Movimiento.METEORO,
+		"meta": Meta.SEGUNDOS, "valor": 70, "escalon": 3,
+		"pista": "el último de todos. Aguanta la lluvia entera"},
 ]
 
 
@@ -213,6 +246,14 @@ const PALETAS := {
 		"telon": Fondo.Tipo.CORRIENTE,
 		"forma": Dot.Forma.PEZ,
 		"fondo": "07161c", "punto": "ffd98a", "onda": "2fd6c0", "radio": 9.0},
+	"Hormigas": {
+		"telon": Fondo.Tipo.TIERRA,
+		"forma": Dot.Forma.HORMIGA,
+		# Muchas y lentas, que es justo lo contrario que los robots. Con treinta
+		# y cuatro bichos pegados, esperar medio segundo más siempre paga: es el
+		# bioma donde se aprende que la cadena vale más que la prisa.
+		"vel_mult": 0.6, "targets": 34,
+		"fondo": "150d07", "punto": "ff8a52", "onda": "ffb066", "radio": 9.0},
 	"Enjambre": {
 		"telon": Fondo.Tipo.CELULAS,
 		"forma": Dot.Forma.CIRCULO,
@@ -237,6 +278,13 @@ const PALETAS := {
 		"telon": Fondo.Tipo.PAVESAS,
 		"forma": Dot.Forma.LLAMA,
 		"fondo": "120806", "punto": "ffca6b", "onda": "ff5a1f", "radio": 8.0},
+	"Caza de robots": {
+		"telon": Fondo.Tipo.PLACAS,
+		"forma": Dot.Forma.ROBOT,
+		# Pocos y rápidos. Lo que cuesta aquí no es llegar hasta ellos sino
+		# acertarles, así que hay menos en pantalla y valen más cada uno.
+		"vel_mult": 1.15, "targets": 14,
+		"fondo": "0b1216", "punto": "9ee6ff", "onda": "3fd0ff", "radio": 11.0},
 	"Circuito": {
 		"telon": Fondo.Tipo.TRAZAS,
 		"forma": Dot.Forma.CHIP,
@@ -269,6 +317,17 @@ const PALETAS := {
 		# Si uno llega abajo, revienta en la ciudad y se acabó la partida.
 		"defender": true,
 		"fondo": "140809", "punto": "ffd9cc", "onda": "ff4530", "radio": 9.0},
+	"Lluvia de meteoros": {
+		"telon": Fondo.Tipo.ESTRELLAS, "marco": Fondo.Marco.PLANETA,
+		"forma": Dot.Forma.METEORO,
+		# Entran despacio y van acelerando solos, así que el multiplicador de
+		# velocidad es bajo a propósito: lo que aprieta es el tiempo que llevan
+		# cayendo, no con qué rapidez salieron.
+		"vel_mult": 0.3, "respawn_mult": 1.1, "targets": 12, "drain_mult": 0.45,
+		# La derrota no es una franja abajo como en el asedio sino el disco del
+		# planeta, que está en una esquina. Por eso lleva su propia clave.
+		"defender": true, "defensa": "planeta",
+		"fondo": "04060e", "punto": "ffa14d", "onda": "ff6a2b", "radio": 10.0},
 }
 
 

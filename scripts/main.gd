@@ -178,8 +178,25 @@ const COMBO_POP_TIME := 0.45
 const COMBO_SIZE := Vector2(240.0, 100.0)
 const STAGE_COLOR_TOPE := 10.0
 const SAVE_PATH := "user://cadena.cfg"
+## Un nombre por cada Dot.Movimiento, EN SU ORDEN. Si se añade un movimiento y
+## no se añade aquí, el juego revienta al entrar al bioma: se indexa con el
+## valor del enum y el array se queda corto.
 const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
-		"enjambre", "huida", "brasa", "circuito", "planeo", "misil", "bombardeo"]
+		"enjambre", "huida", "brasa", "circuito", "planeo", "misil", "bombardeo",
+		"meteoro", "patrulla", "hormiga"]
+## Guarda en los lados y abajo.
+##
+## Lo que garantiza NO es que la onda entera quepa en pantalla —para eso harían
+## falta 105 px y se comería casi un tercio del ancho—, sino que toda detonación
+## NAZCA dentro del área. Con eso basta: el jugador ve el origen del estallido y
+## entiende qué acaba de pasar, aunque el borde exterior de la onda se recorte.
+##
+## Antes un objetivo podía quedarse a nueve píxeles del borde, y ahí ni el
+## origen se veía.
+##
+## Arriba manda MARGEN_SUPERIOR, que es mayor, porque el problema es otro: no se
+## recorta la onda, la tapa entera la barra de tiempo.
+const MARGEN_LATERAL := 90.0
 ## Franja de abajo que cuenta como ciudad en los biomas de defensa.
 const ALTURA_CIUDAD := 150.0
 ## Franja de arriba reservada al HUD.
@@ -411,12 +428,22 @@ var _marca_muerte: Explosion
 ## Paleta del bioma en curso.
 var _paleta: Dictionary = {}
 
-## Rotación de biomas del modo sin fin.
+## Cuántas veces ha cambiado de bioma la partida sin fin.
 ##
-## Sin esto, una partida larga transcurre entera en el mismo sitio y el progreso
-## solo se nota en un número. Cambiando de bioma cada pocos escalones, avanzar
-## se ve.
+## Sin rotación, una partida larga transcurre entera en el mismo sitio y el
+## progreso solo se nota en un número. Cambiando de bioma cada pocos escalones,
+## avanzar se ve.
 var _bioma_sinfin: int = 0
+## Los biomas que quedan por salir, barajados.
+##
+## Es una bolsa y no un dado: se saca sin reemplazo hasta agotarla y solo
+## entonces se vuelve a llenar. Al azar puro saldría el mismo bioma dos veces
+## seguidas cada tantas rondas —y un jugador que ve repetirse el escenario no
+## piensa "ha tocado otra vez", piensa que el juego no avanza—, mientras que con
+## la bolsa el orden es imprevisible pero el reparto es justo: antes de repetir
+## ninguno, salen todos.
+var _bolsa: Array = []
+var _bolsa_i: int = 0
 ## Progreso del barrido, de 0 a 1. Negativo cuando no hay transición.
 var _transicion: float = -1.0
 var _bioma_destino: String = ""
@@ -760,10 +787,25 @@ func _aplicar_paleta() -> void:
 
 ## El bioma que toca ahora mismo en el modo sin fin.
 func _bioma_actual_sinfin() -> String:
-	var lista := Niveles.biomas_sinfin()
-	if lista.is_empty():
+	if _bolsa.is_empty():
+		_rellenar_bolsa()
+	if _bolsa.is_empty():
 		return "Cielo abierto"
-	return str(lista[_bioma_sinfin % lista.size()])
+	return str(_bolsa[clampi(_bolsa_i, 0, _bolsa.size() - 1)])
+
+
+## Vuelve a llenar la bolsa y la baraja.
+##
+## `evitar` es el bioma que acaba de salir. Si al rebarajar cae el primero, se
+## manda al final: sin ese detalle habría repeticiones seguidas justo en la
+## costura entre dos bolsas, que es precisamente lo que la bolsa existe para
+## evitar y el único sitio donde puede pasar.
+func _rellenar_bolsa(evitar: String = "") -> void:
+	_bolsa = Niveles.biomas_sinfin().duplicate()
+	_bolsa.shuffle()
+	if _bolsa.size() > 1 and str(_bolsa[0]) == evitar:
+		_bolsa.append(_bolsa.pop_front())
+	_bolsa_i = 0
 
 
 ## Arranca el barrido que cambia de bioma.
@@ -773,11 +815,14 @@ func _bioma_actual_sinfin() -> String:
 ## se cambia justo cuando la línea va por el medio, que es cuando el destello la
 ## tapa. Así el cambio se ve ocurrir en vez de aparecer ya hecho.
 func _empezar_transicion() -> void:
-	var lista := Niveles.biomas_sinfin()
-	if lista.is_empty():
+	var actual := _bioma_actual_sinfin()
+	_bolsa_i += 1
+	if _bolsa_i >= _bolsa.size():
+		_rellenar_bolsa(actual)
+	if _bolsa.is_empty():
 		return
 	_bioma_sinfin += 1
-	_bioma_destino = str(lista[_bioma_sinfin % lista.size()])
+	_bioma_destino = _bioma_actual_sinfin()
 	_transicion = 0.0
 	_fondo_cambiado = false
 	_diag.evento("bioma sin fin -> %s" % _bioma_destino)
@@ -1020,20 +1065,34 @@ func _check_catches() -> void:
 func _check_impactos() -> void:
 	if _state != State.PLAYING or _final_pendiente >= 0:
 		return
-	if not bool(_paleta.get("defender", false)):
+	if not _es_defensa():
 		return
-	var suelo := get_viewport_rect().size.y - ALTURA_CIUDAD
+	# Dos formas de perder, según lo que se defienda: una franja abajo en el
+	# asedio, un disco abajo a la izquierda en la lluvia de meteoros. La
+	# geometría del planeta se le pregunta a Fondo, que es quien lo dibuja: si
+	# la calculáramos aquí, retocar el dibujo dejaría el impacto donde ya no se
+	# ve nada.
+	var pantalla := get_viewport_rect().size
+	var contra_planeta := str(_paleta.get("defensa", "suelo")) == "planeta"
+	var centro := Fondo.planeta_centro(pantalla)
+	var radio := Fondo.planeta_radio(pantalla)
+	var suelo := pantalla.y - ALTURA_CIUDAD
 	for d in _dots:
-		if d.position.y < suelo:
+		var toca := false
+		if contra_planeta:
+			toca = d.position.distance_squared_to(centro) <= pow(radio + d.radius, 2.0)
+		else:
+			toca = d.position.y >= suelo
+		if not toca:
 			continue
 		var donde := d.position
 		_dots.erase(d)
 		d.queue_free()
-		_impacto_ciudad(donde)
+		_impacto_ciudad(donde, contra_planeta)
 		return
 
 
-func _impacto_ciudad(pos: Vector2) -> void:
+func _impacto_ciudad(pos: Vector2, contra_planeta: bool = false) -> void:
 	var e := Explosion.new()
 	e.position = pos
 	e.max_radius = tap_radius * 1.6
@@ -1046,7 +1105,7 @@ func _impacto_ciudad(pos: Vector2) -> void:
 	_shake = shake_max
 	_sonar(SND_FIN, 0.7)
 	_vibrar(180)
-	_perder("Impactó la ciudad")
+	_perder("Impactó la Tierra" if contra_planeta else "Impactó la ciudad")
 
 
 ## Vaciar la pantalla es lo más parecido a ganar que tiene una partida sin fin.
@@ -1069,68 +1128,100 @@ func _refill_field(delta: float) -> void:
 	if _respawn_timer > 0.0:
 		return
 	_respawn_timer = _respawn_interval()
+	_alta_dot()
 
+
+## Da de alta un objetivo, entrando desde fuera de la pantalla.
+##
+## Separado del temporizador porque el arranque de los biomas de defensa lo
+## necesita: los primeros proyectiles tienen que entrar por la misma puerta
+## que todos los demás, o la primera tanda se leería distinta que el resto.
+func _alta_dot() -> void:
 	var area := _area_juego()
 	var rect := area.size
 	var d := Dot.new()
 	var fuera := d.radius * 2.0
 	var modo := _movimiento_actual()
 
+	# Cada entrada se calcula contra la PANTALLA en el eje por el que entra y
+	# contra el ÁREA en el otro. Así el objetivo llega de verdad desde fuera, en
+	# vez de materializarse dentro del borde de guarda, pero nunca aparece
+	# alineado con una franja donde no se le podría ver explotar.
+	var pantalla := get_viewport_rect().size
 	var rumbo := Vector2.ZERO
 	if modo == Dot.Movimiento.NIEVE:
 		# La nieve solo tiene sentido entrando por arriba.
-		d.position = Vector2(randf() * rect.x, -fuera)
+		d.position = Vector2(randf_range(area.position.x, area.end.x), -fuera)
 		rumbo = Vector2.DOWN
 	elif modo == Dot.Movimiento.CORRIENTE:
 		# El río entra siempre por la izquierda y corre hacia la derecha. Un
 		# río con dos sentidos no es un río.
-		d.position = Vector2(-fuera, randf_range(fuera, rect.y - fuera))
+		d.position = Vector2(-fuera, randf_range(area.position.y, area.end.y))
 		rumbo = Vector2.RIGHT
 	elif modo == Dot.Movimiento.BRASA:
 		# Las pavesas nacen abajo, como es debido.
-		d.position = Vector2(randf() * rect.x, rect.y + fuera)
+		d.position = Vector2(randf_range(area.position.x, area.end.x), pantalla.y + fuera)
 		rumbo = Vector2.UP
 	elif modo == Dot.Movimiento.BOMBARDEO:
 		# Nacen arriba y repartidos a lo ancho: el jugador tiene que vigilar toda
 		# la anchura de la pantalla, no un punto de entrada.
-		d.position = Vector2(randf_range(fuera, rect.x - fuera), -fuera)
+		d.position = Vector2(randf_range(area.position.x, area.end.x), -fuera)
 		rumbo = Vector2.DOWN
+	elif modo == Dot.Movimiento.METEORO:
+		# Entran por arriba y por la derecha, y nunca dos por el mismo sitio,
+		# pero TODOS apuntan al planeta. Esa convergencia es lo que convierte
+		# quince trayectorias sueltas en una lluvia; sin ella solo son piedras.
+		if randf() < 0.6:
+			d.position = Vector2(
+					randf_range(area.position.x + area.size.x * 0.2, pantalla.x + fuera),
+					-fuera)
+		else:
+			d.position = Vector2(pantalla.x + fuera,
+					randf_range(-fuera, area.position.y + area.size.y * 0.5))
+		rumbo = (_diana_planeta(pantalla) - d.position).normalized()
+	elif modo == Dot.Movimiento.PATRULLA:
+		# Por los cuatro lados. El jugador no puede vigilar un frente, y eso es
+		# lo que lo convierte en una cacería en vez de en una cola.
+		match randi() % 4:
+			0: d.position = Vector2(randf_range(area.position.x, area.end.x), -fuera)
+			1: d.position = Vector2(randf_range(area.position.x, area.end.x), pantalla.y + fuera)
+			2: d.position = Vector2(-fuera, randf_range(area.position.y, area.end.y))
+			_: d.position = Vector2(pantalla.x + fuera, randf_range(area.position.y, area.end.y))
+		rumbo = (area.get_center() - d.position).normalized()
 	elif modo == Dot.Movimiento.PLANEO or modo == Dot.Movimiento.MISIL:
 		# Entran por un lateral y cruzan, como algo que sobrevuela.
 		var desde_izq := randf() < 0.5
-		d.position = Vector2(-fuera if desde_izq else rect.x + fuera,
-				randf_range(fuera, rect.y * 0.75))
+		d.position = Vector2(-fuera if desde_izq else pantalla.x + fuera,
+				randf_range(area.position.y, area.position.y + area.size.y * 0.75))
 		rumbo = Vector2(1.0 if desde_izq else -1.0, randf_range(-0.25, 0.25)).normalized()
 	elif modo == Dot.Movimiento.CIRCUITO:
 		# En el circuito solo hay cuatro rumbos posibles, y el de entrada tiene
 		# que ser uno de ellos o el primer tramo saldría torcido.
 		match randi() % 4:
 			0:
-				d.position = Vector2(randf() * rect.x, -fuera)
+				d.position = Vector2(randf_range(area.position.x, area.end.x), -fuera)
 				rumbo = Vector2.DOWN
 			1:
-				d.position = Vector2(randf() * rect.x, rect.y + fuera)
+				d.position = Vector2(randf_range(area.position.x, area.end.x), pantalla.y + fuera)
 				rumbo = Vector2.UP
 			2:
-				d.position = Vector2(-fuera, randf() * rect.y)
+				d.position = Vector2(-fuera, randf_range(area.position.y, area.end.y))
 				rumbo = Vector2.RIGHT
 			_:
-				d.position = Vector2(rect.x + fuera, randf() * rect.y)
+				d.position = Vector2(pantalla.x + fuera, randf_range(area.position.y, area.end.y))
 				rumbo = Vector2.LEFT
 	else:
 		match randi() % 4:
-			0: d.position = Vector2(randf() * rect.x, -fuera)
-			1: d.position = Vector2(randf() * rect.x, rect.y + fuera)
-			2: d.position = Vector2(-fuera, randf() * rect.y)
-			_: d.position = Vector2(rect.x + fuera, randf() * rect.y)
+			0: d.position = Vector2(randf_range(area.position.x, area.end.x), -fuera)
+			1: d.position = Vector2(randf_range(area.position.x, area.end.x), pantalla.y + fuera)
+			2: d.position = Vector2(-fuera, randf_range(area.position.y, area.end.y))
+			_: d.position = Vector2(pantalla.x + fuera, randf_range(area.position.y, area.end.y))
 		# Apunta al tercio central para que cruce el campo en vez de rozar el
 		# borde y volver a salir sin haber estado nunca en juego.
-		var objetivo := Vector2(
-			randf_range(rect.x * 0.33, rect.x * 0.67),
-			randf_range(rect.y * 0.33, rect.y * 0.67))
+		var objetivo := area.position + Vector2(
+			randf_range(area.size.x * 0.33, area.size.x * 0.67),
+			randf_range(area.size.y * 0.33, area.size.y * 0.67))
 		rumbo = (objetivo - d.position).normalized()
-	# Todo lo de arriba se calculó en coordenadas del área; se traslada.
-	d.position.y += area.position.y
 
 	_preparar_dot(d, modo, rumbo)
 	# Los que llegan durante la partida entran creciendo: se leen como que venían
@@ -1139,6 +1230,22 @@ func _refill_field(delta: float) -> void:
 
 	_dots_root.add_child(d)
 	_dots.append(d)
+
+
+## Un punto cualquiera del disco del planeta, no su centro.
+##
+## Apuntar todos al centro haría que las trayectorias se solaparan en un solo
+## hilo según se acercan, y la lluvia se leería como una fila. Repartiendo la
+## diana por el disco convergen sin encimarse.
+func _diana_planeta(pantalla: Vector2) -> Vector2:
+	var centro := Fondo.planeta_centro(pantalla)
+	var radio := Fondo.planeta_radio(pantalla)
+	return centro + Vector2.from_angle(randf() * TAU) * radio * sqrt(randf()) * 0.8
+
+
+## Si el bioma en curso se pierde por dejar que algo llegue a su sitio.
+func _es_defensa() -> bool:
+	return bool(_paleta.get("defender", false))
 
 
 ## El movimiento del bioma en curso.
@@ -1155,10 +1262,12 @@ func _movimiento_actual() -> int:
 ## Hay modos que necesitan ver a los demás círculos o a las detonaciones, y
 ## además así el orden de actualización es determinista: primero las reglas
 ## globales, después la integración de cada uno, y solo entonces los contagios.
-## El rectángulo donde vive el juego: la pantalla menos la franja del HUD.
+## El rectángulo donde vive el juego: la pantalla menos las franjas de guarda.
 func _area_juego() -> Rect2:
 	var r := get_viewport_rect().size
-	return Rect2(0.0, MARGEN_SUPERIOR, r.x, maxf(1.0, r.y - MARGEN_SUPERIOR))
+	return Rect2(MARGEN_LATERAL, MARGEN_SUPERIOR,
+			maxf(1.0, r.x - MARGEN_LATERAL * 2.0),
+			maxf(1.0, r.y - MARGEN_SUPERIOR - MARGEN_LATERAL))
 
 
 func _mover_dots(delta: float) -> void:
@@ -1754,6 +1863,7 @@ func _empezar_partida() -> void:
 	# de una derrota, la partida nueva arrancaría bloqueada.
 	_final_pendiente = -1
 	_bioma_sinfin = 0
+	_rellenar_bolsa()
 	_transicion = -1.0
 	_barrido.visible = false
 	_barrido_halo.visible = false
@@ -1790,21 +1900,19 @@ func _poblar_campo() -> void:
 	var rect := area.size
 	var modo := _movimiento_actual()
 	var cuantos := _target_dots()
-	if modo == Dot.Movimiento.BOMBARDEO:
+	if _es_defensa():
 		# En un bioma de defensa el campo NO arranca lleno: empezar con veinte
-		# proyectiles ya a media caída sería una derrota servida.
-		cuantos = 4
+		# proyectiles ya a media caída sería una derrota servida. Y se les da de
+		# alta por la puerta normal, entrando desde fuera, para que los primeros
+		# se lean igual que los que vendrán después.
+		for i in 4:
+			_alta_dot()
+		return
 	for i in cuantos:
 		var d := Dot.new()
-		var techo := rect.y
-		if modo == Dot.Movimiento.BOMBARDEO:
-			# Los primeros proyectiles nacen arriba del todo, no repartidos por
-			# el campo: empezar con uno ya a media caída no da tiempo ni a leer
-			# la pantalla, y la primera derrota se sentiría robada.
-			techo = (rect.y - ALTURA_CIUDAD) * 0.25
-		d.position = Vector2(
-			randf_range(SPAWN_MARGIN, rect.x - SPAWN_MARGIN),
-			area.position.y + randf_range(SPAWN_MARGIN, maxf(SPAWN_MARGIN + 1.0, techo)))
+		d.position = area.position + Vector2(
+			randf_range(SPAWN_MARGIN, maxf(SPAWN_MARGIN + 1.0, rect.x - SPAWN_MARGIN)),
+			randf_range(SPAWN_MARGIN, maxf(SPAWN_MARGIN + 1.0, rect.y - SPAWN_MARGIN)))
 		var rumbo := Vector2.from_angle(randf() * TAU)
 		if modo == Dot.Movimiento.CORRIENTE:
 			rumbo = Vector2.RIGHT

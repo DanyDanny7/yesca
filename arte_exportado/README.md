@@ -50,7 +50,7 @@ dirección de vuelo y la animación de aparición.
 <tr><td align="center"><img src="targets/pez.png" width="96"><br><code>pez.png</code></td><td align="center"><img src="targets/estrella.png" width="96"><br><code>estrella.png</code></td><td align="center"><img src="targets/bala.png" width="96"><br><code>bala.png</code></td><td align="center"><img src="targets/llama.png" width="96"><br><code>llama.png</code></td></tr>
 <tr><td align="center"><img src="targets/burbuja.png" width="96"><br><code>burbuja.png</code></td><td align="center"><img src="targets/globo_1.png" width="96"><br><code>globo_1.png</code></td><td align="center"><img src="targets/globo_2.png" width="96"><br><code>globo_2.png</code></td><td align="center"><img src="targets/globo_3.png" width="96"><br><code>globo_3.png</code></td></tr>
 <tr><td align="center"><img src="targets/globo_4.png" width="96"><br><code>globo_4.png</code></td><td align="center"><img src="targets/globo_5.png" width="96"><br><code>globo_5.png</code></td><td align="center"><img src="targets/globo_6.png" width="96"><br><code>globo_6.png</code></td><td align="center"><img src="targets/globo_7.png" width="96"><br><code>globo_7.png</code></td></tr>
-<tr><td align="center"><img src="targets/globo_8.png" width="96"><br><code>globo_8.png</code></td></tr>
+<tr><td align="center"><img src="targets/globo_8.png" width="96"><br><code>globo_8.png</code></td><td align="center"><img src="targets/meteoro.png" width="96"><br><code>meteoro.png</code></td><td align="center"><img src="targets/robot.png" width="96"><br><code>robot.png</code></td><td align="center"><img src="targets/hormiga.png" width="96"><br><code>hormiga.png</code></td></tr>
 </table>
 
 ## Fondos
@@ -64,7 +64,7 @@ Salen aquí ya compuestos sobre el color de su bioma, que es como se ven.
 <tr><td align="center"><img src="fondos/tapete.png" width="96"><br><code>tapete.png</code></td><td align="center"><img src="fondos/panal.png" width="96"><br><code>panal.png</code></td><td align="center"><img src="fondos/rejilla.png" width="96"><br><code>rejilla.png</code></td><td align="center"><img src="fondos/hojas.png" width="96"><br><code>hojas.png</code></td></tr>
 <tr><td align="center"><img src="fondos/pavesas.png" width="96"><br><code>pavesas.png</code></td><td align="center"><img src="fondos/trazas.png" width="96"><br><code>trazas.png</code></td><td align="center"><img src="fondos/estelas.png" width="96"><br><code>estelas.png</code></td><td align="center"><img src="fondos/horizonte.png" width="96"><br><code>horizonte.png</code></td></tr>
 <tr><td align="center"><img src="fondos/horizonte_roto.png" width="96"><br><code>horizonte_roto.png</code></td><td align="center"><img src="fondos/aurora.png" width="96"><br><code>aurora.png</code></td><td align="center"><img src="fondos/azulejos.png" width="96"><br><code>azulejos.png</code></td><td align="center"><img src="fondos/confeti.png" width="96"><br><code>confeti.png</code></td></tr>
-<tr><td align="center"><img src="fondos/banderines.png" width="96"><br><code>banderines.png</code></td></tr>
+<tr><td align="center"><img src="fondos/banderines.png" width="96"><br><code>banderines.png</code></td><td align="center"><img src="fondos/placas.png" width="96"><br><code>placas.png</code></td><td align="center"><img src="fondos/tierra.png" width="96"><br><code>tierra.png</code></td></tr>
 </table>
 
 ## Paletas por bioma
@@ -74,15 +74,18 @@ Salen aquí ya compuestos sobre el color de su bioma, que es como se ven.
 | Cielo abierto | `estrella` | `#fdfbff` | `#8ec5ff` | `#070b16` |
 | Invierno | `copo` | `#f4fbff` | `#8fd8ff` | `#0f2033` |
 | Río | `pez` | `#ffd98a` | `#2fd6c0` | `#07161c` |
+| Hormigas | `hormiga` | `#ff8a52` | `#ffb066` | `#150d07` |
 | Enjambre | `circulo` | `#e6d8f7` | `#b45cff` | `#150f1a` |
 | Billar | `bola` | `#fff8e4` | `#ffc24d` | `#0a2717` |
 | Panal | `abeja` | `#ffd24a` | `#ff8c1a` | `#17100a` |
 | Estampida | `dron` | `#6feaff` | `#ff3b30` | `#060a12` |
 | Otoño | `hoja` | `#ffb347` | `#ff7038` | `#1a1208` |
 | Brasas | `llama` | `#ffca6b` | `#ff5a1f` | `#120806` |
+| Caza de robots | `robot` | `#9ee6ff` | `#3fd0ff` | `#0b1216` |
 | Circuito | `chip` | `#8dffb0` | `#34ff88` | `#030b07` |
 | Ciudad de papel | `avion` | `#fff4e2` | `#ffd166` | `#101a2b` |
 | Ducha | `burbuja` | `#d9f7ff` | `#7fe3ff` | `#0c1d24` |
 | Fiesta | `globo` | `#ff8ad0` | `#ff5fd0` | `#180f26` |
 | Asedio | `bala` | `#ffd9cc` | `#ff4530` | `#140809` |
+| Lluvia de meteoros | `meteoro` | `#ffa14d` | `#ff6a2b` | `#04060e` |
 

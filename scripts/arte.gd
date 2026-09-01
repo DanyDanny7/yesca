@@ -47,6 +47,7 @@ const LIENZO_EN_RADIOS := 5.4
 const NOMBRE_FORMA := [
 	"circulo", "copo", "abeja", "hoja", "bola", "dron", "chispa", "chip",
 	"avion", "misil", "pez", "estrella", "bala", "llama", "burbuja", "globo",
+	"meteoro", "robot", "hormiga",
 ]
 
 ## Nombres de fichero por telón, en el orden del enum Fondo.Tipo.
@@ -54,6 +55,7 @@ const NOMBRE_FONDO := [
 	"liso", "estrellas", "copos", "corriente", "celulas", "tapete", "panal",
 	"rejilla", "hojas", "pavesas", "trazas", "estelas", "horizonte",
 	"horizonte_roto", "aurora", "azulejos", "confeti", "banderines",
+	"placas", "tierra",
 ]
 
 ## Se cachea también la AUSENCIA de textura: sin esto, cada frame de cada target

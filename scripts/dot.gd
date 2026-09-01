@@ -26,6 +26,9 @@ enum Movimiento {
 	PLANEO,     ## viran suave y cabecean, como algo que se deja caer en el aire
 	MISIL,      ## aceleran en su rumbo hasta un tope
 	BOMBARDEO,  ## caen de arriba abajo zigzagueando, y no deben llegar al suelo
+	METEORO,    ## rumbo fijo hacia el planeta, acelerando; tampoco debe llegar
+	PATRULLA,   ## tramos rectos, se para en seco y sale en otra dirección
+	HORMIGA,    ## avanza sin parar con el rumbo girando poco a poco
 }
 
 ## Qué se dibuja. Un bioma con copos de nieve o abejas se explica solo; con
@@ -34,7 +37,8 @@ enum Movimiento {
 ## Todas las formas caben en el mismo radio y se dibujan a mano: a nueve píxeles
 ## no hay sitio para detalle, así que lo que las distingue es la silueta.
 enum Forma { CIRCULO, COPO, ABEJA, HOJA, BOLA, DRON, CHISPA, CHIP, AVION, MISIL,
-		PEZ, ESTRELLA, BALA, LLAMA, BURBUJA, GLOBO }
+		PEZ, ESTRELLA, BALA, LLAMA, BURBUJA, GLOBO, METEORO, ROBOT,
+		HORMIGA }
 
 ## Color y tamaño los fija el bioma al nacer el círculo, no una constante: es
 ## lo que permite que la ventisca se vea de nieve y el panal de miel sin tocar
@@ -92,6 +96,8 @@ var _semilla: float = 0.0
 var _giro: float = 0.0
 ## Cuánto vira por segundo el planeo, hasta el próximo cambio de rumbo.
 var _vira: float = 0.0
+## Segundos que le quedan a la patrulla parada antes de arrancar de nuevo.
+var _pausa: float = 0.0
 
 
 func _ready() -> void:
@@ -138,6 +144,9 @@ func _draw() -> void:
 		Forma.LLAMA: _llama(r)
 		Forma.BURBUJA: _burbuja(r)
 		Forma.GLOBO: _globo(r)
+		Forma.METEORO: _meteoro(r)
+		Forma.ROBOT: _robot(r)
+		Forma.HORMIGA: _hormiga(r)
 		_: draw_circle(Vector2.ZERO, r, color)
 
 
@@ -299,7 +308,8 @@ func mover(delta: float, area: Rect2) -> void:
 	if _entrada < 1.0:
 		_entrada = minf(1.0, _entrada + delta / ENTRADA_DUR)
 		queue_redraw()
-	elif forma in [Forma.ABEJA, Forma.PEZ, Forma.ESTRELLA, Forma.LLAMA, Forma.GLOBO]:
+	elif forma in [Forma.ABEJA, Forma.PEZ, Forma.ESTRELLA, Forma.LLAMA,
+			Forma.GLOBO, Forma.HORMIGA, Forma.ROBOT]:
 		# Estas tres se mueven por dentro —alas, cola, titileo— así que hay que
 		# redibujarlas aunque el nodo no cambie de sitio.
 		queue_redraw()
@@ -307,7 +317,7 @@ func mover(delta: float, area: Rect2) -> void:
 	# Las formas con orientación la actualizan aquí: el dron mira hacia donde
 	# va, la hoja voltea despacio como si cayera.
 	if forma in [Forma.DRON, Forma.AVION, Forma.MISIL, Forma.ABEJA, Forma.PEZ,
-			Forma.BALA] and velocity.length_squared() > 1.0:
+			Forma.BALA, Forma.METEORO, Forma.HORMIGA] and velocity.length_squared() > 1.0:
 		rotation = velocity.angle()
 	elif forma == Forma.HOJA:
 		rotation += delta * 0.9
@@ -328,11 +338,58 @@ func mover(delta: float, area: Rect2) -> void:
 			_mover_misil(delta, area)
 		Movimiento.BOMBARDEO:
 			_mover_bombardeo(delta, area)
+		Movimiento.METEORO:
+			_mover_meteoro(delta, area)
+		Movimiento.PATRULLA:
+			_mover_patrulla(delta, area)
+		Movimiento.HORMIGA:
+			_mover_hormiga(delta, area)
 		_:
 			# REBOTE, CHOQUE, ENJAMBRE y HUIDA comparten integración recta; lo
 			# que los distingue lo aplica Main antes de llamar aquí.
 			position += velocity * delta
 			_rebotar(area)
+
+
+## Meteoro: rumbo fijo, acelerando poco a poco. No rebota nunca.
+##
+## Rebotar sería lo peor que podría hacer: el bioma entero se sostiene sobre la
+## promesa de que todos van al planeta. Un meteoro que rebota en un borde y se
+## va rompe la lectura de la amenaza.
+func _mover_meteoro(delta: float, area: Rect2) -> void:
+	velocity += velocity.normalized() * base_speed * 0.18 * delta
+	position += velocity * delta
+
+
+## Patrulla: tramos rectos, parada en seco y salida en otra dirección.
+##
+## La parada es la pieza importante. Sin ella, un robot que cambia de rumbo cada
+## segundo se caza por suerte y no por puntería; ese cuarto de segundo quieto es
+## la ventana que convierte el bioma en una cacería y no en una lotería.
+func _mover_patrulla(delta: float, area: Rect2) -> void:
+	if _pausa > 0.0:
+		_pausa -= delta
+		return
+	_vira -= delta
+	if _vira <= 0.0:
+		_vira = randf_range(0.75, 1.7)
+		_pausa = 0.26
+		velocity = Vector2.from_angle(randf() * TAU) * base_speed * randf_range(0.8, 1.25)
+		return
+	position += velocity * delta
+	_rebotar(area)
+
+
+## Hormiga: avanza sin parar y el rumbo gira despacio.
+##
+## Dos ondas de periodo distinto, no una: con una sola el recorrido se cierra en
+## círculos y se nota el truco enseguida.
+func _mover_hormiga(delta: float, area: Rect2) -> void:
+	var giro := (sin(_fase * 1.7 + _semilla) * 0.9
+			+ sin(_fase * 4.3 + _semilla * 2.1) * 0.4) * delta
+	velocity = velocity.rotated(giro)
+	position += velocity * delta
+	_rebotar(area)
 
 
 ## Tirones y pausas: la abeja mantiene un rumbo un instante, lo cambia de golpe
@@ -569,6 +626,128 @@ func _globo(r: float) -> void:
 
 	# Brillo, que es lo que le da volumen de goma.
 	draw_circle(Vector2(-r * 0.3, -r * 0.38), r * 0.2, Color(1, 1, 1, 0.5))
+
+
+## Meteoro: roca irregular con la estela ardiendo detrás.
+##
+## Va orientado, así que en local el rumbo es +X y la estela cae hacia -X. Ese
+## detalle es el que lo separa de una piedra flotando: la estela dice de dónde
+## viene y, sobre todo, hacia dónde va, que es la información que el jugador
+## necesita cuando hay quince cayendo a la vez.
+func _meteoro(r: float) -> void:
+	# Dos capas de estela: una ancha y tenue, otra estrecha y viva. Con una
+	# sola no hay sensación de calor, solo una mancha.
+	draw_colored_polygon(PackedVector2Array([
+			Vector2(-r * 0.5, -r * 0.62), Vector2(-r * 3.2, 0.0),
+			Vector2(-r * 0.5, r * 0.62)]), Color(color, 0.22))
+	draw_colored_polygon(PackedVector2Array([
+			Vector2(-r * 0.5, -r * 0.3), Vector2(-r * 2.0, 0.0),
+			Vector2(-r * 0.5, r * 0.3)]), Color(color, 0.62))
+
+	# Roca: polígono deformado con la semilla propia, así que no hay dos
+	# meteoros iguales sin necesidad de guardar nada. Muchos vértices y poca
+	# amplitud: con pocos salía un pentágono, que se lee como una señal de
+	# tráfico y no como una piedra.
+	var roca := color.darkened(0.62)
+	var pts := PackedVector2Array()
+	var n := 15
+	for i in n:
+		var a := TAU * float(i) / float(n)
+		var rr := r * (0.9 + 0.13 * sin(a * 3.0 + _semilla) * cos(a * 2.0 + _semilla * 1.7))
+		pts.append(Vector2(cos(a) * rr, sin(a) * rr))
+	draw_colored_polygon(pts, roca)
+
+	# Borde al rojo, siguiendo el contorno real. Antes era un arco de radio fijo
+	# que no coincidía con la silueta deformada y se leía como un arañazo suelto
+	# flotando al lado de la piedra.
+	var cerrado := pts.duplicate()
+	cerrado.append(pts[0])
+	draw_polyline(cerrado, Color(color, 0.8), maxf(1.4, r * 0.14), true)
+
+	draw_circle(Vector2(-r * 0.24, -r * 0.22), r * 0.19, roca.darkened(0.4))
+	draw_circle(Vector2(r * 0.12, r * 0.28), r * 0.12, roca.darkened(0.4))
+
+
+## Robot: cuerpo cuadrado, antena y dos ojos.
+##
+## Se dibuja siempre derecho aunque se mueva de lado. Un robot ladeado se lee
+## como un robot averiado, y estos no lo están: están patrullando.
+func _robot(r: float) -> void:
+	var chapa: Color = color
+	var oscuro := color.darkened(0.72)
+
+	# Antena, con la bolita parpadeando: es lo que da el pulso de "encendido".
+	var luz := 0.45 + 0.55 * absf(sin(_fase * 3.4 + _semilla))
+	draw_line(Vector2(0.0, -r * 0.75), Vector2(0.0, -r * 1.15), chapa, maxf(1.2, r * 0.11))
+	draw_circle(Vector2(0.0, -r * 1.22), r * 0.2, Color(1.0, 0.42, 0.35, luz))
+
+	# Patas cortas, antes del cuerpo para que queden por debajo.
+	for lado in [-1.0, 1.0]:
+		draw_line(Vector2(r * 0.36 * lado, r * 0.7), Vector2(r * 0.5 * lado, r * 1.05),
+				oscuro, maxf(1.4, r * 0.16))
+
+	# Cuerpo.
+	draw_rect(Rect2(-r * 0.78, -r * 0.75, r * 1.56, r * 1.5), chapa)
+	# Visor: una banda oscura de lado a lado con dos ojos dentro. La banda es
+	# lo que hace que se lea como cara a nueve píxeles.
+	draw_rect(Rect2(-r * 0.62, -r * 0.42, r * 1.24, r * 0.58), oscuro)
+	draw_circle(Vector2(-r * 0.28, -r * 0.13), r * 0.15, Color(1.0, 0.42, 0.35, luz))
+	draw_circle(Vector2(r * 0.28, -r * 0.13), r * 0.15, Color(1.0, 0.42, 0.35, luz))
+	# Rejilla del pecho.
+	for i in 3:
+		var y := r * (0.16 + float(i) * 0.2)
+		draw_line(Vector2(-r * 0.45, y), Vector2(r * 0.45, y), oscuro, maxf(1.0, r * 0.08))
+
+
+## Hormiga: tres segmentos, seis patas y dos antenas.
+##
+## Va orientada, con la cabeza en +X. Las patas se mueven: a este tamaño el
+## detalle no se distingue, pero el temblor sí, y es lo que convierte una
+## mancha alargada en un bicho que camina.
+func _hormiga(r: float) -> void:
+	var cuerpo: Color = color
+	var paso := sin(_fase * 14.0 + _semilla) * r * 0.22
+
+	# Patas: los tres pares salen del TÓRAX, que es donde salen de verdad, y
+	# tienen rodilla. Naciendo del abdomen y rectas parecían púas; con el codo
+	# y el punto de anclaje correcto se leen como patas aunque midan cuatro
+	# píxeles.
+	for i in 3:
+		var bx := r * (0.16 - float(i) * 0.18)
+		var atras := r * (0.45 - float(i) * 0.5)
+		var largo := r * (0.85 - float(i) * 0.05)
+		var alt := paso if i % 2 == 0 else -paso
+		for lado in [-1.0, 1.0]:
+			var codo := Vector2(bx + atras * 0.45, r * 0.42 * lado)
+			draw_line(Vector2(bx, r * 0.1 * lado), codo, cuerpo, maxf(0.9, r * 0.09))
+			draw_line(codo, Vector2(bx + atras + alt, largo * lado),
+					cuerpo, maxf(0.9, r * 0.09))
+
+	# Antenas.
+	for lado in [-1.0, 1.0]:
+		var codo := Vector2(r * 1.05, r * 0.26 * lado)
+		draw_line(Vector2(r * 0.74, r * 0.12 * lado), codo, cuerpo, maxf(0.8, r * 0.07))
+		draw_line(codo, codo + Vector2(r * 0.34, r * 0.12 * lado + paso * 0.3),
+				cuerpo, maxf(0.8, r * 0.07))
+
+	# Gáster, tórax y cabeza. Los tres SEPARADOS: lo que identifica a una
+	# hormiga es la cintura, y si los óvalos se solapan queda un churro
+	# alargado que podría ser cualquier bicho.
+	_ovalo(Vector2(-r * 0.8, 0.0), r * 0.5, r * 0.44, cuerpo)
+	_ovalo(Vector2(-r * 0.02, 0.0), r * 0.24, r * 0.3, cuerpo)
+	_ovalo(Vector2(r * 0.6, 0.0), r * 0.3, r * 0.28, cuerpo)
+	# Ojo, en claro: da la dirección de un vistazo.
+	draw_circle(Vector2(r * 0.72, -r * 0.14), r * 0.1, cuerpo.lightened(0.65))
+
+
+## Elipse rellena. draw_circle solo hace círculos y estos bichos son ovalados.
+func _ovalo(centro: Vector2, rx: float, ry: float, tinte: Color) -> void:
+	var pts := PackedVector2Array()
+	var n := 14
+	for i in n:
+		var a := TAU * float(i) / float(n)
+		pts.append(centro + Vector2(cos(a) * rx, sin(a) * ry))
+	draw_colored_polygon(pts, tinte)
 
 
 ## Brasa: sube y se renueva por abajo. Es la nieve del revés, y eso cambia la

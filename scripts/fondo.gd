@@ -40,12 +40,14 @@ enum Tipo {
 	AZULEJOS,       ## alicatado de baño
 	CONFETI,        ## papelillos de colores
 	BANDERINES,     ## guirnalda de fiesta, para la banda de arriba
+	PLACAS,         ## chapa remachada
+	TIERRA,         ## granos y raíces, vista desde arriba
 }
 
 ## Adornos que NO se repiten: se dibujan una vez sobre el telón porque su sitio
 ## en pantalla importa. Una mesa de billar con las troneras repetidas en mosaico
 ## no sería una mesa.
-enum Marco { NADA, MESA, TINA }
+enum Marco { NADA, MESA, TINA, PLANETA }
 
 ## Alto de cada banda, en píxeles.
 ##
@@ -187,6 +189,8 @@ func _draw() -> void:
 		_dibujar_mesa(r)
 	elif marco == Marco.TINA:
 		_dibujar_tina(r)
+	elif marco == Marco.PLANETA:
+		_dibujar_planeta(r)
 	if _fugaces and _fugaz_avance < 1.0:
 		_dibujar_fugaz()
 
@@ -217,6 +221,70 @@ func _dibujar_mesa(r: Vector2) -> void:
 			Vector2(margen, r.y - margen), Vector2(r.x - margen, r.y - margen)]:
 		draw_circle(pos, hoyo, negro)
 		draw_arc(pos, hoyo, 0.0, TAU, 24, borde, 2.0, true)
+
+
+## Dónde está el planeta y cuánto ocupa.
+##
+## Vive aquí, en estático, porque lo DIBUJA Fondo y lo COMPRUEBA Main: es la
+## frontera entre lo que se ve y la derrota. Si cada uno calculara su versión,
+## bastaría con retocar el dibujo para que el impacto dejara de coincidir con el
+## borde visible, y el jugador perdería por tocar algo que no estaba ahí.
+##
+## El centro cae por debajo del borde inferior a propósito: solo se ve un
+## casquete, y eso hace que se lea como un mundo y no como una pelota.
+static func planeta_centro(r: Vector2) -> Vector2:
+	return Vector2(r.x * 0.06, r.y * 1.06)
+
+
+static func planeta_radio(r: Vector2) -> float:
+	return minf(r.x, r.y) * 0.40
+
+
+## La Tierra, abajo a la izquierda.
+##
+## Va como marco y no como mosaico por lo mismo que la mesa de billar: un
+## planeta repetido en baldosas no es un planeta.
+func _dibujar_planeta(r: Vector2) -> void:
+	var c := planeta_centro(r)
+	var rad := planeta_radio(r)
+
+	# Atmósfera: dos aros muy tenues por fuera del borde. Es lo que separa un
+	# planeta de un círculo azul.
+	draw_arc(c, rad * 1.06, 0.0, TAU, 72, Color(0.45, 0.78, 1.0, 0.10), rad * 0.14, true)
+	draw_arc(c, rad * 1.01, 0.0, TAU, 72, Color(0.55, 0.85, 1.0, 0.22), rad * 0.05, true)
+
+	# Océano.
+	draw_circle(c, rad, Color("14386f"))
+
+	# Continentes: masas deformadas en posiciones fijas. Fijas y no aleatorias
+	# porque la Tierra tiene que ser la misma cada vez que entras al nivel.
+	var tierra := Color("2f8a52")
+	_masa(c, rad, -0.55, 0.42, 0.46, tierra)
+	_masa(c, rad, 0.35, 0.60, 0.34, tierra)
+	_masa(c, rad, 1.45, 0.50, 0.30, tierra.darkened(0.12))
+	_masa(c, rad, 2.55, 0.66, 0.26, tierra)
+	# Casquete polar, arriba del todo.
+	_masa(c, rad, -PI * 0.5, 0.86, 0.30, Color("dff0f7"))
+
+	# Luz por arriba a la derecha, que es de donde vienen los meteoros: el
+	# borde iluminado dice dónde está el sol sin dibujar el sol.
+	draw_arc(c, rad * 0.96, -PI * 0.55, PI * 0.12, 24, Color(1, 1, 1, 0.16), rad * 0.07, true)
+
+
+## Una masa continental: polígono deformado a una distancia y ángulo del centro.
+func _masa(c: Vector2, rad: float, ang: float, dist: float, tam: float, tinte: Color) -> void:
+	var centro := c + Vector2.from_angle(ang) * rad * dist
+	var pts := PackedVector2Array()
+	var n := 13
+	for i in n:
+		var a := TAU * float(i) / float(n)
+		var rr := rad * tam * (0.72 + 0.36 * sin(a * 3.0 + ang * 4.0) * cos(a * 2.0 + ang))
+		var punto := centro + Vector2(cos(a) * rr, sin(a) * rr)
+		# Recortado al disco: un continente no se sale del planeta.
+		if punto.distance_to(c) > rad * 0.985:
+			punto = c + (punto - c).normalized() * rad * 0.985
+		pts.append(punto)
+	draw_colored_polygon(pts, tinte)
 
 
 ## Bañera: silueta redondeada abajo, con patas, grifo y línea de agua.
@@ -339,6 +407,8 @@ func _mosaico(t: Tipo) -> ImageTexture:
 		Tipo.AZULEJOS: _gen_azulejos(img)
 		Tipo.CONFETI: _gen_confeti(img, rnd)
 		Tipo.BANDERINES: _gen_banderines(img)
+		Tipo.PLACAS: _gen_placas(img)
+		Tipo.TIERRA: _gen_tierra(img, rnd)
 
 	var tex := ImageTexture.create_from_image(img)
 	_cache[t] = tex
@@ -531,6 +601,50 @@ func _gen_aurora(img: Image, rnd: RandomNumberGenerator) -> void:
 			var t := float(y) / borde
 			_px(img, x, y, intensidad * (1.0 - t) * (1.0 - t))
 			y += 1
+
+
+## Chapa remachada: placas grandes con un remache en cada esquina.
+##
+## El remache es lo que la separa de la rejilla del circuito. Sin él son dos
+## cuadrículas y el bioma de robots se confunde con el de chips.
+func _gen_placas(img: Image) -> void:
+	var paso := 64
+	for k in range(0, LADO, paso):
+		_linea(img, Vector2(k, 0), Vector2(k, LADO), 0.10)
+		_linea(img, Vector2(0, k), Vector2(LADO, k), 0.10)
+	for fy in range(0, LADO, paso):
+		for fx in range(0, LADO, paso):
+			for d in [Vector2(9, 9), Vector2(paso - 9, 9),
+					Vector2(9, paso - 9), Vector2(paso - 9, paso - 9)]:
+				var q: Vector2 = Vector2(fx, fy) + d
+				_px(img, int(q.x), int(q.y), 0.24)
+				_px(img, int(q.x) + 1, int(q.y), 0.18)
+				_px(img, int(q.x), int(q.y) + 1, 0.18)
+			# Costura interior, para que la placa no quede vacía del todo.
+			_linea(img, Vector2(fx + 18, fy + paso * 0.5),
+					Vector2(fx + paso - 18, fy + paso * 0.5), 0.05)
+
+
+## Tierra vista desde arriba: granos, guijarros y galerías.
+##
+## Las galerías van con alfa muy baja y curvas: son lo que dice que debajo hay
+## un hormiguero, pero si se ven demasiado compiten con las hormigas, que son lo
+## que hay que mirar.
+func _gen_tierra(img: Image, rnd: RandomNumberGenerator) -> void:
+	for i in 150:
+		_px(img, int(rnd.randf() * LADO), int(rnd.randf() * LADO),
+				rnd.randf_range(0.04, 0.13))
+	for i in 9:
+		var c := Vector2(rnd.randf() * LADO, rnd.randf() * LADO)
+		var rr := rnd.randf_range(1.6, 3.4)
+		_linea(img, c - Vector2(rr, 0), c + Vector2(rr, 0), 0.14, rr * 1.6)
+	# Galerías: una onda con periodo entero en el mosaico, o se vería el corte.
+	for g in 2:
+		var base := 30.0 + float(g) * 62.0
+		for x in LADO:
+			var y := base + sin(TAU * float(x) / float(LADO) + float(g) * 2.1) * 17.0
+			_px(img, x, int(y), 0.07)
+			_px(img, x, int(y) + 1, 0.04)
 
 
 ## Alicatado: cuadrícula de baldosas con junta y un brillo en cada una.
