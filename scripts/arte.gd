@@ -67,7 +67,7 @@ const NOMBRE_EXPLOSION := ["cadena", "fallo", "impacto"]
 ## Nombres de fichero por forma, en el orden del enum Dot.Forma.
 const NOMBRE_FORMA := [
 	"circulo", "copo", "abeja", "hoja", "bola", "dron", "chispa", "chip",
-	"avion", "misil", "pez", "estrella", "bala", "llama", "burbuja", "globo",
+	"avion", "misil", "pez", "estrella", "llama", "burbuja", "globo",
 	"meteoro", "robot", "hormiga",
 ]
 

@@ -40,7 +40,7 @@ func _initialize() -> void:
 	print("onda de cadena: hasta %d px de radio" % main.chain_radius_base)
 	print("")
 	print("biomas: %d   niveles: %d" % [Niveles.biomas().size(), Niveles.total()])
-	print("sin fin rota por %d (los de defensa quedan fuera)" % Niveles.biomas_sinfin().size())
+	print("sin fin rota por %d, defensa incluida" % Niveles.biomas_sinfin().size())
 	print("")
 
 	await _recorrer_niveles(main, area, pantalla)

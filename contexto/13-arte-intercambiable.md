@@ -70,6 +70,24 @@ En un lienzo de 512 px, eso deja el cuerpo principal en unos 190 px de diámetro
 y el resto en aire. Quien dibuje a mano tiene que respetar la proporción o su
 forma saldrá de otro tamaño que las demás.
 
+### La orientación
+
+Siete formas las rota el nodo hacia su rumbo —dron, avión, misil, abeja, pez,
+meteoro y hormiga— y la convención es **0 grados = mirando a la derecha**, porque
+el código hace `rotation = velocity.angle()`.
+
+No es negociable, y compensarla por forma llenaría el código de una tabla de
+excepciones que habría que mantener para siempre. Se arregla en el fichero, una
+vez.
+
+En la primera tanda de assets **cuatro de siete no cumplían**: el dron miraba
+arriba, el avión arriba-derecha, el meteoro viajaba abajo-izquierda y el pez a la
+izquierda. Se corrigieron al instalarlos.
+
+Y el pez trae su propia trampa: se **refleja** en horizontal, no se gira 180
+grados. Girado nadaría panza arriba, y es el tipo de fallo que no se ve en una
+hoja de contactos porque ahí está quieto.
+
 ### El color
 
 Un asset se dibuja **tal cual**. Ni targets ni fondos se tiñen con la paleta del

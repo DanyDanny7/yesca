@@ -10,9 +10,21 @@ información. La regla que gobierna todo el catálogo:
 > La silueta dice qué es y el movimiento dice cómo cazarlo. Si hay que
 > explicarlo con un texto, la forma está mal elegida.
 
-Todo está dibujado con polígonos en `_draw()`, sin una sola imagen. Se puede
-sustituir cualquier pieza por un PNG sin tocar la lógica: ver
-`13-arte-intercambiable.md`.
+## Los targets vienen de assets desde el 2026-08-31
+
+Las dieciocho formas se dibujan ahora desde PNG en `arte/targets/`. El dibujo por
+polígonos sigue ahí de respaldo —borrar un fichero lo devuelve— pero ya no es lo
+que se ve.
+
+**Siete formas han perdido su animación interna**, que era el precio anunciado y
+ahora pagado: las alas de la abeja, la cola del pez, el titileo de la estrella,
+el ondeo de la llama, el cordel del globo, las patas de la hormiga y la antena
+del robot. Una imagen no bate alas. Lo que **no** se ha perdido es la rotación
+hacia el rumbo ni la animación de aparición, porque las pone el nodo y no el
+dibujo.
+
+Las fichas de abajo describen lo que se ve hoy. Los fondos y las explosiones
+siguen siendo procedurales.
 
 ## Cómo leer las fichas
 
@@ -27,7 +39,7 @@ baldosas no es una bañera) y la banda se ancla a un borde.
 
 | | |
 |---|---|
-| **Objetivo** | **Dos formas mezcladas al azar**: estrella de cinco puntas que **titila** —el brillo late despacio y cada una con su fase, así que el campo nunca parpadea a coro— y **chispa**, un núcleo pequeño con halo que parece emitir luz sin necesidad de ningún efecto. |
+| **Objetivo** | **Dos formas mezcladas al azar**: estrella de cinco puntas y **chispa** de cuatro brazos. Ambas quietas: el titileo que tenía la estrella dibujada por código se perdió al pasar a asset. |
 | **Fondo** | Campo de estrellas sobre azul casi negro. Cada pocos segundos **cruza una estrella fugaz**, con estela que se apaga. Es el único fondo con un suceso, y está aquí a propósito: es el primer bioma y el que enseña a mirar la pantalla entera. |
 | **Movimiento** | Rebote. Línea recta y rebota en los bordes. |
 
@@ -63,7 +75,7 @@ Va después de Cielo abierto para bajar el pulso antes de apretar.
 
 | | |
 |---|---|
-| **Objetivo** | Pez, con **la cola batiendo**. Orientado: mira siempre hacia donde nada. |
+| **Objetivo** | Pez naranja con franjas. Orientado: mira siempre hacia donde nada. La cola ya no bate; el asset llegó mirando a la izquierda y se **reflejó**, no se giró — girado nadaría panza arriba. |
 | **Fondo** | Líneas de corriente que se desplazan **hacia la derecha**, en el mismo sentido que el agua arrastra a los peces. La dirección del mosaico cuenta la historia sin decir una palabra. |
 | **Movimiento** | Corriente. Entran por la izquierda y salen por la derecha; siempre en ese sentido, porque un río con dos sentidos no es un río. |
 
@@ -73,7 +85,7 @@ Los grupos se forman solos río abajo: es el bioma que regala cadenas.
 
 | | |
 |---|---|
-| **Objetivo** | Hormiga: tres segmentos separados —gáster, tórax y cabeza—, seis patas que se mueven y dos antenas. Lo que identifica a una hormiga es **la cintura**, no la silueta general. Orientada al avance. |
+| **Objetivo** | Hormiga: tres segmentos separados —gáster, tórax y cabeza—, seis patas y dos antenas. Lo que la identifica es **la cintura**, no la silueta general. Orientada al avance; las patas ya no se mueven. |
 | **Fondo** | Tierra vista desde arriba: granos, guijarros y dos **galerías** que serpentean. Las galerías van con alfa muy baja a propósito: dicen que debajo hay un hormiguero, pero si se vieran más competirían con las hormigas, que es lo que hay que mirar. |
 | **Movimiento** | Hormiga. Avanzan sin parar con el rumbo girando poco a poco, sumando dos ondas de periodo distinto para que el recorrido no se cierre en círculos. |
 
@@ -111,7 +123,7 @@ Nada se queda quieto: cada choque rehace el tablero.
 
 | | |
 |---|---|
-| **Objetivo** | Abeja con **alas que baten**, franjas negras y **aguijón**. Orientada al vuelo. |
+| **Objetivo** | Abeja de alas azuladas, franjas negras y **aguijón**. Orientada al vuelo. Las alas ya no baten. |
 | **Fondo** | Panal hexagonal ámbar. El paso de la retícula es de 64 px —la mitad del mosaico— y no puede ser otro: con 128 el periodo del dibujo sale de 256 y aparecen costuras. |
 | **Movimiento** | Abeja. Tirones, pausas y giros bruscos. Lo que la hace difícil de leer no es la velocidad media sino **lo poco que dura cada tramo recto**. |
 
@@ -141,7 +153,7 @@ demuestra cuánto cambia un bioma solo por el color y la forma.
 
 | | |
 |---|---|
-| **Objetivo** | Llama pequeña que **ondea**, más ancha abajo que arriba. |
+| **Objetivo** | Llama pequeña, más ancha abajo que arriba. Ya no ondea. |
 | **Fondo** | Pavesas subiendo sobre rojo muy oscuro. El mosaico se desplaza **hacia arriba**, al revés que la nieve. |
 | **Movimiento** | Brasa. Suben y se renuevan por abajo. |
 
@@ -152,7 +164,7 @@ juego.
 
 | | |
 |---|---|
-| **Objetivo** | Robot cuadrado con **antena parpadeante**, visor oscuro de lado a lado y dos ojos que laten. Se dibuja siempre derecho aunque se mueva de lado: un robot ladeado se lee como averiado, y estos están patrullando. |
+| **Objetivo** | Robot con antena, visor oscuro de lado a lado y dos ojos claros. Se dibuja siempre derecho aunque se mueva de lado: un robot ladeado se lee como averiado, y estos están patrullando. La antena ya no parpadea. |
 | **Fondo** | Chapa remachada: placas grandes con **un remache en cada esquina**. El remache es lo que la separa de la rejilla de Estampida; sin él son dos cuadrículas. |
 | **Movimiento** | Patrulla. Tramos rectos, **parada en seco** y salida en otra dirección. Entran por los cuatro lados de la pantalla. |
 
@@ -196,7 +208,7 @@ El bioma más amable de todos. Aquí no hay prisa.
 
 | | |
 |---|---|
-| **Objetivo** | Globo ovalado con nudo y **cordel que ondea**, cada uno de uno de ocho colores. El cordel es lo que lo convierte en globo y no en un huevo: es la única parte que se sale de la silueta, y por eso va en claro aunque el globo sea oscuro. |
+| **Objetivo** | Globo ovalado con nudo y cordel, cada uno de uno de ocho colores. El cordel es lo que lo convierte en globo y no en un huevo: es la única parte que se sale de la silueta. Ya no ondea. |
 | **Fondo** | Confeti inclinado en tamaños distintos, y una **guirnalda de banderines** colgando en curva de la banda superior. La curva tiene un periodo entero en el mosaico, así que la cuerda continúa de una repetición a la siguiente sin escalón. |
 | **Movimiento** | Choque, como el billar. |
 
@@ -206,7 +218,7 @@ Un choque puede regalarte la cadena o arruinártela.
 
 | | |
 |---|---|
-| **Objetivo** | **Misil**, orientado a la caída: morro apuntado y aletas traseras. |
+| **Objetivo** | **Misil**, orientado a la caída, con su llamarada detrás. |
 | **Fondo** | Estelas, y en la banda inferior **la misma ciudad de papel, pero rota y ardiendo**: siluetas quebradas en naranja. |
 | **Movimiento** | Bombardeo. Caen de arriba abajo zigzagueando en ese. |
 

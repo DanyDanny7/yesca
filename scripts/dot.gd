@@ -37,7 +37,7 @@ enum Movimiento {
 ## Todas las formas caben en el mismo radio y se dibujan a mano: a nueve píxeles
 ## no hay sitio para detalle, así que lo que las distingue es la silueta.
 enum Forma { CIRCULO, COPO, ABEJA, HOJA, BOLA, DRON, CHISPA, CHIP, AVION, MISIL,
-		PEZ, ESTRELLA, BALA, LLAMA, BURBUJA, GLOBO, METEORO, ROBOT,
+		PEZ, ESTRELLA, LLAMA, BURBUJA, GLOBO, METEORO, ROBOT,
 		HORMIGA }
 
 ## Color y tamaño los fija el bioma al nacer el círculo, no una constante: es
@@ -140,7 +140,6 @@ func _draw() -> void:
 		Forma.MISIL: _misil(r)
 		Forma.PEZ: _pez(r)
 		Forma.ESTRELLA: _estrella(r)
-		Forma.BALA: _bala(r)
 		Forma.LLAMA: _llama(r)
 		Forma.BURBUJA: _burbuja(r)
 		Forma.GLOBO: _globo(r)
@@ -317,7 +316,7 @@ func mover(delta: float, area: Rect2) -> void:
 	# Las formas con orientación la actualizan aquí: el dron mira hacia donde
 	# va, la hoja voltea despacio como si cayera.
 	if forma in [Forma.DRON, Forma.AVION, Forma.MISIL, Forma.ABEJA, Forma.PEZ,
-			Forma.BALA, Forma.METEORO, Forma.HORMIGA] and velocity.length_squared() > 1.0:
+			Forma.METEORO, Forma.HORMIGA] and velocity.length_squared() > 1.0:
 		rotation = velocity.angle()
 	elif forma == Forma.HOJA:
 		rotation += delta * 0.9
@@ -512,37 +511,6 @@ func _estrella(r: float) -> void:
 		Vector2(-largo, 0.0), Vector2(0.0, ancho),
 		Vector2(largo, 0.0), Vector2(0.0, -ancho)]), color)
 	draw_circle(Vector2.ZERO, r * 0.42, color)
-
-
-## Bala: cápsula con morro claro y aletas. Apunta a +x y la rotación la orienta.
-##
-## La silueta es deliberadamente maciza y corta: tiene que leerse como algo
-## pesado que cae, no como una chispa. El morro claro marca hacia dónde va.
-func _bala(r: float) -> void:
-	var oscuro := Color(color.r * 0.35, color.g * 0.3, color.b * 0.32, 1.0)
-
-	# Aletas traseras.
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-r * 0.75, r * 0.5), Vector2(-r * 1.35, r * 1.0),
-		Vector2(-r * 1.35, r * 0.25)]), oscuro)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-r * 0.75, -r * 0.5), Vector2(-r * 1.35, -r * 1.0),
-		Vector2(-r * 1.35, -r * 0.25)]), oscuro)
-
-	# Cuerpo: cápsula.
-	var cuerpo := PackedVector2Array()
-	var n := 10
-	for i in n + 1:
-		var a := -PI * 0.5 + PI * float(i) / float(n)
-		cuerpo.append(Vector2(r * 0.55, 0.0) + Vector2.from_angle(a) * r * 0.62)
-	for i in n + 1:
-		var a := PI * 0.5 + PI * float(i) / float(n)
-		cuerpo.append(Vector2(-r * 0.95, 0.0) + Vector2.from_angle(a) * r * 0.62)
-	draw_colored_polygon(cuerpo, oscuro)
-
-	# Morro claro y brillo, que es lo que dice hacia dónde va.
-	draw_circle(Vector2(r * 0.62, 0.0), r * 0.5, color)
-	draw_circle(Vector2(r * 0.55, -r * 0.2), r * 0.16, Color(1, 1, 1, 0.55))
 
 
 ## Llama: gota apuntada hacia arriba con núcleo claro, ondeando.
