@@ -95,6 +95,8 @@ var _banda_arriba: bool = false
 var _scroll_banda: float = 0.0
 
 var marco: Marco = Marco.NADA
+## Bioma en curso. Es la clave con la que se buscan los assets de fondo.
+var bioma: String = ""
 
 ## Estrella fugaz: cruza de vez en cuando dejando estela.
 var _fugaces: bool = false
@@ -106,7 +108,9 @@ var _fugaz_fin: Vector2 = Vector2.ZERO
 
 func configurar(nuevo_tipo: Tipo, nuevo_color: Color,
 		banda: Tipo = Tipo.LISO, color_banda: Color = Color("ffffff"),
-		nuevo_marco: Marco = Marco.NADA, fugaces: bool = false) -> void:
+		nuevo_marco: Marco = Marco.NADA, fugaces: bool = false,
+		nuevo_bioma: String = "") -> void:
+	bioma = nuevo_bioma
 	tipo = nuevo_tipo
 	color = nuevo_color
 	_color_banda = color_banda
@@ -177,16 +181,23 @@ func _cubrir(tex: Texture2D, r: Vector2) -> void:
 
 func _draw() -> void:
 	var r := get_viewport_rect().size
-	# Una imagen de pantalla completa manda sobre el mosaico. Se dibuja antes de
-	# la banda y el marco, que se siguen pintando encima.
-	var lienzo := Arte.telon(tipo)
-	if lienzo != null:
-		_cubrir(lienzo, r)
-	elif _tex == null and _tex_banda == null:
+
+	# El fondo del bioma va en dos capas, y la separación no es un capricho: una
+	# se puede repetir y la otra no. El azulejo cubre la pantalla y se desplaza;
+	# la composición se ancla abajo, donde están las piezas que tienen sitio
+	# fijo. Aplastarlas juntas en una sola imagen obligaría a estirar la bañera.
+	var azulejo := Arte.fondo_bioma(bioma)
+	var capa := Arte.telon_bioma(bioma)
+
+	if azulejo != null:
+		draw_texture_rect(azulejo,
+				Rect2(_scroll - Vector2(LADO, LADO), r + Vector2(LADO, LADO) * 2.0),
+				true)
+	elif _tex == null and _tex_banda == null and capa == null:
 		return
 	# Una sola llamada para todo el telón. Se dibuja un mosaico de más en cada
 	# lado para que el desplazamiento no descubra el borde.
-	if _tex != null and lienzo == null:
+	if _tex != null and azulejo == null:
 		draw_texture_rect(
 			_tex,
 			Rect2(_scroll - Vector2(LADO, LADO), r + Vector2(LADO, LADO) * 2.0),
@@ -195,6 +206,16 @@ func _draw() -> void:
 
 	# La banda va anclada a un borde y con la altura EXACTA de su textura: así
 	# se repite en horizontal y no en vertical.
+	# La composición del bioma ya trae su banda y su marco dibujados, así que
+	# los procedurales se callan: pintarlos encima dejaría dos ciudades.
+	if capa != null:
+		var esc := r.x / float(capa.get_width())
+		var alto := float(capa.get_height()) * esc
+		draw_texture_rect(capa, Rect2(Vector2(0.0, r.y - alto), Vector2(r.x, alto)), false)
+		if _fugaces and _fugaz_avance < 1.0:
+			_dibujar_fugaz()
+		return
+
 	if _tex_banda != null:
 		var alto := float(_tex_banda.get_height())
 		var y := 0.0 if _banda_arriba else r.y - alto
@@ -243,21 +264,59 @@ func _dibujar_mesa(r: Vector2) -> void:
 		draw_arc(pos, hoyo, 0.0, TAU, 24, borde, 2.0, true)
 
 
+## El lienzo en el que están compuestos los fondos entregados.
+const LIENZO_ARTE := Vector2(208.0, 336.0)
+## Tejado más alto de la ciudad de Asedio, en unidades de ese lienzo.
+##
+## Se toma el MÁS ALTO y no una media: con la media, un misil atravesaría la
+## parte de arriba de los edificios altos antes de contar como impacto, y eso se
+## lee como que el juego está roto. Disparar un poco antes sobre un hueco entre
+## edificios se lee, en cambio, como el espacio aéreo de la ciudad.
+const ARTE_TEJADO := 232.0
+## El planeta de Lluvia de meteoros: centro y radio, en unidades del lienzo.
+## El centro cae por debajo del borde a propósito: solo se ve un casquete, y eso
+## hace que se lea como un mundo y no como una pelota.
+const ARTE_PLANETA := Vector3(26.0, 344.0, 96.0)
+
+
+## Cuánto mide en pantalla una unidad del lienzo del arte.
+##
+## La composición se dibuja escalada por el ancho y anclada abajo, así que una
+## unidad vale lo mismo en los dos ejes y el borde inferior siempre coincide.
+func _escala_arte(r: Vector2) -> float:
+	return r.x / LIENZO_ARTE.x
+
+
 ## Dónde está el planeta y cuánto ocupa.
 ##
-## Vive aquí, en estático, porque lo DIBUJA Fondo y lo COMPRUEBA Main: es la
-## frontera entre lo que se ve y la derrota. Si cada uno calculara su versión,
-## bastaría con retocar el dibujo para que el impacto dejara de coincidir con el
-## borde visible, y el jugador perdería por tocar algo que no estaba ahí.
+## Vive aquí porque lo DIBUJA Fondo y lo COMPRUEBA Main: es la frontera entre lo
+## que se ve y la derrota. Si cada uno calculara su versión, bastaría con
+## retocar el dibujo para que el impacto dejara de coincidir con el borde
+## visible, y el jugador perdería por tocar algo que ya no estaba ahí.
 ##
-## El centro cae por debajo del borde inferior a propósito: solo se ve un
-## casquete, y eso hace que se lea como un mundo y no como una pelota.
-static func planeta_centro(r: Vector2) -> Vector2:
+## Justo eso pasó al entrar el arte nuevo: el disco calculado quedaba más
+## pequeño y más a la izquierda que la Tierra dibujada. Por eso ahora las cifras
+## salen del propio SVG del fondo cuando hay asset, y solo se cae al cálculo
+## viejo si el bioma sigue dibujado por código.
+func planeta_centro(r: Vector2) -> Vector2:
+	if Arte.telon_bioma(bioma) != null:
+		var e := _escala_arte(r)
+		return Vector2(ARTE_PLANETA.x * e,
+				r.y + (ARTE_PLANETA.y - LIENZO_ARTE.y) * e)
 	return Vector2(r.x * 0.06, r.y * 1.06)
 
 
-static func planeta_radio(r: Vector2) -> float:
+func planeta_radio(r: Vector2) -> float:
+	if Arte.telon_bioma(bioma) != null:
+		return ARTE_PLANETA.z * _escala_arte(r)
 	return minf(r.x, r.y) * 0.40
+
+
+## Altura de la franja de abajo que cuenta como ciudad, en píxeles.
+func altura_ciudad(r: Vector2, por_defecto: float) -> float:
+	if Arte.telon_bioma(bioma) != null:
+		return (LIENZO_ARTE.y - ARTE_TEJADO) * _escala_arte(r)
+	return por_defecto
 
 
 ## La Tierra, abajo a la izquierda.

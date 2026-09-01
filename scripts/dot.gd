@@ -86,6 +86,13 @@ var _entrada: float = 1.0
 ## según el bioma; el día que se note como injusto, la solución es subir el
 ## radio de lógica y recalibrar, no seguir agrandando el dibujo.
 const ESCALA_VISUAL := 1.5625
+## Multiplicador propio del bioma, encima de la escala común.
+##
+## Sale de la paleta y solo afecta al DIBUJO. `radius` no se toca: gobierna los
+## contagios y el toque, así que subirlo cambiaría el balance del bioma por un
+## motivo estético. Un bioma con escala 2 se ve el doble de grande y encadena
+## exactamente igual que antes.
+var escala: float = 1.0
 const ENTRADA_DUR := 0.55
 const ENTRADA_MIN := 0.28
 
@@ -114,7 +121,7 @@ func _draw() -> void:
 	# del juego entero por un motivo puramente estético. La escala se aplica
 	# solo aquí: los targets se ven un 25% más grandes y no encadenan ni un
 	# píxel más lejos. El radio de toque es aparte y tampoco se toca.
-	var r := radius * ESCALA_VISUAL * lerpf(ENTRADA_MIN, 1.0, _entrada)
+	var r := radius * ESCALA_VISUAL * escala * lerpf(ENTRADA_MIN, 1.0, _entrada)
 	
 	# Si hay un asset para esta forma, manda el asset. El dibujo de
 	# abajo pasa a ser el respaldo: cubre las formas sin fichero y

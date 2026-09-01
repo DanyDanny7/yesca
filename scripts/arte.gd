@@ -119,6 +119,38 @@ static func telon(tipo: int) -> Texture2D:
 	return _buscar(DIR_TELONES + NOMBRE_FONDO[tipo])
 
 
+## El azulejo del bioma: se repite y se desplaza como el generado.
+##
+## Los fondos se indexan por BIOMA y no por telón, al revés que los mosaicos
+## generados. La razón la dio la primera entrega de arte: dos biomas pueden
+## compartir telón —Cielo abierto y Lluvia de meteoros usan los dos un campo de
+## estrellas— pero nadie dibuja «un campo de estrellas», dibuja «el cielo de
+## Cielo abierto». El bioma es la unidad de identidad visual; el telón solo era
+## la unidad del generador.
+static func fondo_bioma(nombre: String) -> Texture2D:
+	return _buscar(DIR_FONDOS + slug(nombre))
+
+
+## La capa de encima del bioma: composición a lienzo completo.
+##
+## Trae lo que no se puede repetir —la bañera, la ciudad, el planeta, el nido—
+## y por eso se ancla abajo y se escala solo por el ancho, nunca se estira. Una
+## bañera al doble de ancho deja de ser una bañera.
+static func telon_bioma(nombre: String) -> Texture2D:
+	return _buscar(DIR_TELONES + slug(nombre))
+
+
+## Nombre de bioma a nombre de fichero: minúsculas, sin acentos, con guiones.
+##
+## "Cielo abierto" -> cielo_abierto, "Otoño" -> otono, "Básico" -> basico.
+static func slug(nombre: String) -> String:
+	var s := nombre.to_lower()
+	for par in [["á", "a"], ["é", "e"], ["í", "i"], ["ó", "o"], ["ú", "u"],
+			["ñ", "n"], ["ü", "u"]]:
+		s = s.replace(par[0], par[1])
+	return s.replace(" ", "_")
+
+
 ## El asset de un tipo de detonación, si lo hay.
 ##
 ## Se dibuja escalado al radio que tenga la explosión en cada instante y con su

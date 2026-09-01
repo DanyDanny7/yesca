@@ -17,6 +17,10 @@ extends SceneTree
 ## 3. ¿Los meteoros van de verdad al planeta? Todo el bioma se apoya en que
 ##    convergen; si alguno se va por su cuenta, no es una lluvia.
 
+## Proporción de teléfono, no la ventana cuadrada que da headless.
+const ANCHO := 540
+const ALTO := 960
+
 const SEGUNDOS_POR_NIVEL := 5.0
 const ACELERACION := 4.0
 ## Cuánto se le perdona a un objetivo por asomar el morro fuera del área.
@@ -25,12 +29,20 @@ const TOLERANCIA := 2.0
 
 func _initialize() -> void:
 	Engine.time_scale = ACELERACION
+	# El juego va dentro de un SubViewport con proporción de teléfono. En
+	# headless la ventana es un cuadrado de 1280x1280, y ahí las medidas
+	# mienten: el fondo se escala por el ancho, así que la ciudad de Asedio
+	# ocupaba el doble de alto que en un móvil y la partida parecía morir en
+	# la mitad de tiempo. Se medía una pantalla que no existe.
+	var vp := SubViewport.new()
+	vp.size = Vector2i(ANCHO, ALTO)
+	root.add_child(vp)
 	var main = load("res://main.tscn").instantiate()
-	root.add_child(main)
+	vp.add_child(main)
 	await process_frame
 	await process_frame
 
-	var pantalla: Vector2 = root.get_visible_rect().size
+	var pantalla: Vector2 = Vector2(ANCHO, ALTO)
 	var area: Rect2 = main._area_juego()
 	print("pantalla %d x %d" % [pantalla.x, pantalla.y])
 	print("área de juego  x: %d..%d   y: %d..%d" % [
@@ -140,7 +152,7 @@ func _defensa(main, pantalla: Vector2) -> void:
 
 		var rumbo_max := 0.0
 		var meteoros := str(pal.get("defensa", "suelo")) == "planeta"
-		var centro := Fondo.planeta_centro(pantalla)
+		var centro: Vector2 = main._fondo.planeta_centro(pantalla)
 		while main._state == 3 and main._elapsed < 120.0:
 			await process_frame
 			if meteoros:
