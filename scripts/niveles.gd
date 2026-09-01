@@ -77,14 +77,14 @@ const LISTA: Array[Dictionary] = [
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
 		"pista": "no dejan de venir: aquí el problema nunca es a quién tocar"},
 
-	# --- Enjambre: se buscan entre si. El grupo viene servido --------------
-	{"bioma": "Enjambre", "mov": Dot.Movimiento.ENJAMBRE,
+	# --- Basico: circulos lisos que se buscan. El grupo viene servido ------
+	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
 		"meta": Meta.CADENA, "valor": 10, "escalon": 2,
 		"pista": "se agrupan solos; aquí lo difícil no es encontrarlos sino el instante"},
-	{"bioma": "Enjambre", "mov": Dot.Movimiento.ENJAMBRE,
+	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
 		"meta": Meta.PUNTOS, "valor": 600, "escalon": 3,
 		"pista": "el grumo se deshace tras cada onda: hay que dejarlo rehacerse"},
-	{"bioma": "Enjambre", "mov": Dot.Movimiento.ENJAMBRE,
+	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
 		"meta": Meta.SEGUNDOS, "valor": 60, "escalon": 3,
 		"pista": "con el grupo tan junto, la tentación de tocar todo el rato te mata"},
 
@@ -254,7 +254,7 @@ const PALETAS := {
 		# bioma donde se aprende que la cadena vale más que la prisa.
 		"vel_mult": 0.6, "targets": 34,
 		"fondo": "150d07", "punto": "ff8a52", "onda": "ffb066", "radio": 9.0},
-	"Enjambre": {
+	"Básico": {
 		"telon": Fondo.Tipo.CELULAS,
 		"forma": Dot.Forma.CIRCULO,
 		"fondo": "150f1a", "punto": "e6d8f7", "onda": "b45cff", "radio": 8.0},

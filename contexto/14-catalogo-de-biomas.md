@@ -81,15 +81,21 @@ Los grupos se forman solos río abajo: es el bioma que regala cadenas.
 donde se aprende que la cadena vale más que la prisa: con este gentío, esperar
 medio segundo siempre paga.
 
-## 5 · Enjambre
+## 5 · Básico
 
 | | |
 |---|---|
-| **Objetivo** | Círculo liso. El único bioma sin forma propia, y es deliberado: aquí lo interesante es el **grupo**, no la pieza. |
+| **Objetivo** | Círculo liso. El único bioma sin forma propia, y de ahí el nombre: aquí lo interesante es el **grupo**, no la pieza. |
 | **Fondo** | Células orgánicas, contornos redondeados que se agrupan. |
 | **Movimiento** | Enjambre. Se buscan entre sí y forman grumos. |
 
 El grupo viene servido; la decisión es cuándo detonarlo.
+
+El bioma se llama Básico por el objetivo, no por la dificultad: el movimiento
+sigue siendo el enjambre, que no tiene nada de básico. Es el mismo caso que Otoño
+usando el movimiento de la nieve — **el nombre del bioma y el del movimiento son
+cosas distintas**, y en la pantalla se ven las dos: «dificultad 9 · enjambre»
+debajo del nombre del bioma.
 
 ## 6 · Billar
 

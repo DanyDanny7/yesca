@@ -108,7 +108,7 @@ puede moverse sin descubrir su borde.
 | Invierno | `copo` | `#f4fbff` | `#8fd8ff` | `#0f2033` |
 | Río | `pez` | `#ffd98a` | `#2fd6c0` | `#07161c` |
 | Hormigas | `hormiga` | `#ff8a52` | `#ffb066` | `#150d07` |
-| Enjambre | `circulo` | `#e6d8f7` | `#b45cff` | `#150f1a` |
+| Básico | `circulo` | `#e6d8f7` | `#b45cff` | `#150f1a` |
 | Billar | `bola` | `#fff8e4` | `#ffc24d` | `#0a2717` |
 | Panal | `abeja` | `#ffd24a` | `#ff8c1a` | `#17100a` |
 | Estampida | `dron` | `#6feaff` | `#ff3b30` | `#060a12` |

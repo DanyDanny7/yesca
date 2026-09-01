@@ -84,7 +84,7 @@ Siete biomas, ordenados de menos a más hostil:
 | Campo abierto | rebote | enseña |
 | Ventisca | nieve | deja respirar |
 | Río | corriente | regala los grupos |
-| Enjambre | enjambre | los grupos vienen servidos, cuesta el instante |
+| Básico | enjambre | los grupos vienen servidos, cuesta el instante |
 | Billar | choque | los grupos se deshacen solos |
 | Panal | abeja | cuesta leer hacia dónde van |
 | Estampida | huida | se defiende de ti |

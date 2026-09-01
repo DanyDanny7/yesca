@@ -115,7 +115,7 @@ Un bioma son ahora tres cosas, y las tres tienen que decir lo mismo.
 | Campo abierto | rebote | círculo | neutra |
 | Ventisca | nieve | **copo** | hielo |
 | Río | corriente | círculo | agua |
-| Enjambre | enjambre | círculo | violeta |
+| Básico | enjambre | círculo | violeta |
 | Billar | choque | **bola con brillo** | tapete |
 | Panal | abeja | **abeja** | miel sobre negro |
 | Estampida | huida | **dron orientado** | alarma |
@@ -230,7 +230,7 @@ eslabón convierte la pantalla en un mareo.
 | Cielo abierto | rebote | estrella que titila | estrellas + fugaces con estela |
 | Ventisca | nieve | copo | copos + **aurora** arriba |
 | Río | corriente | **pez** con cola triangular | líneas de corriente |
-| Enjambre | enjambre | círculo | células |
+| Básico | enjambre | círculo | células |
 | Billar | choque | bola con brillo | tapete + **mesa con seis troneras** |
 | Panal | abeja | **abeja** con alas y aguijón | panal hexagonal |
 | Estampida | huida | dron orientado | rejilla |
