@@ -27,11 +27,27 @@ baldosas no es una bañera) y la banda se ancla a un borde.
 
 | | |
 |---|---|
-| **Objetivo** | Estrella de cinco puntas que **titila**: el brillo late despacio y cada una con su propia fase, así que el campo nunca parpadea a coro. |
+| **Objetivo** | **Dos formas mezcladas al azar**: estrella de cinco puntas que **titila** —el brillo late despacio y cada una con su fase, así que el campo nunca parpadea a coro— y **chispa**, un núcleo pequeño con halo que parece emitir luz sin necesidad de ningún efecto. |
 | **Fondo** | Campo de estrellas sobre azul casi negro. Cada pocos segundos **cruza una estrella fugaz**, con estela que se apaga. Es el único fondo con un suceso, y está aquí a propósito: es el primer bioma y el que enseña a mirar la pantalla entera. |
 | **Movimiento** | Rebote. Línea recta y rebota en los bordes. |
 
+> **Decidido el 2026-08-31, sin construir todavía.** Hoy el bioma solo dibuja
+> estrellas; la chispa está dibujada pero huérfana, sin bioma que la use. Hasta
+> que se aplique, esta ficha describe la intención.
+>
+> No es una línea como lo fue el misil: hace falta que una paleta pueda declarar
+> **varias** formas y que se elija una **por objetivo**, no por bioma. El sitio
+> es `_preparar_dot`, junto a la variedad por instancia que ya existe para el
+> número de las bolas y el color de los globos. Y hay un segundo punto que se
+> olvida fácil: en el modo sin fin, el barrido que cambia de bioma **reasigna la
+> forma de cada objetivo** al pasar, así que ahí también tiene que sortear en
+> vez de copiar una sola.
+
 El bioma donde se aprende a jugar. Todo lo demás es una variación sobre esto.
+
+Mezclar dos formas en un mismo bioma es un experimento que se paga barato aquí:
+es el primer nivel, el más calmado, y si dos siluetas distintas confunden en vez
+de enriquecer, se nota enseguida y con poco en juego.
 
 ## 2 · Invierno
 
@@ -187,12 +203,6 @@ Un choque puede regalarte la cadena o arruinártela.
 | **Objetivo** | **Misil**, orientado a la caída: morro apuntado y aletas traseras. |
 | **Fondo** | Estelas, y en la banda inferior **la misma ciudad de papel, pero rota y ardiendo**: siluetas quebradas en naranja. |
 | **Movimiento** | Bombardeo. Caen de arriba abajo zigzagueando en ese. |
-
-> **Decidido el 2026-08-31, sin construir todavía.** El bioma sigue dibujando
-> una bala. El cambio es una línea —`Dot.Forma.BALA` a `Dot.Forma.MISIL` en la
-> paleta de Asedio— porque la forma del misil ya está dibujada y ahora mismo no
-> la usa ningún bioma. Hasta que se aplique, esta ficha describe la intención y
-> no lo que se ve en pantalla.
 
 **Si uno toca el suelo, se acabó la partida.** Es una de las dos derrotas del
 juego que no vienen de la barra de tiempo, y por eso se lee distinto: explosión

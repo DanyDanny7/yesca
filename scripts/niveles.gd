@@ -306,7 +306,7 @@ const PALETAS := {
 	"Asedio": {
 		"telon": Fondo.Tipo.ESTELAS,
 		"banda": Fondo.Tipo.HORIZONTE_ROTO, "banda_color": "ff7a3c",
-		"forma": Dot.Forma.BALA,
+		"forma": Dot.Forma.MISIL,
 		# Caen más despacio pero salen mucho más seguido: la amenaza no es la
 		# velocidad de cada proyectil sino cuántos hay bajando a la vez.
 		# El reloj pasa a segundo plano: aquí la amenaza es la ciudad, no la barra.

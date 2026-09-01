@@ -453,6 +453,14 @@ func _avion(r: float) -> void:
 ## Misil: cuerpo alargado, punta y aletas. Lo alargado ya dice que va rápido,
 ## incluso quieto.
 func _misil(r: float) -> void:
+	# Un pelo más pequeño que el radio nominal. Se dibujó cuando estaba huérfano
+	# y salía más largo y más plano que la bala a la que sustituye en el asedio,
+	# lo bastante para desentonar con el resto del campo.
+	#
+	# Se corrige aquí y no en el radio de la paleta a propósito: `radius` gobierna
+	# los contagios, así que tocarlo cambiaría el balance del bioma por un motivo
+	# puramente estético.
+	r *= 0.88
 	draw_colored_polygon(PackedVector2Array([
 		Vector2(r * 1.35, 0.0),
 		Vector2(r * 0.45, r * 0.38),

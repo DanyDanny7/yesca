@@ -86,6 +86,6 @@ Salen aquí ya compuestos sobre el color de su bioma, que es como se ven.
 | Ciudad de papel | `avion` | `#fff4e2` | `#ffd166` | `#101a2b` |
 | Ducha | `burbuja` | `#d9f7ff` | `#7fe3ff` | `#0c1d24` |
 | Fiesta | `globo` | `#ff8ad0` | `#ff5fd0` | `#180f26` |
-| Asedio | `bala` | `#ffd9cc` | `#ff4530` | `#140809` |
+| Asedio | `misil` | `#ffd9cc` | `#ff4530` | `#140809` |
 | Lluvia de meteoros | `meteoro` | `#ffa14d` | `#ff6a2b` | `#04060e` |
 
