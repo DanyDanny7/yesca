@@ -17,7 +17,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $proyecto = Split-Path -Parent $PSScriptRoot
-$salida = Join-Path $proyecto 'build\cadena-debug.apk'
+$salida = Join-Path $proyecto 'build\yesca-debug.apk'
 
 # Se prefiere la build _console: la normal es GUI y no escribe nada en la
 # terminal, así que los errores de exportación pasarían desapercibidos.

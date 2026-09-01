@@ -1,12 +1,15 @@
-# juego-test-1
+# Yesca
 
-Nombre provisional. Se renombra cuando el concepto esté validado.
+Yesca es el material que prende al primer roce y arde entero en un instante.
+El nombre dice lo que hace el juego; la palabra *cadena*, que antes daba nombre
+al proyecto, queda libre para significar solo lo que significa dentro: la
+sucesión de estallidos que provoca un tap.
 
 Juego móvil 2D para Android, hecho en Godot 4.7. Proyecto personal: el objetivo
 es que sea divertido y pegajoso. Si lo consigue, se publica en Play Store con
 publicidad; si no, se publica igual sin anuncios.
 
-**Concepto — Cadena.** Puntos flotando por la pantalla. Tocas uno: explota, y
+**El concepto.** Puntos flotando por la pantalla. Tocas uno: explota, y
 su onda expansiva contagia a los vecinos, que explotan a su vez en cascada. Una
 barra de tiempo baja sin parar; tocar cuesta tiempo, atrapar devuelve tiempo, y
 tanto el tiempo como los puntos crecen con la longitud de la cadena. Cada tap es

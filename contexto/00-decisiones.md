@@ -26,6 +26,17 @@ de contenido — puzzle con niveles a mano, RPG, cualquier cosa que exija
 producir 40 niveles o texto. El contenido tiene que escalar solo:
 procedural, endless, emergente.
 
+**Nombre: Yesca.** (2026-08-31)
+El proyecto se llamó `juego-test-1` mientras el concepto estaba sin validar, y
+el concepto se llamó *Cadena* por su mecánica. Publicarlo obligó a separar las
+dos cosas: si el juego se llama Cadena, entonces «mejor cadena ×7» dentro de la
+partida es ambiguo, y las 168 menciones de la palabra en el repo no se pueden
+leer sin contexto. Yesca nombra el producto y deja *cadena* para la mecánica.
+
+De las candidatas —Traca, Mecha, Racha, Candela, Centella— pesó que Yesca es la
+más corta, la más difícil de confundir con otra cosa y, por accidente, la que
+mejor arranca en inglés: se lee *YES-kuh*.
+
 **Concepto: Cadena.**
 Detonación en cascada sobre un campo de puntos, con una barra de tiempo como
 única economía: tocar cuesta, atrapar devuelve. Ver `03-concepto-cadena.md`.

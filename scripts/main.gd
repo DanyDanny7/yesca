@@ -1,6 +1,6 @@
 extends Node2D
 
-## Cadena — v4.
+## Yesca — v4.
 ##
 ## Se toca un CÍRCULO, no la pantalla. El círculo tocado explota y su onda
 ## expansiva contagia a los vecinos, que explotan a su vez. Una barra de tiempo
