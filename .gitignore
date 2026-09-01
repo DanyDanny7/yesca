@@ -20,6 +20,9 @@
 Thumbs.db
 desktop.ini
 
-# Arte exportado: se regenera con tools/exportar_arte.gd y pesa 54 PNG.
-# Lo que se versiona es el arte de VERDAD, el que va en arte/.
-/arte_exportado/
+# arte_exportado/ SI se versiona, aunque sea generado. Sin el, quien abre este
+# repo no ve ni una imagen del juego: todo el arte es codigo. Quien vaya a
+# redibujar necesita ver lo que hay antes de sustituirlo, y no puede depender
+# de instalar Godot para conseguirlo. Pesa 115 KB.
+#
+# Del APK si esta excluido, en export_presets.cfg: alli si sobra.

@@ -79,6 +79,12 @@ Vuelca las 37 imágenes de target (contando variantes) y los 17 mosaicos a
 exportar no debe cambiar en nada lo que se ve. Cuando un dibujo esté listo se
 copia a `arte/` y entonces sí manda.
 
+Escribe además un `README.md` con las 54 piezas y su nombre de fichero al lado,
+más la paleta de cada bioma. Va en Markdown y no en un PDF porque GitHub lo
+renderiza solo: quien recibe el repo abre la carpeta y lo ve, sin instalar nada.
+El nombre de fichero es la mitad del encargo —es lo que hace que un dibujo entre
+en el juego— así que tiene que ir pegado a la imagen y no en otro documento.
+
 Dos detalles del exportador que son decisiones, no casualidades:
 
 - **Los targets se renderizan de verdad**, en un `SubViewport`, en vez de
@@ -116,6 +122,22 @@ nodo, no el dibujo) ni la animación de entrada al aparecer.
   que `ResourceLoader.exists("res://arte/targets/abeja.png")` responde que sí
   también en el APK. Por eso `Arte` pregunta por el recurso y no por el fichero.
 - **Balance intacto.** La simulación da los mismos números que antes del cambio.
+
+## Generado, pero versionado
+
+`arte_exportado/` empezó ignorado por git, con el argumento de siempre: es
+generado, se regenera con un comando, no se versiona lo derivable.
+
+Estaba mal, y el motivo se ve al mirar el repo desde fuera: **no contiene ni una
+imagen**. Todo el arte es código, así que quien lo abre en GitHub no ve nada del
+juego. Para redibujar una abeja hay que verla primero, y exigir instalar Godot
+4.7 y correr un comando para eso convierte una tarea de diseño en una de
+entorno. Son 115 KB.
+
+La regla útil no es «no versiones lo generado», es **no versiones lo generado
+que nadie va a mirar**. Esto se mira: es el encargo.
+
+Del APK sí sigue excluido, que es donde de verdad sobraba.
 
 ## Un fallo que salió de la verificación
 
