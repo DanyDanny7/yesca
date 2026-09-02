@@ -96,3 +96,42 @@ las detonaciones. Lo que se entrega es una especificación de seis preguntas
 —entrada, rumbo, rapidez, bordes, relación con los demás, orientación— y la
 implemento yo. Las seis están en `entregas/LEEME.md`; si alguna llega en blanco,
 me la invento, y probablemente mal.
+
+## Un fondo para todas las pantallas
+
+Los teléfonos van de 16:9 a 20:9 y las tabletas bajan a 4:3. La tentación es
+entregar varios tamaños; la respuesta buena es no hacerlo.
+
+El juego escala la composición **por el ancho** y la ancla **abajo**. Eso da tres
+propiedades gratis: nunca hay deformación horizontal, lo anclado abajo no se
+pierde nunca, y lo de arriba es lo elástico. Medido sobre pantallas reales, la
+composición cubre entre el 73% de un 20:9 y el 121% de una tableta 4:3.
+
+Pero eso no es «verse exacto en todas», y conviene decirlo claro: con un fondo a
+sangre, **exacto es físicamente imposible**. Las proporciones van de 1:1.33 a
+1:2.33 y solo hay tres salidas: deformar, recortar, o poner barras negras.
+
+Lo que sí se puede garantizar es cero deformación, cero huecos, y **la misma
+banda de abajo al mismo ancho en todos los aparatos**, cambiando solo cuánto
+cielo se ve. Y para eso hace falta una cosa: que el lienzo sea **más alto que la
+pantalla más alta**. El actual, 208×336, es 1:1.62 — más corto que cualquier
+móvil, y por eso hoy el comportamiento no es uniforme: en un 20:9 falta arte y
+se rellena con azulejo, en una tableta sobra y se recorta.
+
+Con 208×500 (1:2.40) nunca falta. Todas las pantallas hacen lo mismo, y la zona
+segura garantizada son los 277 units de abajo (los 370 si se descartan las
+tabletas). Es lo mismo que hace cualquier diseño impreso con margen de corte, y
+escala a pantallas que aún no existen.
+
+Para que ese cambio de lienzo no rompa nada, la geometría que es regla —el
+tejado de Asedio, el disco de la Tierra— pasó a medirse **desde el borde
+inferior** en vez de desde arriba. La composición se ancla abajo, así que esas
+cifras siguen valiendo aunque el lienzo crezca.
+
+La única deformación que se permite es un **estirado vertical por debajo del
+12%**, y solo cuando falta poco para cubrir. Sin él, en un 16:9 quedaba una
+franja de azulejo del 9% justo encima del dibujo, y una franja delgada de otro
+color no se lee como cielo: se lee como un error de montaje. Por encima de ese
+umbral no se fuerza, porque ahí sí se nota aplastado.
+
+Comprobado capturando tres biomas en 16:9, 20:9 y 4:3.

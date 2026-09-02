@@ -211,6 +211,15 @@ func _draw() -> void:
 	if capa != null:
 		var esc := r.x / float(capa.get_width())
 		var alto := float(capa.get_height()) * esc
+		# Si falta POCO para cubrir la pantalla, se estira ese poco.
+		#
+		# Sin esto, en un 16:9 queda una franja de azulejo del 9% justo encima
+		# de la composición, y una franja delgada de otro color se lee como un
+		# error de montaje, no como cielo. Un estirado del 12% no lo ve nadie;
+		# a partir de ahí sí se nota, y entonces es mejor que se vea el azulejo
+		# y que el arte esté diseñado contando con él.
+		if alto < r.y and alto > r.y * (1.0 - ESTIRADO_MAX):
+			alto = r.y
 		draw_texture_rect(capa, Rect2(Vector2(0.0, r.y - alto), Vector2(r.x, alto)), false)
 		if _fugaces and _fugaz_avance < 1.0:
 			_dibujar_fugaz()
@@ -264,19 +273,33 @@ func _dibujar_mesa(r: Vector2) -> void:
 		draw_arc(pos, hoyo, 0.0, TAU, 24, borde, 2.0, true)
 
 
-## El lienzo en el que están compuestos los fondos entregados.
-const LIENZO_ARTE := Vector2(208.0, 336.0)
-## Tejado más alto de la ciudad de Asedio, en unidades de ese lienzo.
+## Ancho del lienzo en el que se componen los fondos. Solo el ancho: la altura
+## no aparece en ninguna cuenta, y es a propósito.
+##
+## La composición se escala por el ancho y se ancla abajo, así que todo lo que
+## importa se puede medir DESDE EL BORDE INFERIOR. Con eso, el lienzo puede
+## crecer a lo alto —y va a crecer, para que no queden huecos en los móviles
+## alargados— sin que ninguna de estas cifras deje de valer.
+const ARTE_ANCHO := 208.0
+## Tejado más alto de la ciudad de Asedio, en unidades sobre el borde inferior.
 ##
 ## Se toma el MÁS ALTO y no una media: con la media, un misil atravesaría la
 ## parte de arriba de los edificios altos antes de contar como impacto, y eso se
 ## lee como que el juego está roto. Disparar un poco antes sobre un hueco entre
 ## edificios se lee, en cambio, como el espacio aéreo de la ciudad.
-const ARTE_TEJADO := 232.0
-## El planeta de Lluvia de meteoros: centro y radio, en unidades del lienzo.
-## El centro cae por debajo del borde a propósito: solo se ve un casquete, y eso
-## hace que se lea como un mundo y no como una pelota.
-const ARTE_PLANETA := Vector3(26.0, 344.0, 96.0)
+const ARTE_TEJADO := 104.0
+## El planeta de Lluvia de meteoros: x desde la izquierda, y sobre el borde
+## inferior, y radio. La y es NEGATIVA a propósito: el centro cae por debajo del
+## borde, así que solo se ve un casquete y se lee como un mundo, no como una
+## pelota.
+const ARTE_PLANETA := Vector3(26.0, -8.0, 96.0)
+## Cuánto se puede estirar la composición para cubrir la pantalla entera.
+##
+## Es la única deformación que se permite, y va acotada a propósito: por debajo
+## de este umbral nadie la ve, y por encima el arte se nota aplastado. Cuando no
+## llega, no se fuerza: se deja ver el azulejo por arriba, que es cielo, y el
+## arte se diseña contando con eso.
+const ESTIRADO_MAX := 0.12
 
 
 ## Cuánto mide en pantalla una unidad del lienzo del arte.
@@ -284,7 +307,7 @@ const ARTE_PLANETA := Vector3(26.0, 344.0, 96.0)
 ## La composición se dibuja escalada por el ancho y anclada abajo, así que una
 ## unidad vale lo mismo en los dos ejes y el borde inferior siempre coincide.
 func _escala_arte(r: Vector2) -> float:
-	return r.x / LIENZO_ARTE.x
+	return r.x / ARTE_ANCHO
 
 
 ## Dónde está el planeta y cuánto ocupa.
@@ -301,8 +324,7 @@ func _escala_arte(r: Vector2) -> float:
 func planeta_centro(r: Vector2) -> Vector2:
 	if Arte.telon_bioma(bioma) != null:
 		var e := _escala_arte(r)
-		return Vector2(ARTE_PLANETA.x * e,
-				r.y + (ARTE_PLANETA.y - LIENZO_ARTE.y) * e)
+		return Vector2(ARTE_PLANETA.x * e, r.y - ARTE_PLANETA.y * e)
 	return Vector2(r.x * 0.06, r.y * 1.06)
 
 
@@ -315,7 +337,7 @@ func planeta_radio(r: Vector2) -> float:
 ## Altura de la franja de abajo que cuenta como ciudad, en píxeles.
 func altura_ciudad(r: Vector2, por_defecto: float) -> float:
 	if Arte.telon_bioma(bioma) != null:
-		return (LIENZO_ARTE.y - ARTE_TEJADO) * _escala_arte(r)
+		return ARTE_TEJADO * _escala_arte(r)
 	return por_defecto
 
 

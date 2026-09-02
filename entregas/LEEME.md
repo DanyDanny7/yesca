@@ -145,6 +145,117 @@ estampida      otono     brasas  caza_de_robots     circuito
 ciudad_de_papel  ducha   fiesta  asedio    lluvia_de_meteoros
 ```
 
+### Que sirva en cualquier pantalla
+
+Los teléfonos van de 16:9 a 20:9, y las tabletas bajan hasta 4:3. Un fondo tiene
+que servir para todos sin que se note el apaño.
+
+**La solución no es entregar varios tamaños.** Multiplicaría el trabajo por
+cinco y seguiría sin cubrir el teléfono raro del año que viene. Es la que usa la
+industria para arte estilizado: **lienzo más alto que la pantalla más alta, y una
+zona segura declarada**.
+
+Antes de nada, una advertencia honesta sobre «que se vea exacto en todas»: con
+un fondo a sangre eso es **físicamente imposible en sentido estricto**. Las
+proporciones van de 1:1.33 a 1:2.33 —un 75% de diferencia— y solo hay tres
+salidas: deformar, recortar, o dejar barras negras. Nadie pone barras negras
+desde hace quince años.
+
+Lo que sí se puede garantizar, y es lo que hace el juego:
+
+- **Cero deformación.** Nunca, en ningún eje.
+- **Cero huecos.** Ni barras ni franjas de otro color.
+- **La misma banda de abajo, al mismo ancho, en todos los aparatos.**
+- Lo único que cambia entre un móvil y otro es **cuánto cielo se ve por arriba**.
+
+Eso es lo más cerca de «exacto» que existe sin deformar.
+
+#### Lo que hace el juego, exactamente
+
+La composición se escala **por el ancho** y se ancla **abajo**. De ahí salen tres
+consecuencias que conviene tener presentes al dibujar:
+
+1. **Nunca hay deformación horizontal.** El ancho siempre encaja. Lo que se
+   dibuje a lo ancho se ve entero, siempre.
+2. **Lo de abajo nunca se pierde.** La bañera, la ciudad, el planeta: están
+   anclados y no se recortan jamás.
+3. **Lo de arriba es elástico.** Según la pantalla, o se recorta, o aparece
+   azulejo por encima.
+
+#### El lienzo: 208 × 500
+
+**Este es el cambio importante.** El lienzo actual, 208×336, es 1:1.62 — más
+corto que cualquier móvil. Por eso el comportamiento no es uniforme hoy: en un
+20:9 falta un 27% de arte por arriba y hay que rellenarlo con azulejo; en una
+tableta sobra y se recorta.
+
+Con **208 × 500** (1:2.40) el arte es más alto que la pantalla más alta que
+existe, así que **nunca falta**. Todas las pantallas hacen lo mismo: enseñar la
+banda de abajo y recortar por arriba lo que no cabe.
+
+| Pantalla | Qué ve, del lienzo de 500 |
+|---|---|
+| Móvil 21:9 | los 485 units de abajo |
+| Móvil 20:9 | los 462 |
+| Móvil 19.5:9 | los 451 |
+| Móvil 18:9 | los 416 |
+| Móvil 16:9 | los 370 |
+| Tableta 16:10 | los 333 |
+| Tableta 4:3 | los 277 |
+
+#### Las dos reglas al dibujar
+
+**Zona segura: los 277 units de abajo.** Se ven enteros en todo, tabletas
+incluidas. Ahí va todo lo que tenga que verse sí o sí: la bañera, la ciudad, el
+planeta, el suelo, el horizonte.
+
+Si el juego acaba siendo solo para móviles, la zona segura sube a **370 units**,
+que es bastante más cómodo. Dilo en `ENTREGA.md` y lo damos por bueno.
+
+**Sangrado: todo lo que quede por encima.** Cielo, agua, atmósfera, humo.
+Aparece o no según el aparato, así que **ahí no va nada que importe** — pero
+tiene que estar dibujado, porque en un 21:9 se ve casi entero.
+
+#### Y si el lienzo se queda corto
+
+Los diecisiete fondos actuales son de 208×336 y siguen funcionando; el juego
+rellena por arriba con el azulejo. Para que no quede una franja delgada de otro
+color —que se lee como error de montaje, no como cielo— la composición **tiene
+que fundirse con el azulejo por su borde superior**.
+
+En los biomas sin patrón eso sale gratis: el azulejo se sintetiza con el color
+de la fila de arriba de la propia composición. En los que traen patrón, la
+composición debe ser **transparente arriba**.
+
+Ese fundido es automático en los biomas sin patrón, porque el azulejo se
+sintetiza con el color de la fila superior de la propia composición. En los que
+sí traen patrón, la composición debe ser **transparente arriba**.
+
+#### La única deformación que existe
+
+Cuando falta **menos del 12%** para cubrir la pantalla, la composición se estira
+ese poco en vertical. Con el lienzo de 500 no llega a pasar nunca; existe para
+que el arte antiguo de 336 no deje franja en un 16:9.
+
+Está acotado a propósito: por debajo de ese umbral no lo ve nadie, y una franja
+delgada de azulejo justo encima del dibujo se lee como un error de montaje, no
+como cielo. Por encima del 12% no se fuerza — se deja ver el azulejo, que para
+eso está.
+
+**No hay ninguna otra deformación.** Ni horizontal, ni recorte por abajo, ni por
+los lados.
+
+#### Lo más robusto: banda en vez de pantalla completa
+
+Si el bioma tiene patrón repetible, lo ideal es que la composición **solo traiga
+la pieza anclada**, sobre fondo transparente y ocupando los 208 units de abajo.
+Así la altura de la pantalla deja de importar del todo: el azulejo cubre lo que
+haga falta y la pieza se queda donde tiene que estar.
+
+Las composiciones a lienzo completo funcionan —las diecisiete actuales lo son en
+siete casos— pero son las que se recortan y las que obligan a cuidar el fundido
+de arriba.
+
 ### El desplazamiento
 
 Un bioma **sin patrón** pierde el movimiento del fondo. Hoy invierno, río y

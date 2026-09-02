@@ -2,7 +2,10 @@ extends SceneTree
 
 ## Captura una pantalla de juego por bioma, a proporción de teléfono.
 ##
-##   godot --path . --script tools/capturar.gd      (CON ventana, no headless)
+##   godot --path . --script tools/capturar.gd                 (540x960)
+##   godot --path . --script tools/capturar.gd -- 1080 2400     (otra pantalla)
+##
+## CON ventana, no headless: headless no dibuja nada.
 ##
 ## Existe porque el arte no se puede revisar leyendo código ni mirando los PNG
 ## sueltos: hay que ver el objetivo sobre su fondo, al tamaño real, para saber
@@ -17,8 +20,12 @@ const SALIDA := "user://captura/"
 
 func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(SALIDA))
+	var args := OS.get_cmdline_user_args()
+	var ancho: int = int(args[0]) if args.size() > 1 else ANCHO
+	var alto: int = int(args[1]) if args.size() > 1 else ALTO
+	var sufijo: String = "_%dx%d" % [ancho, alto] if args.size() > 1 else ""
 	var vp := SubViewport.new()
-	vp.size = Vector2i(ANCHO, ALTO)
+	vp.size = Vector2i(ancho, alto)
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	root.add_child(vp)
 	var main = load("res://main.tscn").instantiate()
@@ -39,7 +46,7 @@ func _initialize() -> void:
 		for k in 40:
 			await process_frame
 		var img := vp.get_texture().get_image()
-		img.save_png(SALIDA + Arte.slug(bioma) + ".png")
+		img.save_png(SALIDA + Arte.slug(bioma) + sufijo + ".png")
 		print("  ", bioma)
 	print(ProjectSettings.globalize_path(SALIDA))
 	quit()
