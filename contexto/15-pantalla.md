@@ -121,6 +121,18 @@ porque se insertaron estados al principio.
 Título, subtítulo, y **dos botones grandes**: Campaña y Sin fin. Debajo, el
 récord. Y un botón de Registro, que es la única puerta a la caja negra.
 
+Abajo a la izquierda, **Sin morir**: apaga todas las derrotas para poder mirar
+un bioma sin que la partida se acabe. Apaga *todas* y no solo la del reloj,
+porque si al inspeccionar Asedio te matara un proyectil el modo no serviría para
+lo que sirve. El reloj deja de bajar en vez de quedarse clavado en cero —una
+barra vacía que no mata parece un juego roto, una barra llena dice «aquí no se
+está midiendo nada», que es la verdad—. Ganar sigue funcionando.
+
+Solo existe en compilaciones de depuración: en una de publicación el botón ni se
+dibuja, y un guardado que lo traiga encendido se ignora. Una salvaguarda que
+depende de acordarse no es una salvaguarda, y ya hay una en esa lista
+(`todos_los_niveles`).
+
 ### `SelectScreen` — elegir nivel
 
 Bioma, número, meta y pista, con flechas a los lados y un botón de jugar. Existe

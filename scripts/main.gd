@@ -362,6 +362,7 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _btn_sinfin: CircleButton = $UI/MenuScreen/SinFin
 @onready var _menu_best: Label = $UI/MenuScreen/Best
 @onready var _btn_log: CircleButton = $UI/MenuScreen/Log
+@onready var _btn_debug: CircleButton = $UI/MenuScreen/Debug
 
 @onready var _brief_screen: Control = $UI/BriefingScreen
 @onready var _brief_bioma: Label = $UI/BriefingScreen/Bioma
@@ -485,6 +486,22 @@ var _anticipa_hasta: int = 0
 var _marca_muerte: Explosion
 ## Paleta del bioma en curso.
 var _paleta: Dictionary = {}
+
+## Modo sin morir: se puede mirar el juego sin que la partida se acabe.
+##
+## Apaga TODAS las derrotas, no solo la del reloj: si al inspeccionar un bioma de
+## defensa te matara un proyectil, el modo no serviría para lo que sirve, que es
+## poder mirar un rato sin que la pantalla se te vaya.
+##
+## Y el reloj deja de bajar en vez de quedarse clavado en cero. Una barra vacía
+## que no mata parece un juego roto; una barra llena dice "aquí no se está
+## midiendo nada", que es la verdad.
+##
+## Solo existe en compilaciones de depuración: en una de publicación el
+## interruptor ni se dibuja ni se puede tocar, así que no hay forma de que se
+## cuele encendido. Una salvaguarda que depende de acordarse no es una
+## salvaguarda.
+var _sin_morir: bool = false
 
 ## Lo que falta para la próxima estrella fugaz, en segundos.
 var _fugaz_espera: float = 0.0
@@ -614,7 +631,8 @@ func _process(delta: float) -> void:
 	# puede recuperar tiempo atrapando, esperar pasa a ser estrictamente peor.
 	if _reloj_corriendo():
 		_elapsed += delta
-		_time_left -= delta * _drain_rate()
+		if not _sin_morir:
+			_time_left -= delta * _drain_rate()
 
 	# En MENU y SELECT el campo sigue vivo de fondo: una pantalla de inicio con
 	# el juego moviéndose detrás se siente despierta, y además enseña la
@@ -710,6 +728,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_empezar_partida()
 			elif _btn_log.contiene(p):
 				_ir_a(State.LOG)
+			elif OS.is_debug_build() and _btn_debug.contiene(p):
+				_sin_morir = not _sin_morir
+				_guardar()
+				_sonar(SND_POP)
 		State.SELECT:
 			if _btn_volver.contiene(p):
 				_ir_a(State.MENU)
@@ -2034,6 +2056,13 @@ func _congelar() -> void:
 
 
 func _perder(motivo: String) -> void:
+	if _sin_morir:
+		# Se anota igual: el registro tiene que decir DÓNDE habrías perdido, que
+		# es justo el dato que se busca cuando se está mirando un bioma.
+		_diag.evento("SIN MORIR: aquí habrías perdido por %s" % motivo)
+		_flash("Sin morir  ·  %s" % motivo)
+		_time_left = time_max
+		return
 	_diag.evento("DERROTA %s  pts=%d esc=%d cadena=%d" % [motivo, _score, _stage(), _best_cascade])
 	_sonar(SND_FIN)
 	_vibrar(160)
@@ -2404,6 +2433,9 @@ func _cargar() -> void:
 	else:
 		vibracion = bool(cfg.get_value("opciones", "vibracion", true))
 	sacudida = bool(cfg.get_value("opciones", "sacudida", true))
+	# Solo se recupera en depuración: si un guardado con el modo encendido
+	# llegara a una compilación de publicación, se ignora.
+	_sin_morir = OS.is_debug_build() and bool(cfg.get_value("opciones", "sin_morir", false))
 	# Ojo: todos_los_niveles NO toca _nivel_max, que sigue siendo el progreso
 	# real. Solo levanta el tope del selector, así se puede curiosear la campaña
 	# entera sin perder por dónde se iba.
@@ -2417,6 +2449,7 @@ func _guardar() -> void:
 	cfg.set_value("opciones", "musica", musica)
 	cfg.set_value("opciones", "vibracion", vibracion)
 	cfg.set_value("opciones", "sacudida", sacudida)
+	cfg.set_value("opciones", "sin_morir", _sin_morir)
 	cfg.set_value("opciones", "version", 3)
 	cfg.save(SAVE_PATH)
 
@@ -2428,6 +2461,10 @@ func _update_ui() -> void:
 		_menu_best.text = "Mejor sin fin  %d" % _best
 	# El botón se pone en rojo si la sesión anterior murió sin avisar: si no, el
 	# registro estaría ahí y nadie lo miraría nunca.
+	# Solo en depuración. En una compilación de publicación no existe.
+	_btn_debug.visible = OS.is_debug_build() and _state == State.MENU
+	_btn_debug.modulate.a = 1.0 if _sin_morir else 0.28
+	_btn_debug.color = Color("ffb43c") if _sin_morir else Color(0.25, 0.25, 0.32)
 	_btn_log.color = Color("ff5470") if _diag != null and _diag.hubo_cierre_brusco 		else Color(0.25, 0.25, 0.32)
 
 	if _state == State.PAUSA:

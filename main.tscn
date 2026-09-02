@@ -279,6 +279,28 @@ text = "Log"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="Debug" type="Control" parent="UI/MenuScreen"]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 32.0
+offset_top = -122.0
+offset_right = 122.0
+offset_bottom = -32.0
+mouse_filter = 2
+script = ExtResource("2_circle")
+color = Color(0.25, 0.25, 0.32, 1)
+pulse = 0.0
+
+[node name="Text" type="Label" parent="UI/MenuScreen/Debug"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 20
+text = "Sin
+morir"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="SelectScreen" type="Control" parent="UI"]
 visible = false
 anchor_right = 1.0

@@ -165,10 +165,16 @@ func _process(delta: float) -> void:
 		_scroll_bandas[i] = fposmod(_scroll_bandas[i] + delta * BANDA_VELOCIDAD[i],
 			float(banda.get_width()))
 	_scroll += _deriva * delta
-	# Se envuelve dentro de un mosaico para que el desplazamiento no crezca sin
-	# límite y acabe perdiendo precisión tras un rato largo de partida.
-	_scroll.x = fposmod(_scroll.x, float(LADO))
-	_scroll.y = fposmod(_scroll.y, float(LADO))
+	# Se envuelve por el PERIODO DEL AZULEJO, no por LADO.
+	#
+	# Envolver a 128 valía mientras todos los mosaicos los generaba el juego a
+	# 128x128. Con azulejos entregados de cualquier tamaño —8, 21, 180, 504—
+	# volver a cero cada 128 px salta a un punto distinto del dibujo, y ese salto
+	# se ve como un corte cada pocos segundos. Sale una sola vez por vuelta, así
+	# que es de los fallos que se notan sin poder señalarlos.
+	var per := _periodo_azulejo()
+	_scroll.x = fposmod(_scroll.x, per.x)
+	_scroll.y = fposmod(_scroll.y, per.y)
 	queue_redraw()
 
 
@@ -191,6 +197,17 @@ func _cubrir(tex: Texture2D, r: Vector2) -> void:
 	var escala := maxf(r.x / t.x, r.y / t.y)
 	var tam := t * escala
 	draw_texture_rect(tex, Rect2((r - tam) * 0.5, tam), false)
+
+
+## Cada cuántos píxeles se repite el mosaico en curso.
+##
+## El azulejo entregado manda sobre el generado, y si no hay ninguno vale LADO,
+## que es lo que mide el que fabrica el propio juego.
+func _periodo_azulejo() -> Vector2:
+	var az := Arte.fondo_bioma(bioma)
+	if az != null:
+		return Vector2(az.get_size())
+	return Vector2(LADO, LADO)
 
 
 func _draw() -> void:
@@ -231,9 +248,10 @@ func _draw() -> void:
 				true)
 
 	if azulejo != null:
-		draw_texture_rect(azulejo,
-				Rect2(_scroll - Vector2(LADO, LADO), r + Vector2(LADO, LADO) * 2.0),
-				true)
+		# El margen de más tiene que ser el periodo del propio azulejo: con uno
+		# menor, el desplazamiento descubriría el borde antes de repetir.
+		var per := Vector2(azulejo.get_size())
+		draw_texture_rect(azulejo, Rect2(_scroll - per, r + per * 2.0), true)
 	elif _tex == null and _tex_banda == null and capa == null and elastica == null:
 		return
 
