@@ -27,5 +27,13 @@ desktop.ini
 #
 # Del APK si esta excluido, en export_presets.cfg: alli si sobra.
 
-# Paso intermedio del troceado de fondos: lo rehace tools/separar_fondos.py.
-/entregas/*/_split/
+# Las TANDAS de entrega no se versionan.
+#
+# entregas/ es un buzon de paso: llega una tanda, se importa a arte/ y se
+# reemplaza lo viejo. Guardar el historial de tandas llenaria el repo de
+# disenos obsoletos que nadie va a volver a mirar, y pesan mas que el juego.
+# Lo que vale es el resultado -arte/- y el contrato, no los borradores.
+/entregas/*
+# Salvo el contrato y la plantilla: eso no son entregas, son las normas.
+!/entregas/LEEME.md
+!/entregas/_plantilla/

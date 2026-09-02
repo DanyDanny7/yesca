@@ -8,23 +8,29 @@ sin romper nada y sin que haya que preguntar.
 > **Nadie escribe en `arte/`. Todo entra por `entregas/`.**
 
 `entregas/` es el buzón. `arte/` es lo que el juego lee, y lo genero yo
-importando desde el buzón. Esa separación es lo que permite reemplazar una
-entrega entera sin miedo: si algo sale mal, la anterior sigue ahí y se puede
-volver a importar en un comando.
+importando desde el buzón.
 
-Una carpeta por tanda, con fecha delante para que se ordenen solas:
+**Las tandas NO se versionan.** El buzón es de paso: llega una tanda, se importa
+a `arte/` y se reemplaza lo viejo. Guardar el historial de tandas llenaría el
+repo de diseños obsoletos que nadie va a volver a mirar, y que pesan más que el
+juego entero. Lo que vale es el resultado y el contrato, no los borradores.
+
+Del buzón solo se versionan este documento y la plantilla, porque no son
+entregas: son las normas.
+
+Una carpeta por tanda, con fecha delante para que se ordenen solas mientras
+están en disco:
 
 ```
 entregas/
-  2026-08-31-arte-inicial/     ← lo ya entregado, no se toca
-  2026-09-02-movimientos/      ← la tanda nueva
-  _plantilla/                  ← cópiala para empezar
+  2026-09-03-revision-por-bioma/   ← la tanda nueva
+  LEEME.md                         ← esto. Sí se versiona
+  _plantilla/                      ← cópiala para empezar. Sí se versiona
 ```
 
-**Nunca se sobrescribe una carpeta de tanda.** Si hay que corregir una pieza ya
-entregada, va en una tanda nueva; el nombre de fichero manda igual, y al
-importar gana la más reciente. Así el historial queda entero y se puede
-comparar.
+Si una tanda corrige una pieza ya importada, **la sustituye**: mismo nombre de
+fichero, y al importar gana la nueva. No hay que renombrar nada ni conservar la
+anterior.
 
 Dentro de cada tanda:
 
