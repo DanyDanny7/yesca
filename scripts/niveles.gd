@@ -234,7 +234,11 @@ const LISTA: Array[Dictionary] = [
 ## capricho de color puede comprometerlo.
 const PALETAS := {
 	"Cielo abierto": {
-		"telon": Fondo.Tipo.ESTRELLAS, "fugaces": true,
+		"telon": Fondo.Tipo.ESTRELLAS,
+		# La estrella fugaz ya no es decorado del fondo: es un OBJETIVO que
+		# vale diez y revienta más grande. Dos estrellas fugaces, una tocable
+		# y otra no, serían el mismo fallo que la espuma dibujada de Ducha.
+		"fugaz": true,
 		"forma": Dot.Forma.ESTRELLA,
 		"fondo": "070b16", "punto": "fdfbff", "onda": "8ec5ff", "radio": 9.0},
 	"Invierno": {

@@ -78,7 +78,7 @@ const NOMBRE_EXPLOSION := ["cadena", "fallo", "impacto"]
 const NOMBRE_FORMA := [
 	"circulo", "copo", "abeja", "hoja", "bola", "dron", "chispa", "chip",
 	"avion", "misil", "pez", "estrella", "llama", "burbuja", "globo",
-	"meteoro", "robot", "hormiga",
+	"meteoro", "robot", "hormiga", "fugaz",
 ]
 
 ## Nombres de fichero por telón, en el orden del enum Fondo.Tipo.

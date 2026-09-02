@@ -74,6 +74,34 @@ extends Node2D
 @export var vibracion: bool = true
 @export var volumen_musica: float = -13.0
 
+@export_group("Objetivos especiales")
+## Todo lo de aquí es el cimiento de la gamificación: un objetivo que vale más
+## y revienta más fuerte es lo mismo que un power-up, solo que sin inventario.
+## Por eso los multiplicadores viven en el objetivo (`Dot.valor_mult` y
+## `Dot.onda_mult`) y no en el bioma: el segundo caso que aparezca no tendrá que
+## reescribir nada.
+@export_subgroup("Estrella fugaz")
+## Cada cuánto aparece de media, en segundos.
+@export var fugaz_periodo: float = 60.0
+## Lo menos que puede pasar entre dos apariciones, en segundos.
+##
+## Sin este mínimo, "una por minuto" permite una en el segundo 55 y otra en el
+## 62: cada una es la de su minuto, pero juntas se leen como un fallo. El
+## intervalo se sortea entre este mínimo y lo que sobra hasta el doble del
+## periodo, así que la media sigue siendo un minuto justo.
+@export var fugaz_separacion_min: float = 20.0
+## Cuántas veces vale respecto a un objetivo normal.
+@export var fugaz_puntos: float = 10.0
+## Cuánto más grande es su detonación. No es solo estética: la onda ES el radio
+## de contagio, así que una fugaz encadena más lejos que cualquier otra cosa.
+@export var fugaz_onda: float = 1.5
+## Cuánto más rápido cruza que un objetivo normal.
+@export var fugaz_vel: float = 2.6
+## Cuánto se arquea su trayectoria, en radianes por segundo.
+@export var fugaz_curva: float = 0.35
+## Cuántos puntos de rastro guarda para dibujar la estela.
+@export var fugaz_estela: int = 16
+
 @export_group("Pruebas")
 ## Abre toda la campaña sin tener que superarla.
 ##
@@ -211,7 +239,7 @@ const SAVE_PATH := "user://cadena.cfg"
 ## valor del enum y el array se queda corto.
 const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
 		"enjambre", "huida", "brasa", "circuito", "planeo", "misil", "bombardeo",
-		"meteoro", "patrulla", "hormiga"]
+		"meteoro", "patrulla", "hormiga", "fugaz"]
 ## Guarda en los lados y abajo.
 ##
 ## Lo que garantiza NO es que la onda entera quepa en pantalla —para eso harían
@@ -225,6 +253,8 @@ const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
 ## Arriba manda MARGEN_SUPERIOR, que es mayor, porque el problema es otro: no se
 ## recorta la onda, la tapa entera la barra de tiempo.
 const MARGEN_LATERAL := 90.0
+## Cuánto puede alejarse de la pantalla algo antes de darlo por ido.
+const FUERA_DE_JUEGO := 140.0
 ## Franja de abajo que cuenta como ciudad en los biomas de defensa.
 const ALTURA_CIUDAD := 150.0
 ## Franja de arriba reservada al HUD.
@@ -456,6 +486,9 @@ var _marca_muerte: Explosion
 ## Paleta del bioma en curso.
 var _paleta: Dictionary = {}
 
+## Lo que falta para la próxima estrella fugaz, en segundos.
+var _fugaz_espera: float = 0.0
+
 ## Cuántas veces ha cambiado de bioma la partida sin fin.
 ##
 ## Sin rotación, una partida larga transcurre entera en el mismo sitio y el
@@ -602,6 +635,7 @@ func _process(delta: float) -> void:
 		# si no, la celebración dispararía el aviso de campo vacío y traería
 		# círculos nuevos justo mientras se despide de los viejos.
 		if _final_pendiente < 0:
+			_tick_fugaz(delta)
 			_check_cleared()
 			_check_stage()
 			_refill_field(delta)
@@ -897,6 +931,59 @@ func _bioma_actual() -> String:
 	return _bioma_actual_sinfin()
 
 
+## Si en este bioma cruzan estrellas fugaces.
+func _hay_fugaces() -> bool:
+	return bool(_paleta.get("fugaz", false))
+
+
+## Cuánto falta para la siguiente, respetando la separación mínima.
+##
+## Se sortea entre el mínimo y lo que sobra hasta el doble del periodo: la media
+## sale exactamente el periodo, pero nunca caen dos seguidas.
+func _proxima_fugaz() -> float:
+	var techo := maxf(fugaz_separacion_min, fugaz_periodo * 2.0 - fugaz_separacion_min)
+	return randf_range(fugaz_separacion_min, techo)
+
+
+## Suelta una estrella fugaz: entra por un lateral y cruza en diagonal.
+##
+## Vale diez veces lo normal y revienta un cincuenta por ciento más grande, así
+## que no es un objetivo más: es una ocasión. Por eso cruza deprisa y por eso no
+## vuelve —quien la ve tiene que decidir en el momento, que es justo lo contrario
+## de lo que pide el resto del juego.
+func _soltar_fugaz() -> void:
+	var pantalla := get_viewport_rect().size
+	var area := _area_juego()
+	var d := Dot.new()
+	var fuera := d.radius * 3.0
+	var desde_izq := randf() < 0.5
+
+	d.position = Vector2(-fuera if desde_izq else pantalla.x + fuera,
+			randf_range(area.position.y, area.position.y + area.size.y * 0.35))
+	# Apunta a la mitad de abajo del campo para que cruce por delante del
+	# jugador, no por un rincón.
+	var diana := area.position + Vector2(
+			randf_range(area.size.x * 0.25, area.size.x * 0.75),
+			randf_range(area.size.y * 0.55, area.size.y * 0.95))
+	var rumbo := (diana - d.position).normalized()
+
+	_preparar_dot(d, Dot.Movimiento.FUGAZ, rumbo)
+	d.forma = Dot.Forma.FUGAZ
+	d.base_speed *= fugaz_vel
+	d.velocity = rumbo * d.base_speed
+	d.valor_mult = fugaz_puntos
+	d.onda_mult = fugaz_onda
+	# Se curva siempre hacia el mismo lado que va, para que el arco acompañe la
+	# diagonal en vez de pelearse con ella.
+	d.curva_fugaz = fugaz_curva * (1.0 if desde_izq else -1.0)
+	d.largo_estela = fugaz_estela
+	d.entrar_creciendo()
+
+	_dots_root.add_child(d)
+	_dots.append(d)
+	_diag.evento("estrella fugaz")
+
+
 ## El bioma que toca ahora mismo en el modo sin fin.
 func _bioma_actual_sinfin() -> String:
 	if _bolsa.is_empty():
@@ -1099,13 +1186,15 @@ func _tap(pos: Vector2) -> void:
 	# multiplicador. Así sembrar una segunda cascada mientras la primera se
 	# resuelve es una jugada, y no una forma de inflar el mismo contador.
 	var donde := objetivo.position
+	var valor := objetivo.valor_mult
+	var onda := objetivo.onda_mult
 	_dots.erase(objetivo)
 	objetivo.queue_free()
 
 	_next_chain += 1
 	_cadenas[_next_chain] = {"len": 0, "pos": donde, "pop": 0.0}
-	_cobrar_punto(_next_chain, donde)
-	_spawn_explosion(donde, tap_radius, _next_chain)
+	_cobrar_punto(_next_chain, donde, valor)
+	_spawn_explosion(donde, tap_radius * onda, _next_chain)
 
 
 ## El círculo más cercano al dedo dentro de la tolerancia, o null si no hay.
@@ -1127,7 +1216,7 @@ func _dot_mas_cercano(pos: Vector2) -> Dot:
 ## cadena, no cuántas veces has pulsado. Es lo que convierte el objetivo en
 ## encadenar en vez de en pulsar, y lo que impide que la frecuencia compense la
 ## calidad.
-func _cobrar_punto(id: int, pos: Vector2) -> void:
+func _cobrar_punto(id: int, pos: Vector2, valor: float = 1.0) -> void:
 	if not _cadenas.has(id):
 		_cadenas[id] = {"len": 0, "pos": pos, "pop": 0.0}
 	var c: Dictionary = _cadenas[id]
@@ -1136,7 +1225,11 @@ func _cobrar_punto(id: int, pos: Vector2) -> void:
 	c["pop"] = 1.0
 
 	var n: int = c["len"]
-	_score += n
+	# El valor del objetivo multiplica lo que aporta a la cadena, no la longitud
+	# de la cadena: una fugaz vale diez, pero no cuenta como diez eslabones. Si
+	# contara, un solo objetivo especial dispararía el multiplicador de toda la
+	# cascada y la cadena dejaría de medir lo que mide.
+	_score += int(round(float(n) * valor))
 	_best_cascade = maxi(_best_cascade, n)
 	_time_left = minf(time_max, _time_left + reward_base + reward_step * (n - 1))
 
@@ -1180,7 +1273,8 @@ func _check_catches() -> void:
 				mejor_dist = dist
 				mejor = e
 		if mejor != null:
-			atrapados.append({"pos": d.position, "cadena": mejor.chain_id})
+			atrapados.append({"pos": d.position, "cadena": mejor.chain_id,
+					"valor": d.valor_mult, "onda": d.onda_mult})
 			d.queue_free()
 		else:
 			survivors.append(d)
@@ -1191,8 +1285,8 @@ func _check_catches() -> void:
 	# mientras se itera sobre él haría que un punto se contagie de su propia
 	# detonación en el mismo frame.
 	for a in atrapados:
-		_cobrar_punto(int(a["cadena"]), a["pos"])
-		_spawn_explosion(a["pos"], _chain_radius(), int(a["cadena"]))
+		_cobrar_punto(int(a["cadena"]), a["pos"], float(a["valor"]))
+		_spawn_explosion(a["pos"], _chain_radius() * float(a["onda"]), int(a["cadena"]))
 
 
 ## En los biomas de defensa, un proyectil que llega abajo revienta en la ciudad
@@ -1434,6 +1528,16 @@ func _area_juego() -> Rect2:
 			maxf(1.0, r.y - MARGEN_SUPERIOR - MARGEN_LATERAL))
 
 
+## Lleva la cuenta atrás de la próxima estrella fugaz.
+func _tick_fugaz(delta: float) -> void:
+	if not _hay_fugaces() or _state != State.PLAYING:
+		return
+	_fugaz_espera -= delta
+	if _fugaz_espera <= 0.0:
+		_soltar_fugaz()
+		_fugaz_espera = _proxima_fugaz()
+
+
 func _mover_dots(delta: float) -> void:
 	match _movimiento_actual():
 		Dot.Movimiento.CHOQUE:
@@ -1446,6 +1550,20 @@ func _mover_dots(delta: float) -> void:
 	var area := _area_juego()
 	for d in _dots:
 		d.mover(delta, area)
+	# La fugaz no rebota ni se envuelve: cruza y se va. Si no se retirase
+	# seguiría viva fuera de la pantalla, ocupando sitio en el cupo de
+	# objetivos y sin que nadie pueda tocarla.
+	var pantalla := get_viewport_rect().size
+	var vivos: Array[Dot] = []
+	for d in _dots:
+		if d.modo == Dot.Movimiento.FUGAZ and not Rect2(
+				-FUERA_DE_JUEGO, -FUERA_DE_JUEGO,
+				pantalla.x + FUERA_DE_JUEGO * 2.0,
+				pantalla.y + FUERA_DE_JUEGO * 2.0).has_point(d.position):
+			d.queue_free()
+			continue
+		vivos.append(d)
+	_dots = vivos
 
 
 ## Choque elástico entre iguales: se intercambia la componente de la velocidad
@@ -2034,6 +2152,7 @@ func _empezar_partida() -> void:
 	# Se limpia cualquier final a medias: si se reinicia durante la cámara lenta
 	# de una derrota, la partida nueva arrancaría bloqueada.
 	_final_pendiente = -1
+	_fugaz_espera = _proxima_fugaz()
 	_bioma_sinfin = 0
 	_rellenar_bolsa()
 	_transicion = -1.0

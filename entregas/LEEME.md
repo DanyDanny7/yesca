@@ -51,6 +51,7 @@ El nombre del fichero **es** la instrucción. Otro nombre y no lo lee nadie.
 ```
 circulo  copo  abeja  hoja   bola   dron    chispa  chip     avion
 misil    pez   estrella  llama  burbuja  globo  meteoro  robot  hormiga
+fugaz
 ```
 
 Variantes por instancia, con caída al fichero base si falta:
@@ -99,13 +100,30 @@ Asignación actual:
 
 ```
 FIJO      circulo  copo  bola  chispa  chip  estrella  llama  burbuja  globo  robot
-RUMBO     dron  misil  meteoro  hormiga
+RUMBO     dron  misil  meteoro  hormiga  fugaz
 CABECEO   abeja  avion  pez
 NORIA     hoja
 ```
 
 Si una forma nueva necesita otra política, **dilo en `ENTREGA.md`**; es una
 línea en la tabla.
+
+### `fugaz` · dibuja solo la cabeza
+
+La estrella fugaz es el primer **objetivo especial**: sale una vez por minuto en
+Cielo abierto, vale **diez veces** lo normal y su detonación es **un 50% más
+grande** —y como la onda es el radio de contagio, encadena más lejos que
+cualquier otra cosa del juego.
+
+Para dibujarla hay una regla propia: **entrega solo la cabeza, sin estela.**
+
+La estela la genera el juego con vectores, a partir de la trayectoria real que
+siguió el objetivo. Tiene que ser así porque la fugaz se arquea al cruzar, y una
+estela pintada en la imagen sería recta y rígida: se vería que no acompaña al
+recorrido. El juego la dibuja siempre, tanto si hay asset como si no, así que
+una estela dibujada en el PNG saldría **encima** de la de verdad.
+
+La cabeza va orientada como cualquier `RUMBO`: **mirando a la derecha**.
 
 ### Color
 

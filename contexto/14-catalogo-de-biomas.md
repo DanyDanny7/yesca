@@ -55,6 +55,19 @@ baldosas no es una bañera) y la banda se ancla a un borde.
 > forma de cada objetivo** al pasar, así que ahí también tiene que sortear en
 > vez de copiar una sola.
 
+Y es el único con un **objetivo especial**: cada minuto cruza una **estrella
+fugaz**, que vale diez veces lo normal y revienta un 50% más grande. Como la onda
+es el radio de contagio, es la cosa que más lejos encadena del juego entero.
+
+Aparece de media una por minuto pero nunca dos en menos de veinte segundos: sin
+ese mínimo, "una por minuto" permite una en el segundo 55 y otra en el 62, cada
+una la de su minuto, y juntas se leen como un fallo.
+
+Su estela la dibuja el juego con la trayectoria real, no con una recta hacia
+atrás. Es lo que hace que se vea la curvatura; con una recta, arquear el rumbo
+sería trabajo perdido. Y se dibuja aunque haya asset, porque una estela pintada
+en un PNG sería rígida y no acompañaría al recorrido.
+
 El bioma donde se aprende a jugar. Todo lo demás es una variación sobre esto.
 
 Mezclar dos formas en un mismo bioma es un experimento que se paga barato aquí:

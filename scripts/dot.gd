@@ -29,6 +29,7 @@ enum Movimiento {
 	METEORO,    ## rumbo fijo hacia el planeta, acelerando; tampoco debe llegar
 	PATRULLA,   ## tramos rectos, se para en seco y sale en otra dirección
 	HORMIGA,    ## avanza sin parar con el rumbo girando poco a poco
+	FUGAZ,      ## cruza la pantalla en recta con una curvatura leve y se va
 }
 
 ## Qué se dibuja. Un bioma con copos de nieve o abejas se explica solo; con
@@ -38,7 +39,7 @@ enum Movimiento {
 ## no hay sitio para detalle, así que lo que las distingue es la silueta.
 enum Forma { CIRCULO, COPO, ABEJA, HOJA, BOLA, DRON, CHISPA, CHIP, AVION, MISIL,
 		PEZ, ESTRELLA, LLAMA, BURBUJA, GLOBO, METEORO, ROBOT,
-		HORMIGA }
+		HORMIGA, FUGAZ }
 
 ## Cómo se orienta una forma respecto a su rumbo.
 ##
@@ -91,7 +92,30 @@ const GIRO_DE_FORMA := [
 	Giro.RUMBO,    ## meteoro: la estela tiene que quedar detrás
 	Giro.FIJO,     ## robot: uno ladeado se lee como averiado
 	Giro.RUMBO,    ## hormiga: vista desde arriba
+	Giro.RUMBO,    ## fugaz: la estela tiene que quedar detrás
 ]
+
+## Cuánto vale este objetivo respecto a uno normal.
+##
+## Vive en el objetivo y no en el bioma a propósito: es el enganche para todo lo
+## que venga después —objetivos que valen más, power-ups, misiones que piden
+## cazar algo concreto—. Un multiplicador que solo supiera de estrellas fugaces
+## habría que reescribirlo entero al añadir el segundo caso.
+var valor_mult: float = 1.0
+## Cuánto más grande es la detonación que provoca al reventar.
+##
+## No es solo estética: la onda es el radio de contagio, así que un objetivo con
+## onda mayor encadena más lejos. Es la primera cosa del juego que se parece a un
+## power-up.
+var onda_mult: float = 1.0
+
+## Rastro de posiciones recientes, en coordenadas del mundo.
+##
+## Se guarda el mundo y no lo local porque el nodo gira: al dibujar se convierte
+## cada punto con to_local(), que ya descuenta posición, giro y escala. Guardando
+## desplazamientos locales habría que rotarlos a mano en cada fotograma y la
+## estela se retorcería con el objetivo en vez de quedarse quieta detrás.
+var _estela: PackedVector2Array = PackedVector2Array()
 
 ## Color y tamaño los fija el bioma al nacer el círculo, no una constante: es
 ## lo que permite que la ventisca se vea de nieve y el panal de miel sin tocar
@@ -176,6 +200,15 @@ func _draw() -> void:
 	# píxel más lejos. El radio de toque es aparte y tampoco se toca.
 	var r := radius * ESCALA_VISUAL * escala * lerpf(ENTRADA_MIN, 1.0, _entrada)
 	
+	# La estela va antes del asset y se dibuja pase lo que pase.
+	#
+	# Sale de la trayectoria real, así que NO se puede meter en una imagen fija:
+	# si dependiera del dibujo por código, entregar un `fugaz.png` la borraría sin
+	# avisar y la curvatura dejaría de verse. Lo que un asset sustituye es la
+	# cabeza; el rastro lo pone siempre el juego.
+	if not _estela.is_empty():
+		_dibujar_estela(r)
+
 	# Si hay un asset para esta forma, manda el asset. El dibujo de
 	# abajo pasa a ser el respaldo: cubre las formas sin fichero y
 	# mantiene el juego jugable si un asset falta o viene roto.
@@ -206,6 +239,7 @@ func _draw() -> void:
 		Forma.METEORO: _meteoro(r)
 		Forma.ROBOT: _robot(r)
 		Forma.HORMIGA: _hormiga(r)
+		Forma.FUGAZ: _fugaz(r)
 		_: draw_circle(Vector2.ZERO, r, color)
 
 
@@ -399,11 +433,29 @@ func mover(delta: float, area: Rect2) -> void:
 			_mover_patrulla(delta, area)
 		Movimiento.HORMIGA:
 			_mover_hormiga(delta, area)
+		Movimiento.FUGAZ:
+			_mover_fugaz(delta, area)
 		_:
 			# REBOTE, CHOQUE, ENJAMBRE y HUIDA comparten integración recta; lo
 			# que los distingue lo aplica Main antes de llamar aquí.
 			position += velocity * delta
 			_rebotar(area)
+
+
+## Estrella fugaz: recta con una curvatura leve, y no rebota.
+##
+## La curvatura es lo que la separa de una bala. Una fugaz de verdad no traza una
+## recta perfecta: la trayectoria se arquea muy poco, lo justo para que el ojo la
+## lea como algo que cae y no como algo disparado.
+##
+## No rebota y no se envuelve: entra, cruza y se va. Main la retira cuando sale.
+func _mover_fugaz(delta: float, area: Rect2) -> void:
+	velocity = velocity.rotated(curva_fugaz * delta)
+	position += velocity * delta
+	_estela.append(global_position)
+	while _estela.size() > largo_estela:
+		_estela.remove_at(0)
+	queue_redraw()
 
 
 ## Meteoro: rumbo fijo, acelerando poco a poco. No rebota nunca.
@@ -760,6 +812,39 @@ func _robot(r: float) -> void:
 	for i in 3:
 		var y := r * (0.16 + float(i) * 0.2)
 		draw_line(Vector2(-r * 0.45, y), Vector2(r * 0.45, y), oscuro, maxf(1.0, r * 0.08))
+
+
+## Cuánto se arquea la trayectoria de la fugaz, en radianes por segundo.
+var curva_fugaz: float = 0.35
+## Cuántos puntos de rastro guarda para dibujar la estela.
+var largo_estela: int = 16
+
+
+## La estela, con la trayectoria REAL y no con una recta hacia atrás.
+##
+## Es lo que hace que la curvatura se vea. Con una recta, arquear el rumbo no se
+## notaría y la curva sería trabajo perdido.
+##
+## Se dibuja tramo a tramo y no como una polilínea entera porque el grosor tiene
+## que ir cambiando a lo largo, y una polilínea admite un solo grosor.
+func _dibujar_estela(r: float) -> void:
+	if _estela.size() < 2:
+		return
+	for i in range(1, _estela.size()):
+		var t := float(i) / float(_estela.size() - 1)
+		draw_line(to_local(_estela[i - 1]), to_local(_estela[i]),
+				Color(color, 0.55 * t * t), maxf(1.0, r * 0.75 * t))
+
+
+## Estrella fugaz: núcleo brillante. La estela la pone _dibujar_estela.
+func _fugaz(r: float) -> void:
+	# Núcleo: un rombo alargado en el sentido de la marcha, más un halo. El halo
+	# es lo que la hace mirar sin buscarla, que es media gracia del objetivo.
+	draw_circle(Vector2.ZERO, r * 1.5, Color(color, 0.18))
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(r * 1.3, 0.0), Vector2(0.0, r * 0.55),
+		Vector2(-r * 0.8, 0.0), Vector2(0.0, -r * 0.55)]), color)
+	draw_circle(Vector2(r * 0.25, 0.0), r * 0.42, Color(1, 1, 1, 0.9))
 
 
 ## Hormiga: tres segmentos, seis patas y dos antenas.
