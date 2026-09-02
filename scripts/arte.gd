@@ -32,6 +32,16 @@ extends RefCounted
 const DIR_TARGETS := "res://arte/targets/"
 ## Mosaicos que se repiten. Tienen que casar consigo mismos.
 const DIR_FONDOS := "res://arte/fondos/"
+## Capa ELÁSTICA: se estira a pantalla completa, sin conservar proporción.
+##
+## Es la pieza que hace que el sistema funcione en cualquier aparato. Un
+## degradado de cielo, una niebla, un agua de fondo: estirarlos al doble de alto
+## no lo nota nadie, porque no tienen forma que reconocer. Lo que no se puede
+## estirar —una bañera, una ciudad, un planeta— va en la capa rígida.
+##
+## Separar por lo que TOLERA deformación, y no por lo que la pieza es, es lo que
+## permite rellenar cualquier proporción sin recortar nada importante.
+const DIR_ELASTICAS := "res://arte/elasticas/"
 ## Imágenes de pantalla completa. NO se repiten: se escalan para cubrir.
 ##
 ## Son dos carpetas y no una porque son dos encargos distintos, y confundirlos
@@ -136,8 +146,42 @@ static func fondo_bioma(nombre: String) -> Texture2D:
 ## Trae lo que no se puede repetir —la bañera, la ciudad, el planeta, el nido—
 ## y por eso se ancla abajo y se escala solo por el ancho, nunca se estira. Una
 ## bañera al doble de ancho deja de ser una bañera.
-static func telon_bioma(nombre: String) -> Texture2D:
-	return _buscar(DIR_TELONES + slug(nombre))
+static func telon_bioma(nombre: String, variante: String = "") -> Texture2D:
+	return _con_variante(DIR_TELONES + slug(nombre), variante)
+
+
+## La capa elástica del bioma, si la hay.
+static func elastica_bioma(nombre: String, variante: String = "") -> Texture2D:
+	return _con_variante(DIR_ELASTICAS + slug(nombre), variante)
+
+
+## Busca primero la versión para esta proporción de pantalla y cae a la general.
+##
+## Así se puede entregar una sola imagen que valga para todo, o afinar solo los
+## casos que lo pidan, sin que haya que entregar las tres siempre.
+static func _con_variante(base: String, variante: String) -> Texture2D:
+	if variante != "":
+		var propia := _buscar(base + "__" + variante)
+		if propia != null:
+			return propia
+	return _buscar(base)
+
+
+## Qué grupo de proporción es esta pantalla: ancho, medio o alto.
+##
+## Tres y no más porque tres cubren el parque real y cada uno multiplica el
+## trabajo de quien dibuja. Los cortes están donde de verdad se separan los
+## aparatos: por debajo de 1.6 están las tabletas, por encima de 1.9 los móviles
+## alargados de los últimos años, y en medio el 16:9 de toda la vida.
+static func variante_pantalla(r: Vector2) -> String:
+	if r.x <= 0.0:
+		return "medio"
+	var proporcion := r.y / r.x
+	if proporcion < 1.6:
+		return "ancho"
+	if proporcion < 1.9:
+		return "medio"
+	return "alto"
 
 
 ## Nombre de bioma a nombre de fichero: minúsculas, sin acentos, con guiones.

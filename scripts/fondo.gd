@@ -186,15 +186,30 @@ func _draw() -> void:
 	# se puede repetir y la otra no. El azulejo cubre la pantalla y se desplaza;
 	# la composición se ancla abajo, donde están las piezas que tienen sitio
 	# fijo. Aplastarlas juntas en una sola imagen obligaría a estirar la bañera.
+	var forma_pantalla := Arte.variante_pantalla(r)
 	var azulejo := Arte.fondo_bioma(bioma)
-	var capa := Arte.telon_bioma(bioma)
+	var elastica := Arte.elastica_bioma(bioma, forma_pantalla)
+	var capa := Arte.telon_bioma(bioma, forma_pantalla)
+
+	# El orden, de abajo arriba: elástica, azulejo, rígida. La elástica es la
+	# BASE —el degradado del cielo, el agua del fondo— y por eso va primero:
+	# el azulejo lleva la textura y se pinta encima. Al revés, un azulejo con
+	# color propio taparía la base y la capa no serviría de nada.
+	#
+	# Se estira a pantalla completa sin conservar proporción, que es
+	# exactamente para lo que se declara elástica: deformarla es usarla bien,
+	# no un apaño. Es la pieza que hace que cualquier proporción se llene sin
+	# recortar nada que importe.
+	if elastica != null:
+		draw_texture_rect(elastica, Rect2(Vector2.ZERO, r), false)
 
 	if azulejo != null:
 		draw_texture_rect(azulejo,
 				Rect2(_scroll - Vector2(LADO, LADO), r + Vector2(LADO, LADO) * 2.0),
 				true)
-	elif _tex == null and _tex_banda == null and capa == null:
+	elif _tex == null and _tex_banda == null and capa == null and elastica == null:
 		return
+
 	# Una sola llamada para todo el telón. Se dibuja un mosaico de más en cada
 	# lado para que el desplazamiento no descubra el borde.
 	if _tex != null and azulejo == null:

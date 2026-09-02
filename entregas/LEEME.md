@@ -124,14 +124,48 @@ Borrar el fichero devuelve la versión de código. Siempre.
 
 ## 2 · Fondos
 
-Un fondo de bioma son **dos capas**, y confundirlas se paga en las dos
-direcciones: un azulejo estirado a pantalla completa se ve borroso, y una
-composición repetida en baldosas deja una rejilla de costuras.
+Un fondo de bioma son **tres capas**, y lo que las separa no es qué son sino
+**cuánta deformación tolera cada una**. Esa es la idea entera: si se declara por
+adelantado qué se puede estirar, se puede llenar cualquier pantalla sin recortar
+nada que importe.
 
-| Capa | Qué es | Qué le pasa en pantalla |
-|---|---|---|
-| **Azulejo** | el patrón que se repite | cubre todo y **se desplaza** |
-| **Composición** | lo que tiene sitio fijo | se ancla abajo, se escala solo por el ancho, **nunca se estira** |
+De abajo arriba:
+
+| Capa | Carpeta | Deformación | Qué le pasa en pantalla |
+|---|---|---|---|
+| **Elástica** | `elasticas/` | **sí, la que haga falta** | se estira a pantalla completa |
+| **Azulejo** | `fondos/` | no hace falta: se repite | cubre todo y **se desplaza** |
+| **Rígida** | `telones/` | **ninguna** | se ancla abajo, escala solo por el ancho |
+
+**Elástica** es lo que no tiene forma reconocible: el degradado del cielo, una
+niebla, el agua del fondo. Estirarla al doble de alto no lo nota nadie, y es lo
+que hace que un móvil de 21:9 y una tableta de 4:3 se llenen los dos sin dejar
+franjas.
+
+**Azulejo** es el patrón que se repite. Si hay capa elástica debajo, el azulejo
+tiene que ser **transparente salvo el dibujo del patrón**: si lleva su propio
+color de fondo, tapa la base y la elástica no sirve de nada.
+
+**Rígida** es lo que tiene sitio: la bañera, la ciudad, el planeta, el
+horizonte. No se deforma nunca, ni un píxel.
+
+### Variantes por proporción
+
+Cualquiera de las tres capas admite versión por forma de pantalla, con caída a
+la general si falta:
+
+```
+ducha__ancho.png    pantallas más anchas que 1:1.6   (tabletas 4:3, 16:10)
+ducha__medio.png    entre 1:1.6 y 1:1.9              (16:9, 18:9)
+ducha__alto.png     de 1:1.9 en adelante             (19.5:9, 20:9, 21:9)
+ducha.png           la que vale para todas
+```
+
+Tres grupos y no más porque tres cubren el parque real y cada uno multiplica el
+trabajo. **No hace falta entregar las tres**: con la capa elástica bien puesta,
+casi siempre basta una sola imagen. Las variantes son para cuando un bioma
+concreto pida composición distinta —por ejemplo, una ciudad más ancha y baja en
+tableta— no para todos por sistema.
 
 La forma más cómoda de entregarla es como hasta ahora: **un SVG por bioma**, con
 el patrón en `<defs>` y los `<rect>` a lienzo completo primero, y la pieza
@@ -150,9 +184,11 @@ ciudad_de_papel  ducha   fiesta  asedio    lluvia_de_meteoros
 Los teléfonos van de 16:9 a 20:9, y las tabletas bajan hasta 4:3. Un fondo tiene
 que servir para todos sin que se note el apaño.
 
-**La solución no es entregar varios tamaños.** Multiplicaría el trabajo por
-cinco y seguiría sin cubrir el teléfono raro del año que viene. Es la que usa la
-industria para arte estilizado: **lienzo más alto que la pantalla más alta, y una
+**La solución de fondo son las tres capas de arriba**, y sobre todo la elástica:
+con ella no queda hueco en ninguna proporción sin recortar nada. Las variantes
+por proporción están para afinar, no para tapar el problema.
+
+Y para la capa rígida, además: **lienzo más alto que la pantalla más alta, y una
 zona segura declarada**.
 
 Antes de nada, una advertencia honesta sobre «que se vea exacto en todas»: con

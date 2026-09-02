@@ -135,3 +135,32 @@ color no se lee como cielo: se lee como un error de montaje. Por encima de ese
 umbral no se fuerza, porque ahí sí se nota aplastado.
 
 Comprobado capturando tres biomas en 16:9, 20:9 y 4:3.
+
+## Los fondos, por fin, por piezas
+
+La idea buena vino del otro lado: **separar las piezas del fondo por cuánta
+deformación toleran**, no por qué son. Si se declara por adelantado qué se puede
+estirar, se puede llenar cualquier pantalla sin recortar nada que importe.
+
+Tres capas, de abajo arriba:
+
+| Capa | Deformación | Qué es |
+|---|---|---|
+| `elasticas/` | la que haga falta | degradados, niebla, agua: sin forma reconocible |
+| `fondos/` | no hace falta, se repite | el patrón |
+| `telones/` | ninguna | bañera, ciudad, planeta, horizonte |
+
+El orden importa y me lo salté en el primer intento: puse la elástica **encima**
+del azulejo. Pero la elástica es la BASE —el cielo— y el azulejo lleva la
+textura que va sobre ella. Al revés, un azulejo con color de fondo propio tapa
+la base y la capa no sirve de nada. De ahí sale una condición para quien dibuja:
+si hay elástica, el azulejo tiene que ser transparente salvo el patrón.
+
+Más tres grupos de proporción —`__ancho`, `__medio`, `__alto`— con caída a la
+imagen general. Tres y no más porque tres cubren el parque real y cada uno
+multiplica el trabajo de quien dibuja. Con la elástica bien puesta casi nunca
+hacen falta; están para el bioma concreto que pida otra composición en tableta.
+
+Comprobado retrofitando Ducha a las tres capas y capturándola en 16:9, 21:9 y
+4:3: el degradado se estira sin que se note, no queda hueco en ninguna, y la
+bañera sigue anclada y sin deformar en las tres.

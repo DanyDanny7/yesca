@@ -1,0 +1,28 @@
+QUE VA AQUI
+  La capa ELASTICA del fondo: la que SI se puede estirar.
+
+  Un degradado de cielo, una niebla, el agua del fondo. Cosas sin forma
+  reconocible, que al estirarse al doble de alto no lo nota nadie.
+
+COMO SE DIBUJA
+  Se estira a pantalla completa, sin conservar proporcion. Deformarla no
+  es un apano: es para lo que esta.
+
+  Va DEBAJO del azulejo de arte/fondos/ y de la composicion rigida de
+  arte/telones/. Es la base.
+
+  Si hay capa elastica, el azulejo debe ser TRANSPARENTE salvo el dibujo
+  del patron: si lleva color de fondo propio, tapa la base.
+
+NOMBRE
+  El del bioma: ducha.png, invierno.png, asedio.png...
+
+VARIANTES POR PROPORCION (opcional)
+  ducha__ancho.png   pantallas mas anchas que 1:1.6  (tabletas)
+  ducha__medio.png   entre 1:1.6 y 1:1.9             (16:9, 18:9)
+  ducha__alto.png    1:1.9 y mas                     (19.5:9, 20:9, 21:9)
+  ducha.png          la que vale para todas          (caida)
+
+  No hace falta entregar las tres. Si solo esta ducha.png, se usa esa.
+
+El contrato completo esta en entregas/LEEME.md
