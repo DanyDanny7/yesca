@@ -117,19 +117,22 @@ extends Node2D
 @export_subgroup("Presión")
 @export var drain_base: float = 0.7
 @export var drain_step: float = 0.18
-## Tope de pasos de presión. El desagüe no sube de aquí por mucho que se puntúe.
+## Lo menos que puede durar la barra LLENA, en segundos, pase lo que pase.
 ##
-## Sin tope, la presión crecía para siempre y el juego castigaba jugar bien
-## hasta hacerse imposible: medido, la barra entera duraba 8,4 s en el escalón 9,
-## 5,6 s en el 15 —tres taps— y seguía bajando. En un nivel cuya meta es una
-## cadena o aguantar segundos se sigue puntuando sin terminar, así que el reloj
-## se aceleraba solo hasta matar al jugador que iba ganando.
+## Es un suelo, no un ajuste: por mucho que suba la dificultad, una barra llena
+## nunca se vacía en menos de esto sin tocar nada.
 ##
-## Con el tope en 8 la barra llena se queda en 7 segundos. Sigue apretando —son
-## tres taps y medio— pero deja de ser una cuenta atrás hacia lo imposible. Los
-## otros tres apartados de la dificultad ya topaban por su cuenta; este era el
-## único que no.
-@export var presion_max: int = 8
+## Sin él, la presión crecía sin fin y el juego castigaba jugar bien hasta
+## hacerse imposible. Medido: la barra llena duraba 21 s en el escalón 1, 8,4 s
+## en el 9, 5,6 s en el 15 —tres taps— y por el 30 bajaba de tres segundos. Y se
+## cebaba en los niveles cuya meta es una cadena o aguantar segundos, donde se
+## sigue puntuando sin terminar: el reloj se aceleraba solo hasta matar al
+## jugador que iba ganando.
+##
+## Se dice en SEGUNDOS y no en pasos de presión a propósito. Los pasos son una
+## abstracción interna; los segundos son lo que el jugador siente, y la única
+## unidad en la que se puede decidir si un número está bien o mal.
+@export var barra_min_segundos: float = 8.0
 
 @export_subgroup("Generosidad")
 @export var chain_radius_base: float = 105.0
@@ -733,14 +736,32 @@ func _pasos_presion(s: int) -> int:
 	var pasos := s - 1
 	if rest_every > 0:
 		pasos = (s - 1) - floori(float(s) / float(rest_every))
-	return mini(pasos, presion_max) if presion_max > 0 else pasos
+	return mini(pasos, _tope_presion())
+
+
+## Cuántos pasos de presión caben antes de romper el suelo de la barra.
+##
+## Se deriva del suelo en vez de escribirse a mano para que no puedan
+## contradecirse: el número de dificultad deja de subir por presión justo cuando
+## la presión deja de apretar de verdad. Un número que sigue creciendo mientras
+## el juego ya no se endurece es un número que miente.
+func _tope_presion() -> int:
+	if barra_min_segundos <= 0.0 or drain_step <= 0.0:
+		return 99999
+	return maxi(0, floori((time_max / barra_min_segundos - drain_base) / drain_step))
 
 
 func _drain_rate() -> float:
 	var d := drain_base + drain_step * _pasos_presion(_stage())
 	# Un bioma puede pedir que el reloj apriete menos. Lo usan los de defensa,
 	# donde la amenaza tiene que ser lo que cae, no la barra.
-	return d if _ajuste_de_campana() else d * float(_paleta.get("drain_mult", 1.0))
+	if not _ajuste_de_campana():
+		d *= float(_paleta.get("drain_mult", 1.0))
+	# El suelo se aplica al final, después del multiplicador del bioma: así la
+	# garantía es absoluta y no depende de que nadie ponga un multiplicador alto.
+	if barra_min_segundos > 0.0:
+		d = minf(d, time_max / barra_min_segundos)
+	return d
 
 
 func _chain_radius() -> float:
@@ -796,6 +817,28 @@ func _speed_bonus() -> float:
 
 func _fallos_permitidos() -> int:
 	return maxi(fallos_min, fallos_base - floori(fallos_step * (_stage() - 1)))
+
+
+## Cuántos fallos quedan antes de que el contador empiece a avisar.
+const FALLOS_AVISO := 2
+
+
+## El texto del contador de fallos: el número, y el margen solo si aprieta.
+##
+## Antes ponía siempre "Fallos 2 / 5", y ese denominador no informaba: lo normal
+## es perder por tiempo con dos fallos, y entonces los tres que quedaban no
+## significaron nada. Un dato que casi nunca es el que te mata se lee como ruido,
+## y el ruido en un HUD tapa el campo.
+##
+## Pero el límite existe y mata de verdad —con la barra en ocho segundos, cinco
+## fallos se agotan antes de que el tiempo llegue a matarte—, así que esconderlo
+## del todo sería cambiar el ruido por una emboscada. La solución es enseñarlo
+## exactamente cuando pasa a ser lo que decide la partida.
+func _texto_fallos() -> String:
+	var quedan := _fallos_permitidos() - _fallos
+	if quedan <= FALLOS_AVISO:
+		return "Fallos  %d  ·  queda%s %d" % [_fallos, "" if quedan == 1 else "n", maxi(0, quedan)]
+	return "Fallos  %d" % _fallos
 
 
 ## Las detonaciones se calientan de color con los escalones. No cambia nada del
@@ -1021,7 +1064,11 @@ func _tap(pos: Vector2) -> void:
 			_marcar_muerte(mundo)
 			_perder("Demasiados fallos")
 		else:
-			_flash("Fallo  %d / %d" % [_fallos, _fallos_permitidos()])
+			var quedan := _fallos_permitidos() - _fallos
+			if quedan <= FALLOS_AVISO:
+				_flash("Fallo  ·  queda%s %d" % ["" if quedan == 1 else "n", quedan])
+			else:
+				_flash("Fallo")
 		return
 
 	_time_left -= tap_cost
@@ -2262,7 +2309,7 @@ func _update_ui() -> void:
 		_fallos_label.text = "Sin fallos permitidos"
 		_fallos_label.modulate = Color("ff5470")
 	else:
-		_fallos_label.text = "Fallos  %d / %d" % [_fallos, _fallos_permitidos()]
+		_fallos_label.text = _texto_fallos()
 		_fallos_label.modulate = Color("ff5470") if _fallos > 0 else Color(0.45, 0.45, 0.55)
 
 	var frac := clampf(_time_left / time_max, 0.0, 1.0)

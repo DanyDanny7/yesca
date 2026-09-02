@@ -65,8 +65,18 @@ podría expresar.
 
 ### `Fallos` — los toques fallados
 
-Tocar donde no hay nada cuesta. Verlo acumularse es lo que convierte el castigo
-en una regla y no en una sorpresa.
+Tocar donde no hay nada cuesta tiempo. Verlo acumularse es lo que convierte el
+castigo en una regla y no en una sorpresa.
+
+Enseña **solo el número**, no «2 / 5». El denominador no informaba: lo normal es
+perder por tiempo con dos fallos, y entonces los tres que quedaban no
+significaron nada. Un dato que casi nunca es el que te mata se lee como ruido, y
+el ruido en un HUD tapa el campo.
+
+Pero el límite existe y mata de verdad —con la barra en ocho segundos, cinco
+fallos se agotan antes de que el tiempo llegue a matarte—, así que esconderlo
+del todo sería cambiar el ruido por una emboscada. Aparece **cuando quedan dos o
+menos**, que es justo cuando pasa a ser lo que decide la partida.
 
 ### `Combos` — los multiplicadores flotantes
 

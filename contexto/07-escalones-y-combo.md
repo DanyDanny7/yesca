@@ -176,9 +176,15 @@ sobre todo en los niveles cuya meta es una cadena o aguantar segundos, donde se
 sigue puntuando sin terminar: el reloj se aceleraba solo hasta matar al jugador
 que iba ganando.
 
-Con `presion_max = 8` la barra se queda en 7 segundos por muy alto que se
-llegue. Sigue apretando —son tres taps y medio— pero deja de ser una cuenta
-atrás hacia lo imposible.
+El arreglo se dice en **segundos y no en pasos de presión**: `barra_min_segundos
+= 8`. Los pasos son una abstracción interna; los segundos son lo que el jugador
+siente, y la única unidad en la que se puede decidir si un número está bien o
+mal. El tope de pasos se deriva del suelo, para que no puedan contradecirse: el
+número de dificultad deja de subir por presión justo cuando la presión deja de
+apretar de verdad.
+
+Medido después: de escalón 9 en adelante el desagüe se congela en 1,78 y la
+barra llena dura 8,4 s para siempre. Nunca más tres segundos.
 
 Los otros tres apartados de la dificultad ya topaban por su cuenta. Éste era el
 único que no, y era justo el que mata.
