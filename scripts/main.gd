@@ -117,6 +117,19 @@ extends Node2D
 @export_subgroup("Presión")
 @export var drain_base: float = 0.7
 @export var drain_step: float = 0.18
+## Tope de pasos de presión. El desagüe no sube de aquí por mucho que se puntúe.
+##
+## Sin tope, la presión crecía para siempre y el juego castigaba jugar bien
+## hasta hacerse imposible: medido, la barra entera duraba 8,4 s en el escalón 9,
+## 5,6 s en el 15 —tres taps— y seguía bajando. En un nivel cuya meta es una
+## cadena o aguantar segundos se sigue puntuando sin terminar, así que el reloj
+## se aceleraba solo hasta matar al jugador que iba ganando.
+##
+## Con el tope en 8 la barra llena se queda en 7 segundos. Sigue apretando —son
+## tres taps y medio— pero deja de ser una cuenta atrás hacia lo imposible. Los
+## otros tres apartados de la dificultad ya topaban por su cuenta; este era el
+## único que no.
+@export var presion_max: int = 8
 
 @export_subgroup("Generosidad")
 @export var chain_radius_base: float = 105.0
@@ -717,9 +730,10 @@ func _es_respiro(s: int) -> bool:
 
 ## Cuántas veces ha subido la presión hasta este escalón, descontando respiros.
 func _pasos_presion(s: int) -> int:
-	if rest_every <= 0:
-		return s - 1
-	return (s - 1) - floori(float(s) / float(rest_every))
+	var pasos := s - 1
+	if rest_every > 0:
+		pasos = (s - 1) - floori(float(s) / float(rest_every))
+	return mini(pasos, presion_max) if presion_max > 0 else pasos
 
 
 func _drain_rate() -> float:
@@ -2077,6 +2091,13 @@ const NOMBRES_ESTADO := ["menu", "seleccion", "listo", "jugando", "derrota",
 		"victoria", "final", "pausa", "log", "briefing"]
 
 
+## Cambia de pantalla.
+##
+## Refresca la interfaz al entrar: `_update_ui()` solo corre mientras se juega,
+## así que sin esto las etiquetas se quedaban con el valor de la partida
+## ANTERIOR. Se veía al reintentar un nivel: la dificultad seguía marcando la
+## que había al morir, aunque por dentro ya estuviera reiniciada. El juego
+## estaba bien y el cartel mentía, que para el jugador es lo mismo.
 func _ir_a(s: State) -> void:
 	# Cada cambio de pantalla queda anotado. Sin esto, un registro que termina en
 	# VICTORIA no dice si el juego murió durante la celebración o si llegó a
@@ -2084,6 +2105,7 @@ func _ir_a(s: State) -> void:
 	if _diag != null and s != _state:
 		_diag.evento("pantalla=%s" % NOMBRES_ESTADO[s])
 	_state = s
+	_update_ui()
 	_menu_screen.visible = s == State.MENU
 	_select_screen.visible = s == State.SELECT
 	_over_screen.visible = s == State.DEAD
@@ -2209,7 +2231,10 @@ func _update_ui() -> void:
 		_btn_next.modulate.a = 1.0 if _nivel < _tope_selector() else 0.25
 		return
 
-	if _state != State.READY and _state != State.PLAYING:
+	# El briefing entra aquí aunque la tarjeta lo tape: si no, las etiquetas
+	# del HUD se quedan con las de la partida anterior y basta con que la
+	# tarjeta se dibuje un pelo distinta para que se vea el valor viejo.
+	if _state not in [State.READY, State.PLAYING, State.BRIEFING]:
 		return
 
 	_score_label.text = str(_score)

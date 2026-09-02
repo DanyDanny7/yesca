@@ -59,7 +59,7 @@ indistinguible del modo sin fin.
 Muestra **dificultad N · nombre del movimiento**. La dificultad es la **suma de
 sus cuatro apartados** (presión, escasez, generosidad, legibilidad), no un
 ordinal. Un escalón solo decía cuántos saltos habían pasado; un 8 no significaba
-nada frente a un 4. Sumando, sí: y como dos de los cuatro apartados topan, el
+nada frente a un 4. Sumando, sí: y como tres de los cuatro apartados topan, el
 número refleja la desaceleración real de la escalada, algo que un ordinal nunca
 podría expresar.
 

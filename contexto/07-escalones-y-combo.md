@@ -163,3 +163,38 @@ justo lo que se quería medir:
 - Sigue sin haber game feel: ni impacto, ni vibración, ni partículas, ni sonido.
 - Biomas — que los círculos se muevan e interactúen distinto según el tramo de
   partida, no solo que cambien de color. Pendiente de discutir.
+
+
+## El techo de presión (2026-09-02)
+
+La presión no tenía tope: `drain_base + drain_step × pasos`, y los pasos suben
+con la puntuación. Medido, la barra llena duraba 21 s en el escalón 1, **8,4 s en
+el 9, 5,6 s en el 15** —tres taps— y seguía bajando sin fin.
+
+O sea: **el juego castigaba jugar bien hasta hacerse imposible.** Y se notaba
+sobre todo en los niveles cuya meta es una cadena o aguantar segundos, donde se
+sigue puntuando sin terminar: el reloj se aceleraba solo hasta matar al jugador
+que iba ganando.
+
+Con `presion_max = 8` la barra se queda en 7 segundos por muy alto que se
+llegue. Sigue apretando —son tres taps y medio— pero deja de ser una cuenta
+atrás hacia lo imposible.
+
+Los otros tres apartados de la dificultad ya topaban por su cuenta. Éste era el
+único que no, y era justo el que mata.
+
+Medido después del cambio: el jugador bueno puntúa **13 veces más** que el
+descuidado, en lo alto de la banda histórica.
+
+## El cartel que mentía
+
+El mismo informe traía otro fallo, más pequeño pero más desconcertante: al
+reintentar un nivel, la dificultad seguía marcando la que había al morir.
+
+Por dentro estaba bien —`_stage_offset`, `_score` y `_elapsed` se reinician
+todos— pero `_update_ui()` **solo corre mientras se juega**, así que las
+etiquetas se quedaban con el texto de la partida anterior hasta el primer
+fotograma de la siguiente.
+
+El juego estaba bien y el cartel mentía, que para el jugador es exactamente lo
+mismo. Ahora `_ir_a()` refresca la interfaz en cada cambio de pantalla.
