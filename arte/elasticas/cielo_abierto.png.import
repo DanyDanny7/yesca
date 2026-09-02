@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c3i5aqvmcijn7"
-path="res://.godot/imported/cielo_abierto.png-c3e331f7083918b8c8ab5585c6c5cfe6.ctex"
+uid="uid://fpmf25yb67gs"
+path="res://.godot/imported/cielo_abierto.png-09698492a89167cbffc223f095e0d5c5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://arte/telones/cielo_abierto.png"
-dest_files=["res://.godot/imported/cielo_abierto.png-c3e331f7083918b8c8ab5585c6c5cfe6.ctex"]
+source_file="res://arte/elasticas/cielo_abierto.png"
+dest_files=["res://.godot/imported/cielo_abierto.png-09698492a89167cbffc223f095e0d5c5.ctex"]
 
 [params]
 

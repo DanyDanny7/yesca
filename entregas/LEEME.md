@@ -173,6 +173,33 @@ color de fondo, tapa la base y la elástica no sirve de nada.
 **Rígida** es lo que tiene sitio: la bañera, la ciudad, el planeta, el
 horizonte. No se deforma nunca, ni un píxel.
 
+### Bandas · `arte/bandas/`
+
+Tiras ancladas **arriba** que se repiten solo en horizontal y se desplazan
+solas. La aurora de Invierno es el caso que las trajo.
+
+```
+invierno_1.png    la capa de atrás,  se desplaza a  +5 px/s
+invierno_2.png    la de delante,     se desplaza a  −3 px/s
+```
+
+**Se numeran desde 1 con el nombre del bioma y nada más.** La entrega del 3 de
+septiembre las llamó `invierno_aurora_1`; se renombraron al importarlas, porque
+el código no puede adivinar la palabra del medio. Dos como mucho.
+
+Tienen que **encajar consigo mismas en horizontal**: se repiten a lo ancho, así
+que el borde derecho debe continuar en el izquierdo o se ve la costura pasar. En
+vertical no se repiten.
+
+Van **entre la elástica y el azulejo**, y ese orden no es arbitrario: la aurora
+está a cien kilómetros y la nieve a diez metros, así que los copos caen por
+delante.
+
+Las velocidades son opuestas y primas entre sí a propósito. Con una sola capa lo
+que se ve es una cortina corriéndose de lado; con dos a distinta velocidad, los
+máximos de una caen sobre los huecos de la otra y el brillo **late en el sitio**.
+Y siendo 5 y 3, el patrón conjunto tarda seis minutos en repetirse.
+
 ### Variantes por proporción
 
 Cualquiera de las tres capas admite versión por forma de pantalla, con caída a

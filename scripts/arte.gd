@@ -50,6 +50,15 @@ const DIR_ELASTICAS := "res://arte/elasticas/"
 ## por todas partes. El nombre de la carpeta obliga a decidir cuál se está
 ## entregando.
 const DIR_TELONES := "res://arte/telones/"
+## Tiras ancladas ARRIBA que se repiten solo en horizontal.
+##
+## La aurora de Invierno es el caso que las trajo: dos capas superpuestas que se
+## desplazan a distinta velocidad y en sentidos opuestos. El batido entre las dos
+## es lo que se lee como luz que ondula; con una sola, lo que se ve es una
+## cortina corriéndose de lado.
+##
+## Se numeran desde 1: `invierno_1.png`, `invierno_2.png`.
+const DIR_BANDAS := "res://arte/bandas/"
 ## Detonaciones.
 const DIR_EXPLOSIONES := "res://arte/explosiones/"
 
@@ -182,6 +191,11 @@ static func variante_pantalla(r: Vector2) -> String:
 	if proporcion < 1.9:
 		return "medio"
 	return "alto"
+
+
+## La banda número `n` de un bioma, si la hay. Se numeran desde 1.
+static func banda_bioma(nombre: String, n: int) -> Texture2D:
+	return _buscar(DIR_BANDAS + slug(nombre) + "_" + str(n))
 
 
 ## Nombre de bioma a nombre de fichero: minúsculas, sin acentos, con guiones.

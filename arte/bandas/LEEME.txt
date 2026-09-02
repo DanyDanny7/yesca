@@ -1,0 +1,18 @@
+QUE VA AQUI
+  Tiras ancladas ARRIBA, que se repiten solo en horizontal y se
+  desplazan solas. La aurora de Invierno es el caso que las trajo.
+
+NOMBRES
+  invierno_1.png   la capa de atras,  va a  +5 px/s
+  invierno_2.png   la de delante,     va a  -3 px/s
+
+  Se numeran desde 1 con el nombre del bioma y nada mas. Dos como maximo.
+
+OJO
+  Tienen que encajar consigo mismas EN HORIZONTAL: se repiten a lo ancho.
+  En vertical no se repiten, se anclan arriba.
+
+  Van entre la elastica y el azulejo: la aurora esta a cien kilometros y
+  la nieve a diez metros, asi que los copos caen por delante.
+
+El contrato completo esta en entregas/LEEME.md

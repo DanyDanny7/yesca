@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c8b36qr6covkk"
-path="res://.godot/imported/invierno.png-c5b6f86e593b70b04d1eefc14542d547.ctex"
+uid="uid://b8bsm7omtf4q5"
+path="res://.godot/imported/invierno_1.png-3af4847f0368a27803ab894d543fd560.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://arte/telones/invierno.png"
-dest_files=["res://.godot/imported/invierno.png-c5b6f86e593b70b04d1eefc14542d547.ctex"]
+source_file="res://arte/bandas/invierno_1.png"
+dest_files=["res://.godot/imported/invierno_1.png-3af4847f0368a27803ab894d543fd560.ctex"]
 
 [params]
 

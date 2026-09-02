@@ -86,6 +86,8 @@ var _deriva: Vector2 = Vector2.ZERO
 ## abajo, que es donde tiene sentido una ciudad.
 var _tex_banda: ImageTexture
 var _tipo_banda: Tipo = Tipo.LISO
+## Desplazamiento acumulado de cada banda de bioma.
+var _scroll_bandas: Array[float] = [0.0, 0.0]
 var _color_banda: Color = Color("ffffff")
 ## Si los píxeles se envuelven también en vertical. En el mosaico sí; en la
 ## banda no, o los tejados aparecerían asomando por abajo.
@@ -125,7 +127,10 @@ func configurar(nuevo_tipo: Tipo, nuevo_color: Color,
 	_tipo_banda = banda
 	_tex_banda = _mosaico(banda) if banda != Tipo.LISO else null
 	_banda_arriba = banda == Tipo.AURORA
-	set_process(_deriva != Vector2.ZERO or _fugaces or _banda_arriba)
+	# Con bandas de bioma hay que seguir procesando aunque el telón no derive:
+	# el desplazamiento de las bandas es lo único que se mueve en ese caso.
+	var con_bandas := Arte.banda_bioma(bioma, 1) != null
+	set_process(_deriva != Vector2.ZERO or _fugaces or _banda_arriba or con_bandas)
 	queue_redraw()
 
 
@@ -150,6 +155,15 @@ func _process(delta: float) -> void:
 		_scroll_banda = fposmod(_scroll_banda + delta * 5.0, float(LADO))
 	if _fugaces:
 		_tick_fugaz(delta)
+	# Bandas de bioma: cada una a su velocidad y su sentido. Se envuelve por
+	# el ancho de la propia textura, que es su periodo, y no por LADO: las
+	# bandas no tienen por qué medir lo mismo que un azulejo.
+	for i in BANDAS_MAX:
+		var banda := Arte.banda_bioma(bioma, i + 1)
+		if banda == null:
+			continue
+		_scroll_bandas[i] = fposmod(_scroll_bandas[i] + delta * BANDA_VELOCIDAD[i],
+			float(banda.get_width()))
 	_scroll += _deriva * delta
 	# Se envuelve dentro de un mosaico para que el desplazamiento no crezca sin
 	# límite y acabe perdiendo precisión tras un rato largo de partida.
@@ -202,6 +216,19 @@ func _draw() -> void:
 	# recortar nada que importe.
 	if elastica != null:
 		draw_texture_rect(elastica, Rect2(Vector2.ZERO, r), false)
+
+	# Las bandas van entre la elástica y el azulejo. El orden importa y no es
+	# arbitrario: la aurora está a cien kilómetros y la nieve a diez metros, así
+	# que los copos tienen que caer POR DELANTE de la aurora.
+	for i in BANDAS_MAX:
+		var banda := Arte.banda_bioma(bioma, i + 1)
+		if banda == null:
+			continue
+		var ancho := float(banda.get_width())
+		draw_texture_rect(banda,
+				Rect2(Vector2(-_scroll_bandas[i], 0.0),
+						Vector2(r.x + ancho, float(banda.get_height()))),
+				true)
 
 	if azulejo != null:
 		draw_texture_rect(azulejo,
@@ -308,6 +335,20 @@ const ARTE_TEJADO := 104.0
 ## borde, así que solo se ve un casquete y se lee como un mundo, no como una
 ## pelota.
 const ARTE_PLANETA := Vector3(26.0, -8.0, 96.0)
+## Cuántas bandas puede llevar un bioma.
+##
+## Dos, y no por límite técnico: con dos capas a velocidades distintas los
+## máximos de una caen sobre los huecos de la otra y el brillo late en el sitio.
+## Con una se ve una cortina corriéndose de lado, y con tres no se gana nada que
+## el ojo pueda distinguir.
+const BANDAS_MAX := 2
+## A qué velocidad se desplaza cada banda, en píxeles por segundo.
+##
+## Sentidos opuestos y valores primos entre sí, para que el patrón conjunto tarde
+## en repetirse: 5 y 3 dan un ciclo completo de seis minutos. Si fueran múltiplos
+## volverían a coincidir enseguida y se vería el bucle.
+const BANDA_VELOCIDAD := [5.0, -3.0]
+
 ## Cuánto se puede estirar la composición para cubrir la pantalla entera.
 ##
 ## Es la única deformación que se permite, y va acotada a propósito: por debajo

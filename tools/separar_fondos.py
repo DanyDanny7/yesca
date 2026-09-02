@@ -1,118 +1,150 @@
-"""Trocea los fondos entregados en las dos capas que usa el juego.
+"""Trocea los fondos entregados en las tres capas que usa el juego.
 
     python tools/separar_fondos.py entregas/<lote>
     godot --path . --headless --script tools/importar_fondos.gd -- entregas/<lote>
 
-El primer paso escribe SVG en <lote>/_split/; el segundo los rasteriza a PNG
-en arte/fondos/ y arte/telones/, que es de donde lee el juego.
+El primer paso escribe SVG en <lote>/_split/; el segundo los rasteriza a PNG en
+arte/elasticas/, arte/fondos/ y arte/telones/, que es de donde lee el juego.
 
-El lote va como argumento y no fijo en el codigo a proposito: cada entrega
-nueva llega en su propia carpeta y no pisa a la anterior, asi que siempre se
-puede volver a importar una vieja para comparar.
+LAS TRES CAPAS
+--------------
+Se separan por CUANTA DEFORMACION TOLERA cada una, no por lo que son. Declarado
+eso por adelantado, cualquier proporcion de pantalla se llena sin recortar nada
+que importe.
 
-POR QUE DOS CAPAS
+  elastica  se estira a pantalla completa. Degradados, cielo, agua: cosas sin
+            forma reconocible, que estiradas al doble de alto no las nota nadie.
+  azulejo   se repite y se desplaza. Es lo que hace que la nieve caiga y el rio
+            corra.
+  rigida    se ancla abajo y NO se deforma. Banera, ciudad, planeta, horizonte.
+
+COMO SE RECONOCEN
 -----------------
-Los fondos vienen compuestos en un lienzo de 208x336, y ese lienzo no tiene la
-proporcion de ninguna pantalla. Estirarlos para que encajen no es una opcion:
-cada fondo mezcla una parte que aguanta el estirado con otra que no.
+El formato de entrega marca las dos primeras con un id explicito:
 
-  - El PATRON se repite. Estirarlo da igual, y ademas repitiendolo se puede
-    desplazar, que es lo que hace que la nieve caiga y el rio corra.
-  - La PIEZA ANCLADA -la banera de Ducha, la ciudad de Asedio, la Tierra de
-    Meteoros- tiene sitio fijo. Una banera al doble de ancho deja de ser una
-    banera.
+    <rect id="elastica" ...>   fondo que se estira
+    <rect id="azulejo" ...>    el que lleva el patron
 
-Asi que se separan: el patron sale como azulejo y la pieza anclada como una
-composicion que se ancla abajo y se escala solo por el ancho.
+y todo lo que va DESPUES del azulejo es la capa rigida. Antes se adivinaba por
+posicion -"el ultimo rect a lienzo completo"- y eso se rompia en cuanto un fondo
+cambiaba de estructura. Con id explicito, no.
 
-EL CORTE
---------
-En el SVG las dos capas ya vienen separadas y en ese orden: primero los <rect>
-a lienzo completo (color de fondo y patron), despues todo lo demas. El corte es
-el ultimo rect a lienzo completo.
-
-Siete de los diecisiete no traen <pattern>: su fondo esta dibujado forma a
-forma. Esos no tienen nada que repetir y suben enteros como composicion; el
-azulejo se lo sintetiza importar_fondos.gd con el color de su fila superior,
-que es justo el que toca el hueco de arriba cuando la pantalla es mas alta.
+Un bioma puede no tener capa rigida: si no queda nada tras el azulejo, no se
+escribe fichero y el bioma se dibuja con dos capas. Es lo normal en los biomas
+que no tienen nada anclado.
 """
+import glob
 import io
 import os
 import re
-import glob
-
 import sys
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOTE = sys.argv[1] if len(sys.argv) > 1 else "entregas/2026-08-31-arte-inicial"
+LOTE = sys.argv[1] if len(sys.argv) > 1 else "entregas/2026-09-02-ajuste-contrato"
 SRC = os.path.join(RAIZ, LOTE, "fondos")
 OUT = os.path.join(RAIZ, LOTE, "_split")
 
-# Del nombre del fichero entregado al bioma del juego. Ojo con dos: el 05 se
-# renombro a Basico, y el 09 lleva enye en el juego pero no en el fichero.
-BIOMA = {
-    "01_cielo_abierto": "cielo_abierto", "02_invierno": "invierno",
-    "03_rio": "rio", "04_hormigas": "hormigas", "05_enjambre": "basico",
-    "06_billar": "billar", "07_panal": "panal", "08_estampida": "estampida",
-    "09_otono": "otono", "10_brasas": "brasas",
-    "11_caza_de_robots": "caza_de_robots", "12_circuito": "circuito",
-    "13_ciudad_de_papel": "ciudad_de_papel", "14_ducha": "ducha",
-    "15_fiesta": "fiesta", "16_asedio": "asedio",
-    "17_lluvia_de_meteoros": "lluvia_de_meteoros",
+## Biomas que NO se importan, con el motivo.
+##
+## En Asedio y Lluvia de meteoros el dibujo define DONDE SE PIERDE: el tejado
+## mas alto es la linea de derrota y el disco de la Tierra es la zona de
+## impacto. El arte de esta tanda no coincide con las constantes de fondo.gd, y
+## meterlo dejaria al jugador perdiendo por tocar algo que no esta donde se ve.
+## Se importan cuando cuadren las cifras.
+EXCLUIDOS = {
+    "asedio": "el tejado del arte esta a 136 y ARTE_TEJADO vale 104",
+    "lluvia_de_meteoros": "el planeta del arte es (62,-60,150) y ARTE_PLANETA es (26,-8,96)",
 }
+
 CABECERA = ('<svg xmlns="http://www.w3.org/2000/svg" '
-            'width="%d" height="%d" viewBox="0 0 %s %s">')
-LIENZO = (208, 336)
+            'width="%d" height="%d" viewBox="%s">')
+## Ancho al que se rasteriza la elastica.
+##
+## Estrecho a proposito: los degradados de fondo son verticales, asi que una
+## tira fina contiene toda la informacion y el juego la estira a lo ancho de
+## todos modos. Rasterizarla a 624 px de ancho seria diecisiete veces mas peso
+## para el mismo resultado.
+ANCHO_ELASTICA = 24
+## A cuantas veces su tamano se rasteriza el azulejo.
+ESCALA_AZULEJO = 3
+
+
+def sin_metadatos(svg):
+    """Fuera la firma C2PA: son kilobytes que no dibujan nada."""
+    return re.sub(r"<metadata>.*?</metadata>", "", svg, flags=re.S)
+
+
+def atributo(etiqueta, nombre):
+    m = re.search(r'\b%s="([^"]+)"' % nombre, etiqueta)
+    return m.group(1) if m else None
 
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    print("%-20s %-10s %s" % ("bioma", "azulejo", "capa de encima"))
+    print("%-20s %-11s %-11s %s" % ("bioma", "elastica", "azulejo", "capa rigida"))
+    hechos = fuera = 0
     for ruta in sorted(glob.glob(os.path.join(SRC, "*.svg"))):
-        base = os.path.splitext(os.path.basename(ruta))[0]
-        if base not in BIOMA:
-            print("  %s: no se a que bioma corresponde, se salta" % base)
+        bioma = os.path.splitext(os.path.basename(ruta))[0]
+        if bioma in EXCLUIDOS:
+            print("%-20s -- NO SE IMPORTA: %s" % (bioma, EXCLUIDOS[bioma]))
+            fuera += 1
             continue
-        bioma = BIOMA[base]
-        svg = io.open(ruta, encoding="utf-8").read()
+
+        svg = sin_metadatos(io.open(ruta, encoding="utf-8").read())
+        caja = atributo(svg[:svg.index(">")], "viewBox") or "0 0 208 500"
+        ancho, alto = [float(v) for v in caja.replace(",", " ").split()[2:4]]
 
         defs = ""
         m = re.search(r"<defs>.*?</defs>", svg, re.S)
         if m:
             defs = m.group(0)
 
-        ultimo = None
-        for r in re.finditer(r'<rect width="208" height="336"[^>]*></rect>', svg):
-            ultimo = r
-        resto = svg[ultimo.end():-len("</svg>")] if ultimo else ""
+        el = re.search(r'<rect id="elastica"[^>]*></rect>', svg)
+        az = re.search(r'<rect id="azulejo"[^>]*></rect>', svg)
+        if el is None or az is None:
+            print("%-20s -- SIN id=elastica o id=azulejo, no se puede trocear" % bioma)
+            fuera += 1
+            continue
 
-        solido = ""
-        m = re.search(r'<rect width="208" height="336" fill="(#[0-9a-fA-F]+)"></rect>', svg)
-        if m:
-            solido = m.group(1)
+        # 1 · elastica: el degradado solo, en una tira estrecha.
+        alto_el = int(round(ANCHO_ELASTICA * alto / ancho)) * 4
+        io.open(os.path.join(OUT, bioma + "__elastica.svg"), "w", encoding="utf-8").write(
+            (CABECERA % (ANCHO_ELASTICA, alto_el, caja)) + defs + el.group(0) + "</svg>")
 
-        pat = re.search(r'<pattern id="([^"]+)" width="(\d+)" height="(\d+)"', svg)
+        # 2 · azulejo: UNA repeticion del patron, sin color de fondo debajo.
+        #     Sin color porque va encima de la elastica: si lo llevara, la
+        #     taparia y la capa de abajo no serviria de nada.
+        relleno = atributo(az.group(0), "fill") or ""
+        pid = re.search(r"url\(#([^)]+)\)", relleno)
+        etiqueta = None
+        if pid:
+            m = re.search(r'<pattern id="%s"[^>]*>' % re.escape(pid.group(1)), svg)
+            etiqueta = m.group(0) if m else None
+        if etiqueta is None:
+            print("%-20s -- el azulejo no apunta a un <pattern>" % bioma)
+            fuera += 1
+            continue
+        pw = float(atributo(etiqueta, "width"))
+        ph = float(atributo(etiqueta, "height"))
+        io.open(os.path.join(OUT, bioma + "__azulejo.svg"), "w", encoding="utf-8").write(
+            (CABECERA % (pw * ESCALA_AZULEJO, ph * ESCALA_AZULEJO, "0 0 %g %g" % (pw, ph)))
+            + defs
+            + '<rect width="%g" height="%g" fill="url(#%s)"></rect></svg>' % (pw, ph, pid.group(1)))
 
-        if pat:
-            pid, pw, ph = pat.group(1), int(pat.group(2)), int(pat.group(3))
-            # Una sola repeticion del patron, a 3x, que es la escala a la que
-            # estan hechos los PNG de la entrega.
-            tile = (CABECERA % (pw * 3, ph * 3, pw, ph)) + defs
-            if solido:
-                tile += '<rect width="%d" height="%d" fill="%s"></rect>' % (pw, ph, solido)
-            tile += '<rect width="%d" height="%d" fill="url(#%s)"></rect></svg>' % (pw, ph, pid)
-            io.open(os.path.join(OUT, bioma + "__tile.svg"), "w",
-                    encoding="utf-8").write(tile)
-            capa = (CABECERA % (624, 1008, LIENZO[0], LIENZO[1])) + defs + resto + "</svg>"
-        else:
-            capa = svg
+        # 3 · rigida: lo que va tras el azulejo, sobre fondo transparente.
+        resto = svg[az.end():-len("</svg>")].strip()
+        if resto:
+            io.open(os.path.join(OUT, bioma + "__rigida.svg"), "w", encoding="utf-8").write(
+                (CABECERA % (ancho * 3, alto * 3, caja)) + defs + resto + "</svg>")
 
-        io.open(os.path.join(OUT, bioma + "__capa.svg"), "w",
-                encoding="utf-8").write(capa)
-        print("%-20s %-10s %s" % (
-            bioma,
-            "%dx%d" % (int(pat.group(2)), int(pat.group(3))) if pat else "—",
-            "vacia" if not resto.strip() else "%d bytes" % len(resto)))
+        print("%-20s %-11s %-11s %s" % (
+            bioma, "%dx%d" % (ANCHO_ELASTICA, alto_el),
+            "%gx%g" % (pw * ESCALA_AZULEJO, ph * ESCALA_AZULEJO),
+            "no tiene" if not resto else "%d bytes" % len(resto)))
+        hechos += 1
+
+    print("")
+    print("%d biomas troceados, %d fuera" % (hechos, fuera))
 
 
 if __name__ == "__main__":
