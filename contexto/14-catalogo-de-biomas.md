@@ -262,6 +262,22 @@ reloj. Es la comprobación que faltó la primera vez que se hizo Asedio.
 
 ---
 
+## Los biomas de defensa esperan a que empieces
+
+En Asedio y Lluvia de meteoros **nada se mueve hasta el primer toque**. En el
+resto de biomas el campo sigue vivo de fondo desde el menú, que es una decisión
+vieja y buena: una pantalla de inicio con el juego moviéndose detrás se siente
+despierta y enseña la mecánica antes de que nadie toque nada.
+
+Pero en defensa esa misma decisión producía un fallo feo: la comprobación de
+impacto solo cuenta durante la partida, así que antes del primer toque los
+proyectiles caían, **atravesaban la ciudad y no pasaba nada**. Después de tocar
+una vez ya funcionaba, lo que lo hacía todavía más desconcertante.
+
+Congelar es mejor que la alternativa. Dejar que exploten antes de empezar sería
+perder sin haber tocado nada, que es peor fallo que el que se arregla. Y encaja
+con el reloj, que tampoco corre hasta que empiezas.
+
 ## Los dos que faltan en el modo sin fin
 
 La rotación del modo sin fin usa **quince** de los diecisiete: quedan fuera

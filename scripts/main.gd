@@ -578,7 +578,7 @@ func _process(delta: float) -> void:
 	_sincronizar_congelacion()
 
 	# En pausa el mundo se congela igual que al morir: no se llama a _mover_dots.
-	if _mundo_activo() and _hitstop <= 0.0:
+	if _mundo_activo() and _hitstop <= 0.0 and not _defensa_sin_empezar():
 		_mover_dots(delta)
 		_check_impactos()
 		_check_catches()
@@ -2125,6 +2125,23 @@ func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 ## Estados en los que el campo sigue vivo. MENU y SELECT incluidos: una pantalla
 ## con el juego moviéndose detrás se siente despierta y enseña la mecánica antes
 ## de que el jugador toque nada.
+## En un bioma de defensa nada se mueve hasta que la partida empieza de verdad.
+##
+## El campo sigue vivo de fondo en el resto de biomas, que es una decisión vieja
+## y buena: una pantalla de inicio con el juego moviéndose detrás se siente
+## despierta. Pero en defensa esa misma decisión producía un fallo feo:
+## `_check_impactos()` solo cuenta en PLAYING, así que antes del primer toque los
+## proyectiles caían, atravesaban la ciudad y no pasaba nada. Después de tocar
+## una vez ya funcionaba, lo que lo hacía todavía más desconcertante.
+##
+## Congelar es mejor que la alternativa. Dejar que exploten antes de empezar
+## significaría perder sin haber tocado nada, que es peor fallo que el que se
+## está arreglando. Y encaja con el reloj, que tampoco corre hasta que se empieza:
+## en defensa, la amenaza ES el reloj.
+func _defensa_sin_empezar() -> bool:
+	return _es_defensa() and _state != State.PLAYING
+
+
 func _mundo_activo() -> bool:
 	return _state == State.MENU or _state == State.SELECT 		or _state == State.BRIEFING or _state == State.READY 		or _state == State.PLAYING
 
