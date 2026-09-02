@@ -1,10 +1,14 @@
 """Trocea los fondos entregados en las dos capas que usa el juego.
 
-    python tools/separar_fondos.py
-    godot --path . --headless --script tools/importar_fondos.gd
+    python tools/separar_fondos.py entregas/<lote>
+    godot --path . --headless --script tools/importar_fondos.gd -- entregas/<lote>
 
-El primer paso escribe SVG en arte/assets-yesca/_split/; el segundo los
-rasteriza a PNG en arte/fondos/ y arte/telones/.
+El primer paso escribe SVG en <lote>/_split/; el segundo los rasteriza a PNG
+en arte/fondos/ y arte/telones/, que es de donde lee el juego.
+
+El lote va como argumento y no fijo en el codigo a proposito: cada entrega
+nueva llega en su propia carpeta y no pisa a la anterior, asi que siempre se
+puede volver a importar una vieja para comparar.
 
 POR QUE DOS CAPAS
 -----------------
@@ -37,9 +41,12 @@ import os
 import re
 import glob
 
+import sys
+
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(RAIZ, "arte", "assets-yesca", "fondos")
-OUT = os.path.join(RAIZ, "arte", "assets-yesca", "_split")
+LOTE = sys.argv[1] if len(sys.argv) > 1 else "entregas/2026-08-31-arte-inicial"
+SRC = os.path.join(RAIZ, LOTE, "fondos")
+OUT = os.path.join(RAIZ, LOTE, "_split")
 
 # Del nombre del fichero entregado al bioma del juego. Ojo con dos: el 05 se
 # renombro a Basico, y el 09 lleva enye en el juego pero no en el fichero.

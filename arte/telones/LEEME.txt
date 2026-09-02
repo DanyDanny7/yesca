@@ -1,3 +1,8 @@
+ESTA CARPETA LA GENERO YO. No dejes nada aqui a mano: las
+entregas van en entregas/<lote>/ y de ahi las importo.
+
+El contrato completo esta en entregas/LEEME.md
+
 QUE VA AQUI
   El fondo de PANTALLA COMPLETA, pintado entero. Un fichero por telon.
   Manda sobre el azulejo de arte/fondos/: si estan los dos, gana este.

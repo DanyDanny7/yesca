@@ -34,6 +34,8 @@ const ESQUIRLAS := 7
 @export var decay_time: float = 0.3
 @export var color: Color = COLOR_ACTIVA
 @export var tipo: Tipo = Tipo.CADENA
+## Bioma en curso, para poder dar a un bioma su propia detonación.
+var bioma: String = ""
 
 ## A qué cadena pertenece esta detonación.
 ##
@@ -89,12 +91,23 @@ func _draw() -> void:
 	# No se tiñe con el color del bioma, igual que los targets: el color lo pone
 	# quien dibuja. El precio es que la detonación deja de cambiar de color por
 	# bioma, y hay que decidirlo a sabiendas.
-	var tex := Arte.explosion(tipo)
+	var asset := Arte.explosion(tipo, bioma)
+	var tex: Texture2D = asset["tex"]
 	if tex != null:
 		var lado := radius * Arte.EXPLOSION_EN_RADIOS
-		draw_texture_rect(tex,
-				Rect2(Vector2(-lado, -lado) * 0.5, Vector2(lado, lado)),
-				false, Color(1, 1, 1, fade))
+		var destino := Rect2(Vector2(-lado, -lado) * 0.5, Vector2(lado, lado))
+		var n: int = asset["fotogramas"]
+		if n <= 1:
+			draw_texture_rect(tex, destino, false, Color(1, 1, 1, fade))
+			return
+		# Con tira de fotogramas NO se desvanece: el apagado lo lleva el dibujo.
+		# Hacer las dos cosas apagaría el efecto dos veces y quien lo diseñó
+		# perdería el control justo del final, que es donde se nota.
+		var dur := grow_time + hold_time + decay_time
+		var i := clampi(int(_t / maxf(0.001, dur) * float(n)), 0, n - 1)
+		var ancho := tex.get_width() / n
+		draw_texture_rect_region(tex, destino,
+				Rect2(float(i * ancho), 0.0, float(ancho), float(tex.get_height())))
 		return
 
 	draw_circle(Vector2.ZERO, radius, Color(color, 0.16 * fade))

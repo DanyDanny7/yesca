@@ -2,9 +2,9 @@ extends SceneTree
 
 ## Convierte los fondos entregados en las dos capas que usa el juego.
 ##
-##   godot --path . --headless --script tools/importar_fondos.gd
+##   godot --path . --headless --script tools/importar_fondos.gd -- entregas/<lote>
 ##
-## Lee de arte/assets-yesca/_split/, que produce el troceado en Python, y
+## Lee de <lote>/_split/, que produce el troceado en Python, y
 ## escribe en arte/fondos/ (el azulejo, que se repite y se desplaza) y en
 ## arte/telones/ (la composición, que se ancla abajo y no se estira).
 ##
@@ -19,10 +19,19 @@ extends SceneTree
 ## color es exactamente el que toca el hueco que queda por encima cuando la
 ## pantalla es más alta que la imagen, así que la unión no se ve. Sacarlo del
 ## SVG no valía: varios fondos tienen degradado, no color plano.
-const ENTRADA := "res://arte/assets-yesca/_split/"
+## Lote por defecto. Se puede pasar otro tras "--".
+const LOTE_POR_DEFECTO := "entregas/2026-08-31-arte-inicial"
 
 func _initialize() -> void:
-	var d := DirAccess.open(ENTRADA)
+	var args := OS.get_cmdline_user_args()
+	var lote: String = args[0] if args.size() > 0 else LOTE_POR_DEFECTO
+	var entrada := "res://%s/_split/" % lote.trim_suffix("/")
+	var d := DirAccess.open(entrada)
+	if d == null:
+		print("no encuentro ", entrada)
+		quit()
+		return
+	print("lote: ", lote)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://arte/fondos/"))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://arte/telones/"))
 
@@ -32,7 +41,7 @@ func _initialize() -> void:
 		if not f.ends_with(".svg"):
 			continue
 		var img := Image.new()
-		if img.load_svg_from_string(FileAccess.get_file_as_string(ENTRADA + f), 1.0) != OK:
+		if img.load_svg_from_string(FileAccess.get_file_as_string(entrada + f), 1.0) != OK:
 			print("FALLO al rasterizar ", f)
 			continue
 		var partes := f.replace(".svg", "").split("__")

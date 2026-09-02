@@ -28,4 +28,4 @@ desktop.ini
 # Del APK si esta excluido, en export_presets.cfg: alli si sobra.
 
 # Paso intermedio del troceado de fondos: lo rehace tools/separar_fondos.py.
-/arte/assets-yesca/_split/
+/entregas/*/_split/

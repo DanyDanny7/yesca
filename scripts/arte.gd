@@ -151,15 +151,48 @@ static func slug(nombre: String) -> String:
 	return s.replace(" ", "_")
 
 
-## El asset de un tipo de detonación, si lo hay.
+## Cuántos fotogramas como mucho puede tener una tira.
 ##
-## Se dibuja escalado al radio que tenga la explosión en cada instante y con su
-## desvanecido, así que una sola imagen quieta sirve: la animación la pone el
-## nodo, no el fichero.
-static func explosion(tipo: int) -> Texture2D:
+## Se prueban uno a uno porque el número va en el nombre del fichero y no hay
+## forma de preguntarlo antes de abrirlo. Sale caro una sola vez: el resultado,
+## incluida la ausencia, queda cacheado para toda la partida.
+const MAX_FOTOGRAMAS := 24
+
+## El asset de una detonación: la textura y cuántos fotogramas trae.
+##
+## Devuelve un diccionario con "tex" y "fotogramas". Dos formas de entregarla:
+##
+##   cadena.png      una imagen quieta. El nodo la escala al radio de cada
+##                   instante y la desvanece al final.
+##   cadena@8.png    ocho fotogramas en fila, del mismo ancho. El nodo recorre
+##                   la tira a lo largo de la vida de la onda y NO desvanece:
+##                   el apagado lo decide el dibujo, que es de lo que se trata
+##                   cuando alguien quiere diseñar el efecto de verdad.
+##
+## Y admite variante por bioma, igual que las bolas de billar: se prueba primero
+## `impacto_asedio.png` y se cae a `impacto.png`. Así la explosión del planeta
+## puede no parecerse en nada a la de la ciudad sin que haga falta un tipo nuevo.
+static func explosion(tipo: int, bioma: String = "") -> Dictionary:
 	if tipo < 0 or tipo >= NOMBRE_EXPLOSION.size():
-		return null
-	return _buscar(DIR_EXPLOSIONES + NOMBRE_EXPLOSION[tipo])
+		return {"tex": null, "fotogramas": 1}
+	var base: String = DIR_EXPLOSIONES + NOMBRE_EXPLOSION[tipo]
+	if bioma != "":
+		var propia := _tira(base + "_" + slug(bioma))
+		if propia["tex"] != null:
+			return propia
+	return _tira(base)
+
+
+## Busca una imagen suelta o una tira `nombre@N`, y dice cuántos fotogramas trae.
+static func _tira(base: String) -> Dictionary:
+	var suelta := _buscar(base)
+	if suelta != null:
+		return {"tex": suelta, "fotogramas": 1}
+	for n in range(2, MAX_FOTOGRAMAS + 1):
+		var tira := _buscar("%s@%d" % [base, n])
+		if tira != null:
+			return {"tex": tira, "fotogramas": n}
+	return {"tex": null, "fotogramas": 1}
 
 
 ## Busca el asset probando las extensiones que Godot importa como textura.

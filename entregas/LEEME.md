@@ -1,0 +1,292 @@
+# Contrato de entregas
+
+Esto es lo que hay que saber para entregar arte, efectos o movimientos a Yesca
+sin romper nada y sin que haya que preguntar.
+
+## La regla de oro
+
+> **Nadie escribe en `arte/`. Todo entra por `entregas/`.**
+
+`entregas/` es el buzón. `arte/` es lo que el juego lee, y lo genero yo
+importando desde el buzón. Esa separación es lo que permite reemplazar una
+entrega entera sin miedo: si algo sale mal, la anterior sigue ahí y se puede
+volver a importar en un comando.
+
+Una carpeta por tanda, con fecha delante para que se ordenen solas:
+
+```
+entregas/
+  2026-08-31-arte-inicial/     ← lo ya entregado, no se toca
+  2026-09-02-movimientos/      ← la tanda nueva
+  _plantilla/                  ← cópiala para empezar
+```
+
+**Nunca se sobrescribe una carpeta de tanda.** Si hay que corregir una pieza ya
+entregada, va en una tanda nueva; el nombre de fichero manda igual, y al
+importar gana la más reciente. Así el historial queda entero y se puede
+comparar.
+
+Dentro de cada tanda:
+
+```
+<lote>/
+  ENTREGA.md          qué trae, qué cambia y qué hay que mirar
+  targets/            formas que el jugador revienta
+  fondos/             fondos de bioma
+  explosiones/        detonaciones
+  movimientos/        especificaciones de movimiento (texto, no imágenes)
+```
+
+Las carpetas que no se usen se pueden omitir. Una tanda de solo tres targets es
+una tanda perfectamente válida.
+
+---
+
+## 1 · Targets
+
+### Nombre
+
+El nombre del fichero **es** la instrucción. Otro nombre y no lo lee nadie.
+
+```
+circulo  copo  abeja  hoja   bola   dron    chispa  chip     avion
+misil    pez   estrella  llama  burbuja  globo  meteoro  robot  hormiga
+```
+
+Variantes por instancia, con caída al fichero base si falta:
+
+```
+bola_1 … bola_15      quince bolas de billar
+globo_1 … globo_8     ocho colores de globo
+```
+
+### Lienzo
+
+Cuadrado. El **cuerpo** del target mide `1/5.4` del ancho y va centrado: en
+512×512, unos 190 px de diámetro.
+
+El aire de alrededor no sobra. Es para lo que se sale del cuerpo —el cordel del
+globo, la llamarada del misil, las antenas de la hormiga, la estela del
+meteoro—, y **eso sí puede salirse**: lo que tiene que respetar la proporción es
+el cuerpo, porque es lo que el jugador toca.
+
+### Orientación · la parte que más se rompe
+
+El juego orienta cada forma según una política declarada en
+`scripts/dot.gd` → `GIRO_DE_FORMA`. **Hay que dibujar sabiendo cuál le toca.**
+
+| Política | Qué hace el juego | Cómo hay que dibujarla |
+|---|---|---|
+| `FIJO` | nunca gira | como se vaya a ver siempre |
+| `RUMBO` | gira hasta apuntar a donde va | **vista cenital**, morro a la DERECHA |
+| `ESPEJO` | no gira; se refleja al ir hacia la izquierda | **de perfil**, mirando a la DERECHA |
+| `CABECEO` | se refleja y además se inclina hacia donde va | **de perfil**, mirando a la DERECHA |
+| `NORIA` | gira sola, sin relación con el rumbo | cualquier orientación |
+
+La regla que ordena la tabla:
+
+> **Una forma solo puede dar la vuelta entera si se dibujó vista desde arriba.**
+
+Un dron o un meteoro vistos desde arriba pueden apuntar a cualquier lado. Una
+abeja o un pez dibujados de perfil, no: al girar hacia la izquierda quedarían
+boca arriba, y nadie mira un pez del revés y piensa «va hacia allá», piensa que
+está muerto.
+
+Por eso los de perfil se **reflejan**, no se giran. Es una diferencia que no se
+ve en una hoja de contactos, porque ahí están quietos.
+
+Asignación actual:
+
+```
+FIJO      circulo  copo  bola  chispa  chip  estrella  llama  burbuja  globo  robot
+RUMBO     dron  misil  meteoro  hormiga
+CABECEO   abeja  avion  pez
+NORIA     hoja
+```
+
+Si una forma nueva necesita otra política, **dilo en `ENTREGA.md`**; es una
+línea en la tabla.
+
+### Color
+
+Se dibuja tal cual. No se tiñe con la paleta del bioma: el color lo pone quien
+dibuja. Las paletas de los 17 biomas están en `arte_exportado/README.md`.
+
+### Lo que se pierde
+
+Un PNG no se anima por dentro. Al sustituir una forma que se movía por código
+—alas, cola, titileo— queda quieta. Lo que **no** se pierde: la orientación de
+arriba y la animación de aparición, porque las pone el nodo.
+
+Borrar el fichero devuelve la versión de código. Siempre.
+
+---
+
+## 2 · Fondos
+
+Un fondo de bioma son **dos capas**, y confundirlas se paga en las dos
+direcciones: un azulejo estirado a pantalla completa se ve borroso, y una
+composición repetida en baldosas deja una rejilla de costuras.
+
+| Capa | Qué es | Qué le pasa en pantalla |
+|---|---|---|
+| **Azulejo** | el patrón que se repite | cubre todo y **se desplaza** |
+| **Composición** | lo que tiene sitio fijo | se ancla abajo, se escala solo por el ancho, **nunca se estira** |
+
+La forma más cómoda de entregarla es como hasta ahora: **un SVG por bioma**, con
+el patrón en `<defs>` y los `<rect>` a lienzo completo primero, y la pieza
+anclada después. Yo lo troceo con `tools/separar_fondos.py`.
+
+Nombre del fichero: el del bioma, en minúsculas y sin acentos.
+
+```
+cielo_abierto  invierno  rio     hormigas  basico   billar  panal
+estampida      otono     brasas  caza_de_robots     circuito
+ciudad_de_papel  ducha   fiesta  asedio    lluvia_de_meteoros
+```
+
+### El desplazamiento
+
+Un bioma **sin patrón** pierde el movimiento del fondo. Hoy invierno, río y
+brasas están dibujados forma a forma, así que la nieve no cae, la corriente no
+corre y las pavesas no suben. Si eso importa —y en esos tres importa— hay que
+entregar el elemento móvil **como patrón**, no como formas sueltas.
+
+### La geometría que es regla, no decorado
+
+En dos biomas el dibujo **define dónde se pierde**:
+
+- **Asedio**: el tejado más alto de la ciudad es la línea de derrota.
+- **Lluvia de meteoros**: el disco de la Tierra es la zona de impacto.
+
+Si cambian de sitio o de tamaño, hay que decirlo en `ENTREGA.md`. Yo leo las
+cifras del SVG y las meto en el código, pero si no me avisas puedo no mirarlo, y
+el resultado es que el jugador pierde tocando algo que ya no está ahí. **Ya pasó
+una vez.**
+
+---
+
+## 3 · Explosiones
+
+Tres tipos, y el nombre dice cuál es:
+
+```
+cadena.png     el tap y cada eslabón de la cascada
+fallo.png      el toque errado; se ve igual pero no contagia
+impacto.png    algo llegó a la ciudad o al planeta: fin de partida
+```
+
+No hace falta entregar los tres. El que falte se sigue dibujando por código.
+
+### Dos formas de entregarla
+
+**Imagen quieta** — `cadena.png`. El juego la escala al radio de cada instante y
+la desvanece al final. Lo que hay que dibujar es el momento de más energía.
+
+**Tira de fotogramas** — `cadena@8.png`: ocho fotogramas en fila, todos del mismo
+ancho, del primero al último. El juego recorre la tira a lo largo de la vida de
+la onda y **no desvanece**: el apagado lo decide el dibujo.
+
+Esa es la diferencia importante. Con imagen quieta el juego controla el final;
+con tira, lo controlas tú. Si el efecto tiene una idea propia sobre cómo
+apagarse, va en tira.
+
+Hasta 24 fotogramas.
+
+### Una explosión propia para un bioma
+
+Se puede, y sin inventar un tipo nuevo: se añade el bioma al nombre y se cae al
+genérico si falta.
+
+```
+impacto_asedio.png            la ciudad ardiendo
+impacto_lluvia_de_meteoros@12.png   el planeta, en doce fotogramas
+cadena_ducha.png              burbujas reventando, solo en Ducha
+```
+
+### El lienzo
+
+Cuadrado, **3 radios de ancho**. Menos que un target porque una detonación es
+redonda y no tiene cola, pero más de dos: las esquirlas adelantan al anillo hasta
+un 28%.
+
+### El contraste
+
+La regla no es «el anillo es claro», es **«el anillo contrasta contra su fondo»**.
+Ducha es el único bioma de fondo claro; ahí un anillo pálido no existe. El
+dibujo por código lo resuelve con un contorno oscuro debajo; un asset tiene que
+resolverlo por su cuenta o entregar variante `_ducha`.
+
+### Tiempos
+
+La onda dura **1.2 s**: 0.3 de crecida, 0.6 de sostén, 0.3 de apagado. El
+contagio se propaga cada 0.55 s. Una tira de N fotogramas se reparte por igual a
+lo largo de esos 1.2 s.
+
+**El radio no crece con la cadena**, y no puede: el radio de la explosión *es* el
+radio de contagio. Si el dibujo creciera y el contagio no, el jugador aprendería
+que el juego le miente.
+
+---
+
+## 4 · Movimientos
+
+Un movimiento **no es un asset**: es código, porque necesita ver a los demás
+objetivos y a las detonaciones. Lo que se entrega es una **especificación**, en
+`movimientos/<nombre>.md`, y yo la implemento.
+
+Para que sea implementable sin ida y vuelta, tiene que contestar estas seis
+preguntas. Si alguna se queda en blanco, me la invento, y probablemente mal.
+
+```markdown
+# <nombre del movimiento>
+
+**Entrada** — ¿por dónde aparece? (arriba / un lateral / los cuatro lados /
+repartido por el campo). ¿Apunta a algún sitio?
+
+**Rumbo** — ¿en línea recta? ¿gira? ¿cada cuánto y cuánto?
+
+**Rapidez** — ¿constante, acelera, frena? ¿varía entre unos y otros?
+
+**Bordes** — al llegar al borde: ¿rebota, se envuelve al lado opuesto, o sale
+y desaparece?
+
+**Relación con los demás** — ¿se ignoran, chocan, se buscan, se apartan de las
+explosiones?
+
+**Orientación** — cuál de las cinco políticas de giro le toca, y por qué.
+```
+
+### Lo que hace falta saber antes de diseñar uno
+
+- El campo de juego **no es la pantalla**: hay 150 px de guarda arriba (bajo la
+  barra de tiempo) y 90 a los lados y abajo. Un objetivo nunca se queda dentro
+  de esa guarda, para que toda detonación nazca donde se ve.
+- Un movimiento que **no rebota** —el meteoro, por ejemplo— tiene que garantizar
+  que el objetivo acaba saliendo o muriendo. Si se queda flotando fuera del
+  campo, ocupa sitio en el cupo y no se puede tocar.
+- La **velocidad no es libre**: sale de la paleta del bioma multiplicando una
+  base común. Un movimiento que solo funciona a una rapidez concreta es un
+  movimiento frágil.
+
+---
+
+## 5 · Qué hago yo con la entrega
+
+Por si sirve para saber qué esperar y en qué orden:
+
+1. **Leo `ENTREGA.md`** y compruebo que los nombres cuadran con los que el juego
+   busca. Los que no cuadren los digo, no los adivino.
+2. **Miro las piezas** una a una, y mido lo que se puede medir: centrado,
+   proporción del cuerpo, orientación de partida.
+3. **Corrijo lo que se pueda corregir en el fichero.** En la primera tanda,
+   cuatro de siete formas rotables venían mal orientadas; se giraron al
+   instalarlas. El pez se **reflejó**, no se giró.
+4. **Importo a `arte/`.** El buzón nunca se lee en ejecución.
+5. **Capturo una pantalla real por bioma** (`tools/capturar.gd`) y la miro. Es el
+   único paso que encuentra los problemas de verdad: así aparecieron la línea de
+   derrota cortando los edificios y el disco del planeta descolocado.
+6. **Vuelvo a correr las medidas** de balance y geometría, y digo qué se movió.
+
+Si algo no encaja, lo digo antes de instalarlo. Una entrega a medias instalada
+es peor que una entrega devuelta.

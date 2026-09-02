@@ -40,6 +40,59 @@ enum Forma { CIRCULO, COPO, ABEJA, HOJA, BOLA, DRON, CHISPA, CHIP, AVION, MISIL,
 		PEZ, ESTRELLA, LLAMA, BURBUJA, GLOBO, METEORO, ROBOT,
 		HORMIGA }
 
+## Cómo se orienta una forma respecto a su rumbo.
+##
+## Hasta ahora era una lista de excepciones dentro de `mover()`, y estaba mal en
+## dos sitios que se ven a simple vista: la abeja y el pez se dibujan de PERFIL,
+## así que al girar hacia un rumbo que va a la izquierda volaban y nadaban boca
+## arriba. Nadie mira un pez del revés y piensa "va hacia allá"; piensa que está
+## muerto.
+##
+## La regla que ordena la tabla: **una forma solo puede dar la vuelta entera si
+## se dibujó vista desde arriba.** El dron y el meteoro sí; la abeja, el pez y
+## el avión, no.
+enum Giro {
+	FIJO,     ## nunca gira. Lo que tiene peso o cuelga: bolas, globos, robots
+	RUMBO,    ## gira hasta apuntar a donde va. Solo vistas cenitales
+	ESPEJO,   ## no gira: se refleja al ir hacia la izquierda
+	CABECEO,  ## se refleja Y se inclina un poco hacia donde va. Perfiles vivos
+	NORIA,    ## gira por su cuenta, sin relación con el rumbo. Hojas cayendo
+}
+
+## Cuánto se inclina como mucho una forma con CABECEO, en radianes.
+##
+## Corto a propósito: pasado este ángulo un pez deja de leerse como que baja y
+## empieza a leerse como que se cae.
+const INCLINACION_MAX := 0.55
+## Vueltas por segundo de una forma con NORIA.
+const NORIA_VUELTAS := 0.9
+
+## La política de giro de cada forma, EN EL ORDEN DEL ENUM Forma.
+##
+## Si se añade una forma y no se añade aquí, el juego revienta al entrar a su
+## bioma: se indexa con el valor del enum. Es el mismo contrato que NOMBRES_MOV
+## en main.gd, y ya se rompió una vez por olvidarlo.
+const GIRO_DE_FORMA := [
+	Giro.FIJO,     ## circulo
+	Giro.FIJO,     ## copo
+	Giro.CABECEO,  ## abeja: de perfil, no puede ir boca arriba
+	Giro.NORIA,    ## hoja: cae dando vueltas
+	Giro.FIJO,     ## bola
+	Giro.RUMBO,    ## dron: visto desde arriba, puede girar entero
+	Giro.FIJO,     ## chispa
+	Giro.FIJO,     ## chip
+	Giro.CABECEO,  ## avion: de perfil, y planeando conviene que cabecee
+	Giro.RUMBO,    ## misil: apunta a donde va, es lo suyo
+	Giro.CABECEO,  ## pez: de perfil, jamás del revés
+	Giro.FIJO,     ## estrella
+	Giro.FIJO,     ## llama: el fuego sube, dé igual hacia dónde vaya
+	Giro.FIJO,     ## burbuja
+	Giro.FIJO,     ## globo: el cordel cuelga hacia abajo
+	Giro.RUMBO,    ## meteoro: la estela tiene que quedar detrás
+	Giro.FIJO,     ## robot: uno ladeado se lee como averiado
+	Giro.RUMBO,    ## hormiga: vista desde arriba
+]
+
 ## Color y tamaño los fija el bioma al nacer el círculo, no una constante: es
 ## lo que permite que la ventisca se vea de nieve y el panal de miel sin tocar
 ## una línea de la lógica.
@@ -322,11 +375,7 @@ func mover(delta: float, area: Rect2) -> void:
 
 	# Las formas con orientación la actualizan aquí: el dron mira hacia donde
 	# va, la hoja voltea despacio como si cayera.
-	if forma in [Forma.DRON, Forma.AVION, Forma.MISIL, Forma.ABEJA, Forma.PEZ,
-			Forma.METEORO, Forma.HORMIGA] and velocity.length_squared() > 1.0:
-		rotation = velocity.angle()
-	elif forma == Forma.HOJA:
-		rotation += delta * 0.9
+	_orientar(delta)
 	match modo:
 		Movimiento.ABEJA:
 			_mover_abeja(delta, area)
@@ -396,6 +445,37 @@ func _mover_hormiga(delta: float, area: Rect2) -> void:
 	velocity = velocity.rotated(giro)
 	position += velocity * delta
 	_rebotar(area)
+
+
+## Aplica la política de giro de la forma.
+##
+## El espejo se hace con `scale.x`, no rotando 180 grados. Girado, un pez nada
+## panza arriba; reflejado, nada hacia el otro lado, que es lo que hace de
+## verdad. La diferencia no se ve en una hoja de contactos porque ahí está
+## quieto, y por eso hay que decidirla aquí y no al dibujar.
+func _orientar(delta: float) -> void:
+	var politica: int = GIRO_DE_FORMA[forma] if forma < GIRO_DE_FORMA.size() else Giro.FIJO
+	if politica == Giro.NORIA:
+		rotation += delta * NORIA_VUELTAS
+		return
+	if politica == Giro.FIJO or velocity.length_squared() < 1.0:
+		return
+
+	if politica == Giro.RUMBO:
+		rotation = velocity.angle()
+		return
+
+	# ESPEJO y CABECEO comparten el reflejo; solo cambia si además se inclina.
+	var a_la_izquierda := velocity.x < 0.0
+	scale.x = -1.0 if a_la_izquierda else 1.0
+	if politica == Giro.ESPEJO:
+		rotation = 0.0
+		return
+
+	var inclina := clampf(velocity.y / maxf(1.0, base_speed), -1.0, 1.0) * INCLINACION_MAX
+	# Con el dibujo reflejado, el mismo ángulo se ve al revés: hay que negarlo
+	# para que el morro siga apuntando hacia donde de verdad baja.
+	rotation = -inclina if a_la_izquierda else inclina
 
 
 ## Tirones y pausas: la abeja mantiene un rumbo un instante, lo cambia de golpe

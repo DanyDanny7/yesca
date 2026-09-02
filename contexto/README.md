@@ -25,3 +25,4 @@ reescribe y se anota por qué cambió — el historial lo guarda git.
 | `13-arte-intercambiable.md` | Assets que sustituyen al dibujo por código, y el exportador |
 | `14-catalogo-de-biomas.md` | Los 17 biomas: qué se revienta y sobre qué fondo |
 | `15-pantalla.md` | Inventario de la interfaz y por qué está cada elemento |
+| `16-orientacion-y-entregas.md` | Politica de giro por forma y el contrato con quien dibuja |

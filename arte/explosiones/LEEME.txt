@@ -1,3 +1,9 @@
+ESTA CARPETA LA GENERO YO. No dejes nada aqui a mano: las
+entregas van en entregas/<lote>/ y de ahi las importo.
+
+Admite tira de fotogramas (nombre@8.png) y variante por bioma
+(impacto_asedio.png). El contrato completo esta en entregas/LEEME.md
+
 QUE VA AQUI
   Las detonaciones. Tres, y el nombre dice cual es.
 

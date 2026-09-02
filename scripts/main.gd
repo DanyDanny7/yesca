@@ -1164,6 +1164,7 @@ func _impacto_ciudad(pos: Vector2, contra_planeta: bool = false) -> void:
 	e.grow_time = 0.18
 	e.hold_time = 0.5
 	e.decay_time = 0.6
+	e.bioma = _bioma_actual()
 	_explosions_root.add_child(e)
 	_effects.append(e)
 	_shake = shake_max
@@ -1447,6 +1448,7 @@ func _spawn_explosion(pos: Vector2, radius: float, chain_id: int) -> void:
 	e.tipo = Explosion.Tipo.CADENA
 	e.chain_id = chain_id
 	e.color = _stage_color()
+	e.bioma = _bioma_actual()
 	_explosions_root.add_child(e)
 	_explosions.append(e)
 
@@ -1466,6 +1468,7 @@ func _marcar_muerte(pos: Vector2) -> void:
 	e.grow_time = 0.12
 	e.hold_time = 9999.0
 	e.decay_time = 0.3
+	e.bioma = _bioma_actual()
 	_explosions_root.add_child(e)
 	_marca_muerte = e
 
@@ -1477,6 +1480,7 @@ func _spawn_effect(pos: Vector2) -> void:
 	e.color = Explosion.COLOR_FALLO
 	e.tipo = Explosion.Tipo.FALLO
 	e.hold_time = 0.1
+	e.bioma = _bioma_actual()
 	_explosions_root.add_child(e)
 	_effects.append(e)
 
@@ -1791,6 +1795,7 @@ func _anillo_fiesta(pos: Vector2, indice: int) -> void:
 	e.grow_time = randf_range(0.2, 0.45)
 	e.hold_time = 0.2
 	e.decay_time = 0.45
+	e.bioma = _bioma_actual()
 	_explosions_root.add_child(e)
 	_effects.append(e)
 	# El tono sube con la ristra, igual que en una cadena.
