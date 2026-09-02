@@ -117,12 +117,45 @@ func _decidir(main, bueno: bool):
 			return d.position + Vector2.from_angle(randf() * TAU) * (main.tap_tolerance * 2.0)
 		return d.position
 
+	# En un bioma de defensa, esperar a que se junten es JUGAR MAL: lo que
+	# decide la partida no es la cadena sino lo que está a punto de llegar
+	# abajo. Un perfil "bueno" que no sepa esto no mide al jugador bueno, mide
+	# a uno que no ha entendido el bioma —y con los proyectiles acelerados
+	# puntuaba menos que el que toca al azar, lo que hacía inservible la
+	# comparación entera.
+	if bool(main._paleta.get("defender", false)):
+		return _mas_urgente(main)
+
 	var mejor = _mejor_cluster(main)
 	if mejor == null:
 		return null
 	if mejor[1] >= CLUSTER_MINIMO or apurado:
 		return mejor[0]
 	return null
+
+
+## El proyectil que va a llegar antes a lo que hay que defender.
+##
+## Se toca cuando ya está cerca y no antes: reventarlos nada más salir gasta
+## tiempo de barra en algo que todavía no amenazaba.
+func _mas_urgente(main):
+	var pantalla: Vector2 = main.get_viewport_rect().size
+	var al_planeta: bool = str(main._paleta.get("defensa", "suelo")) == "planeta"
+	var centro: Vector2 = main._fondo.planeta_centro(pantalla)
+	var radio: float = main._fondo.planeta_radio(pantalla)
+	var suelo: float = pantalla.y - main._fondo.altura_ciudad(pantalla, 150.0)
+	var peor = null
+	var menos := 1e9
+	for d in main._dots:
+		var falta: float = (d.position.distance_to(centro) - radio) if al_planeta 				else (suelo - d.position.y)
+		if falta < menos:
+			menos = falta
+			peor = d
+	if peor == null:
+		return null
+	# Umbral en fracción de pantalla, no en píxeles: así vale igual en el
+	# viewport cuadrado de headless que en un teléfono.
+	return peor.position if menos < pantalla.y * 0.45 else null
 
 
 ## El círculo con más vecinos dentro de su radio de detonación, que es el que

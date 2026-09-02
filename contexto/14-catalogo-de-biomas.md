@@ -262,6 +262,17 @@ reloj. Es la comprobación que faltó la primera vez que se hizo Asedio.
 
 ---
 
+## Los proyectiles caen en unos seis segundos
+
+Caían en quince de media, y a esa velocidad se leían como adorno de fondo, no
+como amenaza. La tensión de un bioma de defensa está en el poco tiempo que
+tienes para reaccionar a cada proyectil, no en cuántos hay.
+
+Ahora la caída media es de unos seis segundos en los dos. Como consecuencia
+directa, una partida abandonada muere en cinco o seis segundos en vez de en
+doce: es el mismo número visto desde el otro lado, y por eso el mundo espera
+congelado hasta que tocas.
+
 ## Los biomas de defensa esperan a que empieces
 
 En Asedio y Lluvia de meteoros **nada se mueve hasta el primer toque**. En el

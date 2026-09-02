@@ -317,23 +317,24 @@ const PALETAS := {
 		"telon": Fondo.Tipo.ESTELAS,
 		"banda": Fondo.Tipo.HORIZONTE_ROTO, "banda_color": "ff7a3c",
 		"forma": Dot.Forma.MISIL,
-		# Caen más despacio pero salen mucho más seguido: la amenaza no es la
-		# velocidad de cada proyectil sino cuántos hay bajando a la vez.
+		# Caen RÁPIDO: un proyectil tarda unos seis segundos en llegar abajo.
+		# Lentos se leían como un adorno de fondo, no como una amenaza, y la
+		# tensión de un bioma de defensa está en el poco tiempo que tienes para
+		# reaccionar a cada uno, no en cuántos hay.
 		# El reloj pasa a segundo plano: aquí la amenaza es la ciudad, no la barra.
 		# Con el desagüe normal se perdía por tiempo a los 11 s mientras los
 		# proyectiles tardaban 21 s en llegar abajo, así que la mecánica del
 		# bioma no llegaba ni a entrar en juego.
-		"vel_mult": 0.5, "respawn_mult": 1.2, "targets": 10, "drain_mult": 0.45,
+		"vel_mult": 1.25, "respawn_mult": 1.2, "targets": 10, "drain_mult": 0.45,
 		# Si uno llega abajo, revienta en la ciudad y se acabó la partida.
 		"defender": true,
 		"fondo": "140809", "punto": "ffd9cc", "onda": "ff4530", "radio": 9.0},
 	"Lluvia de meteoros": {
 		"telon": Fondo.Tipo.ESTRELLAS, "marco": Fondo.Marco.PLANETA,
 		"forma": Dot.Forma.METEORO,
-		# Entran despacio y van acelerando solos, así que el multiplicador de
-		# velocidad es bajo a propósito: lo que aprieta es el tiempo que llevan
-		# cayendo, no con qué rapidez salieron.
-		"vel_mult": 0.2, "respawn_mult": 1.1, "targets": 12, "drain_mult": 0.45,
+		# Entran rápido y encima aceleran: el recorrido largo, de la esquina de
+		# arriba al planeta, se hace en unos seis segundos.
+		"vel_mult": 1.0, "respawn_mult": 1.1, "targets": 12, "drain_mult": 0.45,
 		# La derrota no es una franja abajo como en el asedio sino el disco del
 		# planeta, que está en una esquina. Por eso lleva su propia clave.
 		"defender": true, "defensa": "planeta",

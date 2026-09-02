@@ -160,7 +160,13 @@ extends Node2D
 ## En la campaña un impacto acaba la partida; aquí solo muerde. Tiene que doler
 ## lo bastante para que defender siga importando, sin borrar de un golpe una
 ## partida de tres minutos.
-@export var coste_impacto: float = 6.0
+##
+## Bajó de 6 a 3 al acelerar los proyectiles. Con caídas de seis segundos entran
+## varios impactos seguidos antes de que dé tiempo a reaccionar, y a 6 s cada uno
+## la barra se vaciaba en cadena: medido, el jugador que sabe esperar moría a los
+## 6 s y puntuaba menos que el que toca al azar. Un castigo que se acumula más
+## rápido de lo que se puede responder no enseña nada, solo mata.
+@export var coste_impacto: float = 3.0
 ## Cada cuántos escalones cambia de bioma la partida sin fin.
 @export var escalones_por_bioma: int = 2
 ## Cuánto tarda el barrido en cruzar la pantalla.
@@ -563,7 +569,17 @@ func _process(delta: float) -> void:
 	# larga regalaba tiempo y la supervivencia del jugador descuidado subía de
 	# 98 s a 135 s. Sesenta milisegundos de desagüe son imperceptibles; el regalo
 	# no lo era.
-	if _state == State.PLAYING:
+	# El reloj corre también en READY, antes del primer toque.
+	#
+	# Esperar a que se junten es una jugada legítima y el juego la premia... pero
+	# solo si se paga. Con el reloj parado, la pantalla de "toca para empezar"
+	# regalaba una espera infinita: bastaba con quedarse mirando hasta que se
+	# formara el grupo perfecto y abrir con una cascada enorme, gratis. Justo lo
+	# contrario de lo que el juego premia una vez dentro.
+	#
+	# Ahora esperar cuesta lo mismo fuera que dentro, y como dentro además se
+	# puede recuperar tiempo atrapando, esperar pasa a ser estrictamente peor.
+	if _reloj_corriendo():
 		_elapsed += delta
 		_time_left -= delta * _drain_rate()
 
@@ -595,7 +611,10 @@ func _process(delta: float) -> void:
 
 	_actualizar_anticipacion()
 
-	if _state == State.PLAYING and _final_pendiente < 0:
+	# READY entra aquí por lo mismo que en el reloj: si la barra puede vaciarse
+	# esperando, vaciarse tiene que significar algo. Si no, la espera volvería a
+	# ser gratis en cuanto llegara a cero.
+	if _reloj_corriendo() and _final_pendiente < 0:
 		# La victoria se comprueba ANTES que la derrota: si el último eslabón de
 		# una cascada cumple el objetivo justo cuando la barra llega a cero,
 		# ganas. Es lo justo y además es un final memorable.
@@ -2138,6 +2157,18 @@ func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 ## significaría perder sin haber tocado nada, que es peor fallo que el que se
 ## está arreglando. Y encaja con el reloj, que tampoco corre hasta que se empieza:
 ## en defensa, la amenaza ES el reloj.
+## Si el reloj está corriendo. Va de la mano de que el mundo se mueva.
+##
+## READY cuenta como partida en marcha: el campo se mueve, así que el reloj
+## también corre y la barra vacía mata igual. En un bioma de defensa, donde el
+## mundo espera al primer toque, el reloj espera con él: cobrar por una espera en
+## la que no hay nada que mirar ni que hacer sería una trampa, no una decisión.
+func _reloj_corriendo() -> bool:
+	if _state == State.PLAYING:
+		return true
+	return _state == State.READY and not _defensa_sin_empezar()
+
+
 func _defensa_sin_empezar() -> bool:
 	return _es_defensa() and _state != State.PLAYING
 
