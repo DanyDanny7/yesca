@@ -697,10 +697,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	match _state:
 		State.MENU:
 			if _btn_campana.contiene(p):
-				# Se abre por donde se quedó el jugador, no por el último
-				# desbloqueado: entrar directamente al nivel 37 no le dice nada
-				# a nadie.
-				_nivel = clampi(_nivel_max, 0, Niveles.total() - 1)
+				# El selector se abre SIEMPRE por el nivel 1, no por donde se
+				# quedó el jugador. Abrirlo por el último alcanzado deja la
+				# campaña empezada por la mitad cada vez que se entra, y volver
+				# al principio obliga a retroceder a mano tantas veces como
+				# niveles se lleven. Desde el 1 se avanza con las flechas, que
+				# es el sentido en el que están puestas.
+				_nivel = 0
 				_ir_a(State.SELECT)
 			elif _btn_sinfin.contiene(p):
 				_mode = Mode.SIN_FIN

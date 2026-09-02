@@ -127,6 +127,13 @@ Bioma, número, meta y pista, con flechas a los lados y un botón de jugar. Exis
 porque una campaña de 52 niveles sin selector obliga a rejugar todo para llegar
 al que te interesa.
 
+**Se abre siempre por el nivel 1**, no por donde se quedó el jugador. Durante un
+tiempo abría por el último alcanzado, con el argumento de ahorrar navegación;
+el efecto real era dejar la campaña empezada por la mitad cada vez que se
+entraba, y para volver al principio había que retroceder a mano tantas veces
+como niveles se llevaran. Desde el 1 se avanza con las flechas, que es el
+sentido en el que están puestas.
+
 ### `BriefingScreen` — antes de empezar
 
 Bioma, número, meta y pista, y «toca para empezar». Es un latido de espera a
