@@ -179,8 +179,15 @@ const CICLO_TARGET := 1.1
 ##
 ## Sale de la paleta y solo afecta al DIBUJO. `radius` no se toca: gobierna los
 ## contagios y el toque, así que subirlo cambiaría el balance del bioma por un
-## motivo estético. Un bioma con escala 2 se ve el doble de grande y encadena
-## exactamente igual que antes.
+## motivo estético.
+##
+## Ahora mismo NINGÚN bioma lo usa, y es lo correcto: existió mientras el dibujo
+## salía a menos de la mitad del radio de toque y había que agrandar unos cuantos
+## a mano. Con ESCALA_VISUAL ya ajustada al toque, cada forma se ve al tamaño con
+## el que se dibujó, que es lo que decide quien la dibuja y no quien la coloca.
+##
+## El mecanismo se queda por si algún bioma pide una excepción; el sitio para
+## cambiar el tamaño de todo es ESCALA_VISUAL.
 var escala: float = 1.0
 const ENTRADA_DUR := 0.55
 const ENTRADA_MIN := 0.28

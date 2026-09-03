@@ -247,12 +247,10 @@ const PALETAS := {
 		"forma": Dot.Forma.COPO,
 		"fondo": "0f2033", "punto": "f4fbff", "onda": "8fd8ff", "radio": 10.0},
 	"Río": {
-		"escala": 0.938,
 		"telon": Fondo.Tipo.CORRIENTE,
 		"forma": Dot.Forma.PEZ,
 		"fondo": "07161c", "punto": "ffd98a", "onda": "2fd6c0", "radio": 9.0},
 	"Hormigas": {
-		"escala": 0.938,
 		"telon": Fondo.Tipo.TIERRA,
 		"forma": Dot.Forma.HORMIGA,
 		# Muchas y lentas, que es justo lo contrario que los robots. Con treinta
@@ -265,12 +263,10 @@ const PALETAS := {
 		"forma": Dot.Forma.CIRCULO,
 		"fondo": "150f1a", "punto": "e6d8f7", "onda": "b45cff", "radio": 8.0},
 	"Billar": {
-		"escala": 0.938,
 		"telon": Fondo.Tipo.TAPETE, "marco": Fondo.Marco.MESA,
 		"forma": Dot.Forma.BOLA,
 		"fondo": "0a2717", "punto": "fff8e4", "onda": "ffc24d", "radio": 10.0},
 	"Panal": {
-		"escala": 0.938,
 		"telon": Fondo.Tipo.PANAL,
 		"forma": Dot.Forma.ABEJA,
 		"fondo": "17100a", "punto": "ffd24a", "onda": "ff8c1a", "radio": 9.0},
@@ -279,12 +275,10 @@ const PALETAS := {
 		"forma": Dot.Forma.DRON,
 		"fondo": "060a12", "punto": "6feaff", "onda": "ff3b30", "radio": 8.0},
 	"Otoño": {
-		"escala": 0.938,
 		"telon": Fondo.Tipo.HOJAS,
 		"forma": Dot.Forma.HOJA,
 		"fondo": "1a1208", "punto": "ffb347", "onda": "ff7038", "radio": 11.0},
 	"Brasas": {
-		"escala": 0.938,
 		"telon": Fondo.Tipo.PAVESAS,
 		"forma": Dot.Forma.LLAMA,
 		"fondo": "120806", "punto": "ffca6b", "onda": "ff5a1f", "radio": 8.0},
@@ -296,12 +290,10 @@ const PALETAS := {
 		"vel_mult": 1.15, "targets": 14,
 		"fondo": "0b1216", "punto": "9ee6ff", "onda": "3fd0ff", "radio": 11.0},
 	"Circuito": {
-		"escala": 1.406,
 		"telon": Fondo.Tipo.TRAZAS,
 		"forma": Dot.Forma.CHIP,
 		"fondo": "030b07", "punto": "8dffb0", "onda": "34ff88", "radio": 8.0},
 	"Ciudad de papel": {
-		"escala": 0.938,
 		"telon": Fondo.Tipo.ESTRELLAS,
 		"banda": Fondo.Tipo.HORIZONTE, "banda_color": "ffc879",
 		"forma": Dot.Forma.AVION,
@@ -311,13 +303,11 @@ const PALETAS := {
 		"forma": Dot.Forma.BURBUJA,
 		"fondo": "0c1d24", "punto": "d9f7ff", "onda": "7fe3ff", "radio": 11.0},
 	"Fiesta": {
-		"escala": 1.406,
 		"telon": Fondo.Tipo.CONFETI,
 		"banda": Fondo.Tipo.BANDERINES, "banda_color": "ffd66b",
 		"forma": Dot.Forma.GLOBO,
 		"fondo": "180f26", "punto": "ff8ad0", "onda": "ff5fd0", "radio": 11.0},
 	"Asedio": {
-		"escala": 0.938,
 		"telon": Fondo.Tipo.ESTELAS,
 		"banda": Fondo.Tipo.HORIZONTE_ROTO, "banda_color": "ff7a3c",
 		"forma": Dot.Forma.MISIL,

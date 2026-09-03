@@ -501,6 +501,16 @@ var _paleta: Dictionary = {}
 ## interruptor ni se dibuja ni se puede tocar, así que no hay forma de que se
 ## cuele encendido. Una salvaguarda que depende de acordarse no es una
 ## salvaguarda.
+##
+## Y NO SE GUARDA. Se apaga en cada arranque, a propósito. Guardarlo duró unas
+## horas y en ese rato se coló solo: una prueba automática lo dejó encendido, al
+## ganar un nivel se guardó la partida y con ella el interruptor, y a partir de
+## ahí TODAS las mediciones corrieron con inmortalidad sin que nada lo dijera.
+## Los biomas de defensa "aguantaban" cuarenta segundos porque no podían morir.
+##
+## Un ajuste que apaga las reglas del juego no puede sobrevivir a un reinicio:
+## el coste de volver a encenderlo es un toque, y el de olvidarlo encendido es
+## no saber qué estás midiendo.
 var _sin_morir: bool = false
 
 ## Lo que falta para la próxima estrella fugaz, en segundos.
@@ -730,7 +740,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				_ir_a(State.LOG)
 			elif OS.is_debug_build() and _btn_debug.contiene(p):
 				_sin_morir = not _sin_morir
-				_guardar()
 				_sonar(SND_POP)
 		State.SELECT:
 			if _btn_volver.contiene(p):
@@ -2433,9 +2442,6 @@ func _cargar() -> void:
 	else:
 		vibracion = bool(cfg.get_value("opciones", "vibracion", true))
 	sacudida = bool(cfg.get_value("opciones", "sacudida", true))
-	# Solo se recupera en depuración: si un guardado con el modo encendido
-	# llegara a una compilación de publicación, se ignora.
-	_sin_morir = OS.is_debug_build() and bool(cfg.get_value("opciones", "sin_morir", false))
 	# Ojo: todos_los_niveles NO toca _nivel_max, que sigue siendo el progreso
 	# real. Solo levanta el tope del selector, así se puede curiosear la campaña
 	# entera sin perder por dónde se iba.
@@ -2449,7 +2455,6 @@ func _guardar() -> void:
 	cfg.set_value("opciones", "musica", musica)
 	cfg.set_value("opciones", "vibracion", vibracion)
 	cfg.set_value("opciones", "sacudida", sacudida)
-	cfg.set_value("opciones", "sin_morir", _sin_morir)
 	cfg.set_value("opciones", "version", 3)
 	cfg.save(SAVE_PATH)
 

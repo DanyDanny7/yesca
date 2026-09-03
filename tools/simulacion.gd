@@ -52,6 +52,10 @@ func _initialize() -> void:
 	var main = load("res://main.tscn").instantiate()
 	main.target_dots = 44
 	root.add_child(main)
+	# Se mide SIEMPRE con las reglas puestas. El modo sin morir es para
+	# mirar a mano, no para medir: una vez se coló encendido en el guardado y
+	# durante horas todo se midió con inmortalidad sin que nada lo dijera.
+	main._sin_morir = false
 	await process_frame
 	await process_frame
 
