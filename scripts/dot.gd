@@ -162,20 +162,30 @@ var _entrada: float = 1.0
 ## parece rozar un target y no lo contagia. A 1.56 esa franja es de 4 a 6 px
 ## según el bioma; el día que se note como injusto, la solución es subir el
 ## radio de lógica y recalibrar, no seguir agrandando el dibujo.
-## Cuántas veces el radio de lógica mide el dibujo.
+## A qué tamaño se dibuja el objetivo, en píxeles de radio.
 ##
-## 3.3333 sobre un radio de 9 da 30 px, que es exactamente `tap_tolerance`: el
-## objetivo se ve del tamaño al que se puede tocar. Antes valía 1.5625 y el
-## dibujo medía 14, menos de la mitad de lo que respondía al dedo.
+## Lo fija Main a partir del radio de toque, y es **el mismo en los diecisiete
+## biomas**. No sale de `radius` ni de la escala del bioma: si saliera de ahí,
+## cada bioma dibujaría de un tamaño distinto y el jugador tendría que reaprender
+## dónde acaba un objetivo en cada nivel.
 ##
-## No toca `radius`, así que el balance no se mueve. Pero deja una banda: el
-## contagio sigue usando el radio de lógica, así que la onda puede rozar el borde
-## dibujado de un objetivo sin prenderlo. Si al jugar molesta, la salida es subir
-## `radius` y recalibrar, no encoger el dibujo otra vez.
-const ESCALA_VISUAL := 3.3333
+## Se dibuja algo MÁS PEQUEÑO de lo que se puede tocar, y esa holgura es margen a
+## favor del jugador: tocas un poco al lado del dibujo y aún cuenta. Nunca al
+## revés — un objetivo que se ve más grande de lo que responde se siente roto.
+##
+## La variedad de bioma no se pierde: sigue en la silueta, en la paleta, en el
+## movimiento y en `radius`, que es el que gobierna los contagios.
+var radio_dibujo: float = 24.0
 ## Cuánto dura una vuelta completa de una forma animada, en segundos.
 const CICLO_TARGET := 1.1
-## Multiplicador propio del bioma, encima de la escala común.
+## Multiplicador propio del bioma. YA NO AFECTA AL DIBUJO.
+##
+## Se quedó sin trabajo cuando el tamaño de dibujo pasó a salir del radio de
+## toque, igual para todos. Se conserva por si algún día hace falta una excepción,
+## pero hoy no lo lee nadie.
+##
+## Lo de abajo es la explicación de cuando sí se usaba.
+##
 ##
 ## Sale de la paleta y solo afecta al DIBUJO. `radius` no se toca: gobierna los
 ## contagios y el toque, así que subirlo cambiaría el balance del bioma por un
@@ -183,11 +193,8 @@ const CICLO_TARGET := 1.1
 ##
 ## Ahora mismo NINGÚN bioma lo usa, y es lo correcto: existió mientras el dibujo
 ## salía a menos de la mitad del radio de toque y había que agrandar unos cuantos
-## a mano. Con ESCALA_VISUAL ya ajustada al toque, cada forma se ve al tamaño con
-## el que se dibujó, que es lo que decide quien la dibuja y no quien la coloca.
-##
-## El mecanismo se queda por si algún bioma pide una excepción; el sitio para
-## cambiar el tamaño de todo es ESCALA_VISUAL.
+## a mano. Con el dibujo derivado del radio de toque, el sitio para cambiar el
+## tamaño de todos es `dibujo_del_toque` en main.gd.
 var escala: float = 1.0
 const ENTRADA_DUR := 0.55
 const ENTRADA_MIN := 0.28
@@ -217,7 +224,7 @@ func _draw() -> void:
 	# del juego entero por un motivo puramente estético. La escala se aplica
 	# solo aquí: los targets se ven un 25% más grandes y no encadenan ni un
 	# píxel más lejos. El radio de toque es aparte y tampoco se toca.
-	var r := radius * ESCALA_VISUAL * escala * lerpf(ENTRADA_MIN, 1.0, _entrada)
+	var r := radio_dibujo * lerpf(ENTRADA_MIN, 1.0, _entrada)
 	
 	# La estela va antes del asset y se dibuja pase lo que pase.
 	#
@@ -1013,14 +1020,12 @@ func _mover_circuito(delta: float, area: Rect2) -> void:
 
 ## Se comprueba también el signo de la velocidad: sin eso, un círculo que
 ## aparece fuera del borde queda atrapado invirtiéndose cada frame.
-## El radio con el que se DIBUJA. Es el que vale para no salirse de la pantalla.
+## Lo que tiene que caber en pantalla es lo que se ve, no el radio de lógica.
 ##
-## `radius` gobierna contagios y toque, y es tres veces más pequeño que el
-## dibujo. Rebotando con él, un objetivo giraba a nueve píxeles del borde y se
-## quedaba veintiuno cortado por fuera. Lo que tiene que caber en pantalla es lo
-## que se ve.
+## Rebotando con `radius` —que es la mitad del dibujo— un objetivo giraba a nueve
+## píxeles del borde y se quedaba quince cortado por fuera.
 func radio_visible() -> float:
-	return radius * ESCALA_VISUAL * escala
+	return radio_dibujo
 
 
 func _rebotar(area: Rect2) -> void:

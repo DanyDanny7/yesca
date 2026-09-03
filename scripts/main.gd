@@ -123,6 +123,13 @@ extends Node2D
 ## sigue siendo mayor que el círculo (9 px de radio) pero ya exige apuntar, y
 ## el margen de fallos deja de ser decorativo.
 @export var tap_tolerance: float = 30.0
+## Qué fracción del radio de toque mide el dibujo del objetivo.
+##
+## Menor que uno a propósito: se ve algo más pequeño de lo que responde al dedo,
+## y esa holgura es margen de error a favor del jugador. Al revés —un dibujo más
+## grande que su zona sensible— el juego se sentiría roto: tocarías encima de algo
+## y no pasaría nada.
+@export var dibujo_del_toque: float = 0.8
 
 @export_group("Economía de tiempo")
 @export var time_start: float = 10.0
@@ -2309,6 +2316,7 @@ func _numero_de(forma: int) -> int:
 
 
 func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
+	d.radio_dibujo = tap_tolerance * dibujo_del_toque
 	d.modo = modo
 	d.color = Color(str(_paleta.get("punto", "e8e8f0")))
 	d.radius = float(_paleta.get("radio", 9.0))
