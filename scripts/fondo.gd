@@ -203,6 +203,13 @@ func _tinte(t: Tipo) -> Color:
 ## Sin desfase por instancia, al revés que los targets: aquí la tira ya trae el
 ## desfase dentro, hoja por hoja.
 func _dibujar_algas(r: Vector2) -> void:
+	# Una sola alga repetida manda sobre el lecho horneado: se controla cuántas
+	# hay y cuánto se retrasa cada una.
+	var suelta := Arte.alga_bioma(bioma)
+	if suelta["tex"] != null:
+		_dibujar_algas_sueltas(r, suelta)
+		return
+
 	var a := Arte.algas_bioma(bioma)
 	var tex: Texture2D = a["tex"]
 	if tex == null:
@@ -218,6 +225,44 @@ func _dibujar_algas(r: Vector2) -> void:
 	draw_texture_rect_region(tex,
 			Rect2(Vector2(0.0, r.y - alto), Vector2(r.x, alto)),
 			Rect2(float(i * ancho), 0.0, float(ancho), float(tex.get_height())))
+
+
+## Un alga sola, plantada a lo largo del lecho y cada una en otro momento.
+##
+## El desfase crece hacia la derecha, así que el mecido viaja aguas abajo igual
+## que el azulejo. Si todas se doblaran a la vez, el lecho entero respiraría
+## como un solo bicho.
+func _dibujar_algas_sueltas(r: Vector2, a: Dictionary) -> void:
+	var tex: Texture2D = a["tex"]
+	var n: int = a["fotogramas"]
+	var ancho := tex.get_width() / maxi(1, n)
+	var alto := float(tex.get_height())
+	# Se escala igual que el telón: por el ancho de la pantalla respecto al
+	# lienzo del arte, para que el alga mida lo mismo que el lecho de debajo.
+	var esc := r.x / ARTE_ANCHO * (ARTE_ANCHO / 208.0)
+	var paso := PASO_ALGA * (r.x / 540.0)
+	var w := float(ancho) * (r.x / 540.0)
+	var h := alto * (r.x / 540.0)
+	var vuelta := _reloj / CICLO_ALGAS
+	var k := 0
+	var x := -paso * 0.5
+	while x < r.x:
+		var t := fposmod(vuelta + float(k) * DESFASE_ALGA, 1.0)
+		var i := clampi(int(t * float(n)), 0, n - 1)
+		# Cada copia crece o mengua un poco, con un valor propio y estable.
+		# Sin esto se ve que es la misma estampada doce veces; con esto se
+		# lee como un lecho. La variación sale de una función del índice y
+		# no de randf(), o cambiaría en cada fotograma y las algas darían
+		# saltos de tamaño.
+		var v := sin(float(k) * 2.399963) * 0.5 + 0.5
+		var mide := lerpf(1.0 - VARIACION_ALGA, 1.0 + VARIACION_ALGA, v)
+		var ww := w * mide
+		var hh := h * mide
+		draw_texture_rect_region(tex,
+				Rect2(Vector2(x - (ww - w) * 0.5, r.y - hh), Vector2(ww, hh)),
+				Rect2(float(i * ancho), 0.0, float(ancho), alto))
+		x += paso * lerpf(0.82, 1.18, fposmod(v * 3.7, 1.0))
+		k += 1
 
 
 func _cubrir(tex: Texture2D, r: Vector2) -> void:
@@ -388,8 +433,20 @@ const ARTE_TEJADO := 104.0
 const ARTE_PLANETA := Vector3(26.0, -8.0, 96.0)
 ## Cuánto tarda una vuelta completa del mecido de las algas, en segundos.
 ##
-## Más lento que el coleo del pez a propósito: una planta se mece, no se agita.
-const CICLO_ALGAS := 2.6
+## Más lento que el coleo del pez, que es 1.1: una planta se mece, no se agita.
+## Pero 2.6 se leía como agua parada, no como corriente.
+const CICLO_ALGAS := 1.3
+## Cada cuántos píxeles se planta un alga cuando se repite una sola.
+const PASO_ALGA := 46.0
+## Cuánto se retrasa cada alga respecto a la de su izquierda, en vueltas.
+##
+## No es una fracción entera a propósito: con 1/2 o 1/4 las algas volverían a
+## coincidir cada pocas copias y se vería la repetición. Y el retraso va creciendo
+## hacia la derecha, así que el mecido VIAJA aguas abajo, en el mismo sentido que
+## corre el azulejo.
+const DESFASE_ALGA := 0.37
+## Cuánto varía de tamaño cada alga respecto a la de al lado.
+const VARIACION_ALGA := 0.28
 
 ## Cuántas bandas puede llevar un bioma.
 ##

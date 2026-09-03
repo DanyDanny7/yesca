@@ -188,6 +188,16 @@ static func algas_bioma(nombre: String) -> Dictionary:
 	return _tira(DIR_TELONES + slug(nombre) + "_algas")
 
 
+## UNA sola alga, para repetirla a lo ancho con desfases distintos.
+##
+## Manda sobre la tira del lecho entero. La diferencia no es de peso sino de
+## control: con el lecho horneado, la velocidad y el desfase vienen dados y lo
+## unico que se puede tocar es la duracion del ciclo. Con una sola alga se decide
+## cuantas hay, cada cuanto, y cuanto se retrasa cada una respecto a su vecina.
+static func alga_bioma(nombre: String) -> Dictionary:
+	return _tira(DIR_TELONES + slug(nombre) + "_alga")
+
+
 ## La capa elástica del bioma, si la hay.
 static func elastica_bioma(nombre: String, variante: String = "") -> Texture2D:
 	return _con_variante(DIR_ELASTICAS + slug(nombre), variante)

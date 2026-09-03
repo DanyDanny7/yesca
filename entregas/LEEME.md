@@ -200,6 +200,29 @@ que se ve es una cortina corriéndose de lado; con dos a distinta velocidad, los
 máximos de una caen sobre los huecos de la otra y el brillo **late en el sitio**.
 Y siendo 5 y 3, el patrón conjunto tarda seis minutos en repetirse.
 
+### Piezas del fondo que se mueven un poco
+
+Una pieza rígida que deba mecerse sin salirse de su sitio va como **tira de
+fotogramas** en `telones/`, con la convención `<bioma>_<pieza>@N.png`. Sirve para
+las algas del lecho, y serviría igual para las llamas de Asedio, los banderines
+de Fiesta o la espuma de Ducha.
+
+**Mejor una pieza suelta que el decorado entero.** Para las algas hay dos
+formas y la segunda es mejor:
+
+```
+rio_algas@8.png    el lecho entero, con las once algas horneadas
+rio_alga@8.png     UNA sola alga  ← manda sobre la anterior
+```
+
+Con el lecho horneado, el desfase y el reparto vienen dados y lo único que se
+puede tocar desde el código es la duración del ciclo. Con una sola alga se decide
+cuántas hay, cada cuánto, cuánto se retrasa cada una respecto a su vecina y
+cuánto varía de tamaño — y pesa una décima parte.
+
+El juego ya reparte, desfasa y varía el tamaño por su cuenta. Lo que hace falta
+entregar es **una pieza bien dibujada**, no el decorado montado.
+
 ### Variantes por proporción
 
 Cualquiera de las tres capas admite versión por forma de pantalla, con caída a
