@@ -252,7 +252,7 @@ const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
 ##
 ## Arriba manda MARGEN_SUPERIOR, que es mayor, porque el problema es otro: no se
 ## recorta la onda, la tapa entera la barra de tiempo.
-const MARGEN_LATERAL := 90.0
+const MARGEN_LATERAL := 45.0
 ## Cuánto puede alejarse de la pantalla algo antes de darlo por ido.
 const FUERA_DE_JUEGO := 140.0
 ## Franja de abajo que cuenta como ciudad en los biomas de defensa.
@@ -263,7 +263,7 @@ const ALTURA_CIUDAD := 150.0
 ## biomas que van de arriba abajo se formaban cadenas en la franja del HUD:
 ## estaba pasando algo y el jugador no podía verlo, que es la peor forma de
 ## perder información.
-const MARGEN_SUPERIOR := 150.0
+const MARGEN_SUPERIOR := 75.0
 ## Fuerzas de los modos que Main dirige. Bajas a propósito: el movimiento tiene
 ## que seguir siendo legible, no convertirse en una sopa.
 const ENJAMBRE_VISTA := 220.0
@@ -1294,8 +1294,15 @@ func _cobrar_punto(id: int, pos: Vector2, valor: float = 1.0) -> void:
 func _check_catches() -> void:
 	var atrapados: Array[Dictionary] = []
 	var survivors: Array[Dot] = []
+	var dentro := _area_cadena()
 
 	for d in _dots:
+		# Fuera de la zona de cadena no prende, alcance la onda o no. Es la regla
+		# entera: no se mira si la detonación llega, se mira dónde está el que
+		# podría prender.
+		if not dentro.has_point(d.position):
+			survivors.append(d)
+			continue
 		# Gana la detonación más CERCANA, no la primera de la lista: cuando dos
 		# cadenas se solapan, la que reclama el círculo tiene que ser la que el
 		# jugador ve encima de él.
@@ -1556,6 +1563,24 @@ func _movimiento_actual() -> int:
 ## globales, después la integración de cada uno, y solo entonces los contagios.
 ## El rectángulo donde vive el juego: la pantalla menos las franjas de guarda.
 func _area_juego() -> Rect2:
+	return Rect2(Vector2.ZERO, get_viewport_rect().size)
+
+
+## Dónde puede PRENDER una cadena.
+##
+## La franja de guarda cambió de significado y conviene tenerlo claro: antes era
+## una zona donde no entraba ningún objetivo, y ahora es una zona donde los
+## objetivos se ven, se tocan y se pueden reventar a dedo —pero **la cadena no
+## los alcanza**, por muy encima que les pase la onda.
+##
+## El motivo del cambio: prohibir la entrada obligaba a que los rebotes y las
+## envolturas ocurrieran a media pantalla, y eso se veía. Con esta regla el campo
+## llega hasta el borde, y lo que se protege es lo que de verdad se quería
+## proteger: que una cascada no se resuelva donde no se puede seguir.
+##
+## Un objetivo en la franja no está perdido. Se toca y explota como cualquiera; lo
+## que no hace es prender solo.
+func _area_cadena() -> Rect2:
 	var r := get_viewport_rect().size
 	return Rect2(MARGEN_LATERAL, MARGEN_SUPERIOR,
 			maxf(1.0, r.x - MARGEN_LATERAL * 2.0),

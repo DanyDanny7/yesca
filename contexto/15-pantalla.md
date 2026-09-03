@@ -31,14 +31,23 @@ Arriba del todo, a lo ancho. **Es la economía entera del juego**: baja sin para
 tocar cuesta tiempo y atrapar devuelve tiempo. No hay marcador de vidas ni de
 munición porque no hacen falta: todo se paga con la misma moneda.
 
-Por debajo de ella hay **150 px reservados** donde no vive ningún objetivo. Sin
-ese borde se formaban cadenas detrás de la barra: estaba pasando algo y el
-jugador no podía verlo, que es la peor forma de perder información.
+Por debajo de ella hay una **franja de guarda**: 75 px arriba, 45 a los lados y
+abajo.
 
-Los otros tres lados llevan **90 px** de guarda, por una razón distinta: que toda
-detonación **nazca** dentro de lo que se ve. No hace falta que la onda entera
-quepa —para eso harían falta 105 px y se comería casi un tercio del ancho—, basta
-con ver el origen del estallido para entender qué ha pasado.
+Esa franja **cambió de significado**, y conviene tenerlo claro. Durante un tiempo
+era una zona donde no entraba ningún objetivo, para que no se formaran cadenas
+detrás de la barra. Ahora los objetivos entran, se ven y se tocan como en
+cualquier sitio: lo que no hacen ahí es **prender por cadena**, por muy encima
+que les pase la onda.
+
+El motivo del cambio: prohibir la entrada obligaba a que los rebotes y las
+envolturas ocurrieran a media pantalla, y eso se veía. Con la regla nueva el
+campo llega hasta el borde, y lo que se protege es lo que de verdad se quería
+proteger —que una cascada no se resuelva donde no se puede seguir— sin regalar
+un tercio de la pantalla.
+
+Un objetivo en la franja no está perdido: se toca y explota como cualquiera. Lo
+que no hace es prender solo.
 
 ### `BarCaption` — la etiqueta de la barra
 

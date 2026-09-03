@@ -1013,12 +1013,23 @@ func _mover_circuito(delta: float, area: Rect2) -> void:
 
 ## Se comprueba también el signo de la velocidad: sin eso, un círculo que
 ## aparece fuera del borde queda atrapado invirtiéndose cada frame.
+## El radio con el que se DIBUJA. Es el que vale para no salirse de la pantalla.
+##
+## `radius` gobierna contagios y toque, y es tres veces más pequeño que el
+## dibujo. Rebotando con él, un objetivo giraba a nueve píxeles del borde y se
+## quedaba veintiuno cortado por fuera. Lo que tiene que caber en pantalla es lo
+## que se ve.
+func radio_visible() -> float:
+	return radius * ESCALA_VISUAL * escala
+
+
 func _rebotar(area: Rect2) -> void:
-	if position.x < area.position.x + radius and velocity.x < 0.0:
+	var r := radio_visible()
+	if position.x < area.position.x + r and velocity.x < 0.0:
 		velocity.x = -velocity.x
-	elif position.x > area.end.x - radius and velocity.x > 0.0:
+	elif position.x > area.end.x - r and velocity.x > 0.0:
 		velocity.x = -velocity.x
-	if position.y < area.position.y + radius and velocity.y < 0.0:
+	if position.y < area.position.y + r and velocity.y < 0.0:
 		velocity.y = -velocity.y
-	elif position.y > area.end.y - radius and velocity.y > 0.0:
+	elif position.y > area.end.y - r and velocity.y > 0.0:
 		velocity.y = -velocity.y

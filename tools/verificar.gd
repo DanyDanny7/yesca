@@ -51,8 +51,11 @@ func _initialize() -> void:
 	print("pantalla %d x %d" % [pantalla.x, pantalla.y])
 	print("área de juego  x: %d..%d   y: %d..%d" % [
 			area.position.x, area.end.x, area.position.y, area.end.y])
-	print("guarda  arriba %d   lados %d   abajo %d" % [
-			area.position.y, area.position.x, pantalla.y - area.end.y])
+	var zc: Rect2 = main._area_cadena()
+	print("zona de cadena  x: %d..%d   y: %d..%d" % [
+			zc.position.x, zc.end.x, zc.position.y, zc.end.y])
+	print("guarda (sin cadena)  arriba %d   lados %d   abajo %d" % [
+			zc.position.y, zc.position.x, pantalla.y - zc.end.y])
 	print("onda de cadena: hasta %d px de radio" % main.chain_radius_base)
 	print("")
 	print("biomas: %d   niveles: %d" % [Niveles.biomas().size(), Niveles.total()])
@@ -67,22 +70,18 @@ func _initialize() -> void:
 
 ## Pasea por todos los niveles midiendo lo que de verdad importa.
 ##
-## La pregunta no es "¿se sale alguien del área?" —salirse es legítimo: los que
-## entran vienen de fuera, la nieve da la vuelta por abajo y los proyectiles
-## bajan a propósito—. Tampoco es si la onda entera cabe en pantalla: no hace
-## falta, y exigirlo costaría casi un tercio del ancho. La pregunta es:
+## La franja de guarda ya NO excluye objetivos: entran, se ven y se tocan. Lo
+## que excluye son los CONTAGIOS —una cadena no prende a nadie que esté fuera de
+## la zona, por encima que le pase la onda—.
 ##
-##   ¿toda detonación NACE dentro de lo que el jugador está mirando?
-##
-## Con eso basta: se ve el origen del estallido y se entiende qué ha pasado,
-## aunque el borde exterior de la onda se recorte. Así que se mide a qué
-## distancia del borde de la pantalla está el objetivo más arrimado de los que
-## siguen en juego. Si esa distancia iguala la guarda, el borde funciona.
+## Así que aquí ya no se comprueba una distancia mínima al borde, que ahora es
+## legítimo que sea pequeña. Se informa de lo cerca que llegan, que es un dato
+## útil para saber si el campo usa la pantalla entera, y de cuántos objetivos
+## quedan fuera de la zona de cadena en cada momento.
 func _recorrer_niveles(main, area: Rect2, pantalla: Vector2) -> void:
-	var guarda: float = main.MARGEN_LATERAL
 	var malos := 0
 	print("%-4s %-20s %-8s %-18s %s" % [
-			"niv", "bioma", "targets", "más cerca del borde", "salidas (mecánica)"])
+			"niv", "bioma", "targets", "más cerca del borde", "fuera de la cadena"])
 	for i in Niveles.total():
 		var nivel: Dictionary = Niveles.nivel(i)
 		var bioma := str(nivel["bioma"])
@@ -93,32 +92,31 @@ func _recorrer_niveles(main, area: Rect2, pantalla: Vector2) -> void:
 		main._state = 3
 		await process_frame
 
-		var vistos := {}
 		var mas_cerca := 99999.0
-		var salida := 0.0
+		var fuera_max := 0
+		var zona: Rect2 = main._area_cadena()
 		while main._elapsed < SEGUNDOS_POR_NIVEL and main._state == 3:
 			await process_frame
+			var fuera := 0
 			for d in main._dots:
-				var id: int = d.get_instance_id()
 				var p: Vector2 = d.position
-				if area.has_point(p):
-					vistos[id] = true
+				# Solo cuentan los que YA estan en pantalla: los que entran vienen
+				# legitimamente de fuera, y contarlos daria una falsa alarma en
+				# cada bioma que reponga por los bordes, que son casi todos.
+				if _al_borde(p, pantalla) >= 0.0:
 					mas_cerca = minf(mas_cerca, _al_borde(p, pantalla))
-				elif vistos.has(id):
-					salida = maxf(salida, _fuera_del_area(p, area))
+				if not zona.has_point(p):
+					fuera += 1
+			fuera_max = maxi(fuera_max, fuera)
 
-		if mas_cerca < guarda - 1.0:
-			malos += 1
 		print("%-4d %-20s %-8d %-18s %s" % [i + 1, bioma, main._dots.size(),
-				"%d px%s" % [mas_cerca, "  ¡FALLO!" if mas_cerca < guarda - 1.0 else ""],
-				"—" if salida <= 0.0 else "%d px" % salida])
+				"%d px" % mas_cerca,
+				"—" if fuera_max == 0 else "hasta %d a la vez" % fuera_max])
 
 	print("")
-	if malos == 0:
-		print("Ningún objetivo en juego se acerca a menos de %d px del borde," % guarda)
-		print("en los %d niveles. Toda detonación nace dentro de lo que se ve." % Niveles.total())
-	else:
-		print("FALLO: en %d niveles hay objetivos dentro de la guarda." % malos)
+	print("El campo llega hasta el borde: los objetivos entran en la franja de")
+	print("guarda, se ven y se tocan. Lo que no hacen alli es prender por cadena.")
+	print("(La columna de la derecha dice cuantos quedan fuera de la zona a la vez.)")
 	print("")
 
 
