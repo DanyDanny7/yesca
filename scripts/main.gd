@@ -259,7 +259,7 @@ const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
 ##
 ## Arriba manda MARGEN_SUPERIOR, que es mayor, porque el problema es otro: no se
 ## recorta la onda, la tapa entera la barra de tiempo.
-const MARGEN_LATERAL := 45.0
+const MARGEN_LATERAL := 1.0
 ## Cuánto puede alejarse de la pantalla algo antes de darlo por ido.
 const FUERA_DE_JUEGO := 140.0
 ## Franja de abajo que cuenta como ciudad en los biomas de defensa.
@@ -270,7 +270,7 @@ const ALTURA_CIUDAD := 150.0
 ## biomas que van de arriba abajo se formaban cadenas en la franja del HUD:
 ## estaba pasando algo y el jugador no podía verlo, que es la peor forma de
 ## perder información.
-const MARGEN_SUPERIOR := 75.0
+const MARGEN_SUPERIOR := 1.0
 ## Fuerzas de los modos que Main dirige. Bajas a propósito: el movimiento tiene
 ## que seguir siendo legible, no convertirse en una sopa.
 const ENJAMBRE_VISTA := 220.0
@@ -1298,16 +1298,28 @@ func _cobrar_punto(id: int, pos: Vector2, valor: float = 1.0) -> void:
 
 ## Detección de contagios por distancia, no con Area2D: con ~25 puntos el coste
 ## es irrelevante y a cambio es determinista y se lee de un vistazo.
+## Si un objetivo puede prender por cadena.
+##
+## Tiene que haber cruzado ENTERO. Con el centro bastaría para uno que asoma medio
+## cuerpo por el borde, y ese es justo el caso que no se puede seguir con la
+## vista: se ve media forma, prende, y la cascada continúa fuera de la pantalla.
+##
+## Se mide con el radio DIBUJADO y no con el de contagio: lo que decide si se
+## puede seguir con la vista es lo que se ve, no la cifra con la que el juego
+## calcula.
+func _puede_prender(d: Dot, zona: Rect2) -> bool:
+	return zona.grow(-d.radio_dibujo).has_point(d.position)
+
+
 func _check_catches() -> void:
 	var atrapados: Array[Dictionary] = []
 	var survivors: Array[Dot] = []
 	var dentro := _area_cadena()
 
 	for d in _dots:
-		# Fuera de la zona de cadena no prende, alcance la onda o no. Es la regla
-		# entera: no se mira si la detonación llega, se mira dónde está el que
-		# podría prender.
-		if not dentro.has_point(d.position):
+		# Fuera no prende, alcance la onda o no: no se mira si la detonación
+		# llega, se mira dónde está el que podría prender.
+		if not _puede_prender(d, dentro):
 			survivors.append(d)
 			continue
 		# Gana la detonación más CERCANA, no la primera de la lista: cuando dos
@@ -1573,20 +1585,20 @@ func _area_juego() -> Rect2:
 	return Rect2(Vector2.ZERO, get_viewport_rect().size)
 
 
-## Dónde puede PRENDER una cadena.
+## Dónde puede PRENDER una cadena: la pantalla entera, menos un píxel.
 ##
-## La franja de guarda cambió de significado y conviene tenerlo claro: antes era
-## una zona donde no entraba ningún objetivo, y ahora es una zona donde los
-## objetivos se ven, se tocan y se pueden reventar a dedo —pero **la cadena no
-## los alcanza**, por muy encima que les pase la onda.
+## La franja llegó a medir 75 y 45 px, y con esas cifras quedaban fuera de la
+## cadena una media de 7,6 objetivos de 25 —casi un tercio del campo, incombustible
+## y a plena vista—. Medido: la separación entre el jugador bueno y el descuidado
+## se hundió de 4,1x a 1,2x, y los dos morían a los veinte segundos. Las cascadas
+## se cortaban, no se recuperaba tiempo, y la barra ganaba siempre.
 ##
-## El motivo del cambio: prohibir la entrada obligaba a que los rebotes y las
-## envolturas ocurrieran a media pantalla, y eso se veía. Con esta regla el campo
-## llega hasta el borde, y lo que se protege es lo que de verdad se quería
-## proteger: que una cascada no se resuelva donde no se puede seguir.
+## Lo que estaba mal no era la idea sino a QUIÉN excluía: apartaba objetivos que
+## estaban perfectamente a la vista. Pegada al borde, solo excluye a los que están
+## a medio entrar, que es lo único que de verdad no se puede seguir.
 ##
-## Un objetivo en la franja no está perdido. Se toca y explota como cualquiera; lo
-## que no hace es prender solo.
+## La condición completa está en `_puede_prender()`: no basta con que el centro
+## esté dentro, tiene que estar el objetivo entero.
 func _area_cadena() -> Rect2:
 	var r := get_viewport_rect().size
 	return Rect2(MARGEN_LATERAL, MARGEN_SUPERIOR,

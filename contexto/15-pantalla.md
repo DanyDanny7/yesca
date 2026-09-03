@@ -31,8 +31,8 @@ Arriba del todo, a lo ancho. **Es la economía entera del juego**: baja sin para
 tocar cuesta tiempo y atrapar devuelve tiempo. No hay marcador de vidas ni de
 munición porque no hacen falta: todo se paga con la misma moneda.
 
-Por debajo de ella hay una **franja de guarda**: 75 px arriba, 45 a los lados y
-abajo.
+Por debajo de ella hay una **franja de guarda de un píxel**: pegada al borde de
+la pantalla.
 
 Esa franja **cambió de significado**, y conviene tenerlo claro. Durante un tiempo
 era una zona donde no entraba ningún objetivo, para que no se formaran cadenas
@@ -40,11 +40,17 @@ detrás de la barra. Ahora los objetivos entran, se ven y se tocan como en
 cualquier sitio: lo que no hacen ahí es **prender por cadena**, por muy encima
 que les pase la onda.
 
-El motivo del cambio: prohibir la entrada obligaba a que los rebotes y las
-envolturas ocurrieran a media pantalla, y eso se veía. Con la regla nueva el
-campo llega hasta el borde, y lo que se protege es lo que de verdad se quería
-proteger —que una cascada no se resuelva donde no se puede seguir— sin regalar
-un tercio de la pantalla.
+Y no basta con que el centro esté dentro: **el objetivo tiene que haber cruzado
+entero**, medido con su radio dibujado. Con el centro bastaría para uno que asoma
+medio cuerpo por el borde, y ese es justo el caso que no se puede seguir con la
+vista.
+
+La franja llegó a medir 75 y 45 px, y con esas cifras quedaban fuera de la cadena
+una media de **7,6 objetivos de 25** —casi un tercio del campo, incombustible y a
+plena vista—. La separación entre el jugador bueno y el descuidado bajó a 1,6x.
+Lo que estaba mal no era la idea sino **a quién excluía**: apartaba objetivos que
+se veían perfectamente. Pegada al borde, solo aparta a los que están a medio
+entrar.
 
 Un objetivo en la franja no está perdido: se toca y explota como cualquiera. Lo
 que no hace es prender solo.
