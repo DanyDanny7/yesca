@@ -1,26 +1,24 @@
 extends SceneTree
 
-## Convierte los fondos entregados en las dos capas que usa el juego.
+## Rasteriza a PNG los fondos ya troceados, en las carpetas que lee el juego.
 ##
 ##   godot --path . --headless --script tools/importar_fondos.gd -- entregas/<lote>
 ##
-## Lee de <lote>/_split/, que produce el troceado en Python, y
-## escribe en arte/fondos/ (el azulejo, que se repite y se desplaza) y en
-## arte/telones/ (la composición, que se ancla abajo y no se estira).
+## Lee de <lote>/_split/, que produce tools/separar_fondos.py, y escribe en
+## arte/elasticas/, arte/fondos/ y arte/telones/.
 ##
-## La separación no es un capricho de implementación: una capa se puede repetir
-## y la otra no. Una bañera repetida en baldosas no es una bañera, y una bañera
-## estirada al doble de ancho tampoco.
-##
-## Rasteriza los SVG a PNG, en las carpetas que lee el juego.
-##
-## Los fondos que no traen patrón repetible no se quedan sin azulejo: se les
-## sintetiza uno con el color de la PRIMERA FILA de su propia composición. Ese
-## color es exactamente el que toca el hueco que queda por encima cuando la
-## pantalla es más alta que la imagen, así que la unión no se ve. Sacarlo del
-## SVG no valía: varios fondos tienen degradado, no color plano.
-## Lote por defecto. Se puede pasar otro tras "--".
-const LOTE_POR_DEFECTO := "entregas/2026-08-31-arte-inicial"
+## El sufijo del fichero dice a qué carpeta va, y tiene que coincidir con el que
+## escribe el troceador. Coincidir no es un detalle: cuando dejaron de cuadrar,
+## esto no fallo con un error, se limito a tratar TODO como capa rigida y a
+## fabricar azulejos de color negro. Un desajuste que no rompe nada es peor que
+## uno que revienta.
+const CARPETA := {
+	"elastica": "elasticas",
+	"azulejo": "fondos",
+	"rigida": "telones",
+}
+const LOTE_POR_DEFECTO := "entregas/2026-09-02-ajuste-contrato"
+
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -32,46 +30,30 @@ func _initialize() -> void:
 		quit()
 		return
 	print("lote: ", lote)
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://arte/fondos/"))
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://arte/telones/"))
+	for c in CARPETA.values():
+		DirAccess.make_dir_recursive_absolute(
+				ProjectSettings.globalize_path("res://arte/%s/" % c))
 
-	var con_patron := {}
-	var capas := {}
+	var hechos := 0
+	var desconocidos := 0
 	for f in d.get_files():
 		if not f.ends_with(".svg"):
 			continue
+		var partes := f.replace(".svg", "").split("__")
+		if partes.size() != 2 or not CARPETA.has(partes[1]):
+			print("  sufijo desconocido, se salta: ", f)
+			desconocidos += 1
+			continue
 		var img := Image.new()
 		if img.load_svg_from_string(FileAccess.get_file_as_string(entrada + f), 1.0) != OK:
-			print("FALLO al rasterizar ", f)
+			print("  FALLO al rasterizar ", f)
 			continue
-		var partes := f.replace(".svg", "").split("__")
-		var bioma: String = partes[0]
-		if partes[1] == "tile":
-			img.save_png("res://arte/fondos/%s.png" % bioma)
-			con_patron[bioma] = true
-			print("  %-20s azulejo   %d x %d" % [bioma, img.get_width(), img.get_height()])
-		else:
-			img.save_png("res://arte/telones/%s.png" % bioma)
-			capas[bioma] = img
-			print("  %-20s capa      %d x %d" % [bioma, img.get_width(), img.get_height()])
+		var destino := "res://arte/%s/%s.png" % [CARPETA[partes[1]], partes[0]]
+		img.save_png(destino)
+		print("  %-20s %-10s %d x %d" % [
+				partes[0], partes[1], img.get_width(), img.get_height()])
+		hechos += 1
 
-	for bioma in capas:
-		if con_patron.has(bioma):
-			continue
-		var capa: Image = capas[bioma]
-		# Media de la fila superior: un solo píxel podría caer en una estrella.
-		var r := 0.0
-		var g := 0.0
-		var b := 0.0
-		for x in capa.get_width():
-			var c := capa.get_pixel(x, 0)
-			r += c.r
-			g += c.g
-			b += c.b
-		var n := float(capa.get_width())
-		var tinte := Color(r / n, g / n, b / n)
-		var tile := Image.create(8, 8, false, Image.FORMAT_RGBA8)
-		tile.fill(tinte)
-		tile.save_png("res://arte/fondos/%s.png" % bioma)
-		print("  %-20s azulejo   plano %s (de su fila superior)" % [bioma, tinte.to_html(false)])
-	quit()
+	print("")
+	print("%d capas escritas%s" % [
+			hechos, "" if desconocidos == 0 else ", %d con sufijo desconocido" % desconocidos])

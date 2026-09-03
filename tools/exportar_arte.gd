@@ -224,7 +224,9 @@ func _exportar_targets(dir: String) -> int:
 
 	# El radio de dibujo sale del ancho del lienzo, y el de lógica de deshacer
 	# la escala visual: así el PNG encaja al volver a entrar por Arte.
-	var radio_logico := float(LADO_TARGET) / Arte.LIENZO_EN_RADIOS / Dot.ESCALA_VISUAL
+	# El dibujo ya no sale de `radius`: se fija en `radio_dibujo`, igual para
+	# todos. Aquí se pone directamente el que llena el lienzo.
+	var radio_dibujo := float(LADO_TARGET) / Arte.LIENZO_EN_RADIOS
 
 	var hechos := 0
 	for forma in Arte.NOMBRE_FORMA.size():
@@ -233,7 +235,7 @@ func _exportar_targets(dir: String) -> int:
 			var d := Dot.new()
 			d.forma = forma
 			d.numero = v
-			d.radius = radio_logico
+			d.radio_dibujo = radio_dibujo
 			d.color = _color_de_forma(forma)
 			d.position = Vector2(LADO_TARGET, LADO_TARGET) * 0.5
 			vp.add_child(d)

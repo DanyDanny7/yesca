@@ -54,6 +54,13 @@ OUT = os.path.join(RAIZ, LOTE, "_split")
 EXCLUIDOS = {
     "asedio": "el tejado del arte esta a 136 y ARTE_TEJADO vale 104",
     "lluvia_de_meteoros": "el planeta del arte es (62,-60,150) y ARTE_PLANETA es (26,-8,96)",
+    # Estos cuatro llegan YA PARTIDOS en la tanda por bioma, con las capas en
+    # carpetas separadas. Trocearlos aqui los sobrescribiria con una version
+    # peor: la del SVG unico, que es la que la revision vino a sustituir.
+    "cielo_abierto": "viene ya partido en la tanda por bioma",
+    "invierno": "viene ya partido en la tanda por bioma",
+    "rio": "viene ya partido en la tanda por bioma",
+    "hormigas": "viene ya partido en la tanda por bioma",
 }
 
 CABECERA = ('<svg xmlns="http://www.w3.org/2000/svg" '
