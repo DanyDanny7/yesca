@@ -88,6 +88,8 @@ var _tex_banda: ImageTexture
 var _tipo_banda: Tipo = Tipo.LISO
 ## Desplazamiento acumulado de cada banda de bioma.
 var _scroll_bandas: Array[float] = [0.0, 0.0]
+## Reloj propio del fondo, para lo que se anima solo.
+var _reloj: float = 0.0
 var _color_banda: Color = Color("ffffff")
 ## Si los píxeles se envuelven también en vertical. En el mosaico sí; en la
 ## banda no, o los tejados aparecerían asomando por abajo.
@@ -130,7 +132,9 @@ func configurar(nuevo_tipo: Tipo, nuevo_color: Color,
 	# Con bandas de bioma hay que seguir procesando aunque el telón no derive:
 	# el desplazamiento de las bandas es lo único que se mueve en ese caso.
 	var con_bandas := Arte.banda_bioma(bioma, 1) != null
-	set_process(_deriva != Vector2.ZERO or _fugaces or _banda_arriba or con_bandas)
+	var con_algas := Arte.algas_bioma(bioma)["tex"] != null
+	set_process(_deriva != Vector2.ZERO or _fugaces or _banda_arriba
+			or con_bandas or con_algas)
 	queue_redraw()
 
 
@@ -164,6 +168,7 @@ func _process(delta: float) -> void:
 			continue
 		_scroll_bandas[i] = fposmod(_scroll_bandas[i] + delta * BANDA_VELOCIDAD[i],
 			float(banda.get_width()))
+	_reloj += delta
 	_scroll += _deriva * delta
 	# Se envuelve por el PERIODO DEL AZULEJO, no por LADO.
 	#
@@ -190,6 +195,31 @@ func _tinte(t: Tipo) -> Color:
 ## `cover` de la web. Estirarla a la fuerza deformaría el dibujo, y encajarla
 ## entera dejaría franjas vacías a los lados en cuanto la pantalla no tuviera
 ## exactamente su proporción, que es lo normal entre teléfonos.
+## El lecho que se mece, si el bioma lo trae.
+##
+## Se ancla abajo y se escala por el ancho, igual que el telón, y NUNCA se
+## estira: es una pieza con sitio, solo que animada.
+##
+## Sin desfase por instancia, al revés que los targets: aquí la tira ya trae el
+## desfase dentro, hoja por hoja.
+func _dibujar_algas(r: Vector2) -> void:
+	var a := Arte.algas_bioma(bioma)
+	var tex: Texture2D = a["tex"]
+	if tex == null:
+		return
+	var n: int = a["fotogramas"]
+	var ancho := tex.get_width() / maxi(1, n)
+	var i := 0
+	if n > 1:
+		var t := fposmod(_reloj / CICLO_ALGAS, 1.0)
+		i = clampi(int(t * float(n)), 0, n - 1)
+	var esc := r.x / float(ancho)
+	var alto := float(tex.get_height()) * esc
+	draw_texture_rect_region(tex,
+			Rect2(Vector2(0.0, r.y - alto), Vector2(r.x, alto)),
+			Rect2(float(i * ancho), 0.0, float(ancho), float(tex.get_height())))
+
+
 func _cubrir(tex: Texture2D, r: Vector2) -> void:
 	var t := Vector2(tex.get_size())
 	if t.x <= 0.0 or t.y <= 0.0:
@@ -269,6 +299,9 @@ func _draw() -> void:
 	# La composición del bioma ya trae su banda y su marco dibujados, así que
 	# los procedurales se callan: pintarlos encima dejaría dos ciudades.
 	if capa != null:
+		# Las algas van DEBAJO del telón: el montículo de limo les tapa la base
+		# y parece que salen del fondo.
+		_dibujar_algas(r)
 		var esc := r.x / float(capa.get_width())
 		var alto := float(capa.get_height()) * esc
 		# Si falta POCO para cubrir la pantalla, se estira ese poco.
@@ -353,6 +386,11 @@ const ARTE_TEJADO := 104.0
 ## borde, así que solo se ve un casquete y se lee como un mundo, no como una
 ## pelota.
 const ARTE_PLANETA := Vector3(26.0, -8.0, 96.0)
+## Cuánto tarda una vuelta completa del mecido de las algas, en segundos.
+##
+## Más lento que el coleo del pez a propósito: una planta se mece, no se agita.
+const CICLO_ALGAS := 2.6
+
 ## Cuántas bandas puede llevar un bioma.
 ##
 ## Dos, y no por límite técnico: con dos capas a velocidades distintas los

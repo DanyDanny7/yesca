@@ -248,6 +248,8 @@ const PALETAS := {
 		"fondo": "0f2033", "punto": "f4fbff", "onda": "8fd8ff", "radio": 10.0},
 	"Río": {
 		"telon": Fondo.Tipo.CORRIENTE,
+		# Cada detonación suelta burbujas que suben y viven más que la onda.
+		"burbujas": true,
 		"forma": Dot.Forma.PEZ,
 		"fondo": "07161c", "punto": "ffd98a", "onda": "2fd6c0", "radio": 9.0},
 	"Hormigas": {

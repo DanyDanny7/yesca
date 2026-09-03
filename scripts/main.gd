@@ -338,6 +338,7 @@ enum State { MENU, SELECT, READY, PLAYING, DEAD, WIN, FINAL, PAUSA, LOG, BRIEFIN
 enum Mode { CAMPANA, SIN_FIN }
 
 @onready var _fondo: Fondo = $Fondo
+@onready var _burbujas: Burbujas = $Burbujas
 @onready var _dots_root: Node2D = $Dots
 @onready var _explosions_root: Node2D = $Explosions
 
@@ -664,6 +665,7 @@ func _process(delta: float) -> void:
 	# En pausa el mundo se congela igual que al morir: no se llama a _mover_dots.
 	if _mundo_activo() and _hitstop <= 0.0 and not _defensa_sin_empezar():
 		_mover_dots(delta)
+		_burbujas.actualizar(delta)
 		_check_impactos()
 		_check_catches()
 		# Con la partida ya decidida no se repuebla ni se cobra pantalla limpia:
@@ -1718,6 +1720,8 @@ func _aplicar_huida(delta: float) -> void:
 
 
 func _spawn_explosion(pos: Vector2, radius: float, chain_id: int) -> void:
+	if bool(_paleta.get("burbujas", false)):
+		_burbujas.emitir(pos, radius)
 	var e := Explosion.new()
 	e.position = pos
 	e.max_radius = radius
@@ -2237,6 +2241,7 @@ func _empezar_partida() -> void:
 	# Se limpia cualquier final a medias: si se reinicia durante la cámara lenta
 	# de una derrota, la partida nueva arrancaría bloqueada.
 	_final_pendiente = -1
+	_burbujas.limpiar()
 	_fugaz_espera = _proxima_fugaz()
 	_bioma_sinfin = 0
 	_rellenar_bolsa()

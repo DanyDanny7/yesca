@@ -4,11 +4,16 @@
 [ext_resource type="Script" path="res://scripts/circle_button.gd" id="2_circle"]
 [ext_resource type="Script" path="res://scripts/fondo.gd" id="3_fondo"]
 
+[ext_resource type="Script" path="res://scripts/burbujas.gd" id="9_burbujas"]
+
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
 
 [node name="Fondo" type="Node2D" parent="."]
 script = ExtResource("3_fondo")
+
+[node name="Burbujas" type="Node2D" parent="."]
+script = ExtResource("9_burbujas")
 
 [node name="Dots" type="Node2D" parent="."]
 

@@ -174,6 +174,20 @@ static func telon_bioma(nombre: String, variante: String = "") -> Texture2D:
 	return _con_variante(DIR_TELONES + slug(nombre), variante)
 
 
+## Las algas del bioma: una tira de fotogramas que se mece.
+##
+## Sale de `telones/` porque es la misma pieza del lecho, pero NO puede ir en la
+## capa rígida: esa no se deforma nunca, es su definición. Se dibuja aparte, y
+## debajo del telón, para que el limo le tape la base; encima parecerían plantadas
+## sobre el barro como flores en un jarrón.
+##
+## Reusa el mismo lector de tiras que los targets y las detonaciones. La
+## convención sirve para cualquier pieza que deba moverse sin salirse de su sitio:
+## `<bioma>_<pieza>@N.png`.
+static func algas_bioma(nombre: String) -> Dictionary:
+	return _tira(DIR_TELONES + slug(nombre) + "_algas")
+
+
 ## La capa elástica del bioma, si la hay.
 static func elastica_bioma(nombre: String, variante: String = "") -> Texture2D:
 	return _con_variante(DIR_ELASTICAS + slug(nombre), variante)
