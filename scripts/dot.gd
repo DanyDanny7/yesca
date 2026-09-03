@@ -162,7 +162,19 @@ var _entrada: float = 1.0
 ## parece rozar un target y no lo contagia. A 1.56 esa franja es de 4 a 6 px
 ## según el bioma; el día que se note como injusto, la solución es subir el
 ## radio de lógica y recalibrar, no seguir agrandando el dibujo.
-const ESCALA_VISUAL := 1.5625
+## Cuántas veces el radio de lógica mide el dibujo.
+##
+## 3.3333 sobre un radio de 9 da 30 px, que es exactamente `tap_tolerance`: el
+## objetivo se ve del tamaño al que se puede tocar. Antes valía 1.5625 y el
+## dibujo medía 14, menos de la mitad de lo que respondía al dedo.
+##
+## No toca `radius`, así que el balance no se mueve. Pero deja una banda: el
+## contagio sigue usando el radio de lógica, así que la onda puede rozar el borde
+## dibujado de un objetivo sin prenderlo. Si al jugar molesta, la salida es subir
+## `radius` y recalibrar, no encoger el dibujo otra vez.
+const ESCALA_VISUAL := 3.3333
+## Cuánto dura una vuelta completa de una forma animada, en segundos.
+const CICLO_TARGET := 1.1
 ## Multiplicador propio del bioma, encima de la escala común.
 ##
 ## Sale de la paleta y solo afecta al DIBUJO. `radius` no se toca: gobierna los
@@ -212,13 +224,24 @@ func _draw() -> void:
 	# Si hay un asset para esta forma, manda el asset. El dibujo de
 	# abajo pasa a ser el respaldo: cubre las formas sin fichero y
 	# mantiene el juego jugable si un asset falta o viene roto.
-	var tex := Arte.target(forma, numero)
+	var asset := Arte.target_tira(forma, numero)
+	var tex: Texture2D = asset["tex"]
 	if tex != null:
 		var lado := r * Arte.LIENZO_EN_RADIOS
+		var destino := Rect2(Vector2(-lado, -lado) * 0.5, Vector2(lado, lado))
+		var n: int = asset["fotogramas"]
 		# Sin tinte: el color de la paleta manda sobre las formas de
 		# código, pero un asset lo pinta quien lo dibuja.
-		draw_texture_rect(tex,
-			Rect2(Vector2(-lado, -lado) * 0.5, Vector2(lado, lado)), false)
+		if n <= 1:
+			draw_texture_rect(tex, destino, false)
+			return
+		# En bucle, y con el desfase propio de cada círculo: sin él, todo el
+		# banco batiría la cola a la vez y se vería la cuadrícula.
+		var t := fposmod((_fase + _semilla) / CICLO_TARGET, 1.0)
+		var i := clampi(int(t * float(n)), 0, n - 1)
+		var ancho := tex.get_width() / n
+		draw_texture_rect_region(tex, destino,
+				Rect2(float(i * ancho), 0.0, float(ancho), float(tex.get_height())))
 		return
 	
 	match forma:
@@ -400,6 +423,10 @@ func mover(delta: float, area: Rect2) -> void:
 	_fase += delta
 	if _entrada < 1.0:
 		_entrada = minf(1.0, _entrada + delta / ENTRADA_DUR)
+		queue_redraw()
+	elif Arte.target_tira(forma, numero)["fotogramas"] > 1:
+		# Una forma con tira se redibuja siempre: la animación es suya, no del
+		# movimiento, y si no se pide redibujado se queda en el primer cuadro.
 		queue_redraw()
 	elif forma in [Forma.ABEJA, Forma.PEZ, Forma.ESTRELLA, Forma.LLAMA,
 			Forma.GLOBO, Forma.HORMIGA, Forma.ROBOT]:

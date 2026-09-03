@@ -109,6 +109,21 @@ static var _cache: Dictionary = {}
 ## lleva un número y el globo un color. Se prueba primero `bola_7.png` y se cae
 ## a `bola.png`, así que se puede dibujar una sola bola genérica o las quince,
 ## sin decidirlo por adelantado.
+## El asset de una forma con su número de fotogramas.
+##
+## Reusa el mismo `_tira()` que las detonaciones: una forma puede entregarse
+## quieta o animada sin que el juego tenga que saber cuál de las dos es.
+static func target_tira(forma: int, variante: int = 0) -> Dictionary:
+	if forma < 0 or forma >= NOMBRE_FORMA.size():
+		return {"tex": null, "fotogramas": 1}
+	var base: String = DIR_TARGETS + NOMBRE_FORMA[forma]
+	if variante > 0:
+		var propia := _tira(base + "_" + str(variante))
+		if propia["tex"] != null:
+			return propia
+	return _tira(base)
+
+
 static func target(forma: int, variante: int = 0) -> Texture2D:
 	if forma < 0 or forma >= NOMBRE_FORMA.size():
 		return null
@@ -241,15 +256,20 @@ static func explosion(tipo: int, bioma: String = "") -> Dictionary:
 	return _tira(base)
 
 
-## Busca una imagen suelta o una tira `nombre@N`, y dice cuántos fotogramas trae.
+## Busca una tira `nombre@N` o, si no la hay, la imagen suelta.
+##
+## La TIRA MANDA sobre el fichero suelto, y ese orden importa: al entregar un
+## `pez@8.png` junto al `pez.png` que ya estaba, buscando primero el suelto la
+## animación no se usaría nunca y no habría forma de saber por qué. Quien entrega
+## una versión animada la quiere.
 static func _tira(base: String) -> Dictionary:
-	var suelta := _buscar(base)
-	if suelta != null:
-		return {"tex": suelta, "fotogramas": 1}
 	for n in range(2, MAX_FOTOGRAMAS + 1):
 		var tira := _buscar("%s@%d" % [base, n])
 		if tira != null:
 			return {"tex": tira, "fotogramas": n}
+	var suelta := _buscar(base)
+	if suelta != null:
+		return {"tex": suelta, "fotogramas": 1}
 	return {"tex": null, "fotogramas": 1}
 
 
