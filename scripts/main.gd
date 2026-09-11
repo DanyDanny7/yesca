@@ -129,6 +129,38 @@ extends Node2D
 ## dónde ha venido, que es lo que hace mirar hacia ella.
 @export var fugaz_estela: int = 34
 
+@export_subgroup("Hormiguero")
+## Rapidez de una hormiga en unidades del lienzo del nido por segundo. El
+## `vel_mult` del bioma —0,6— se aplica encima.
+@export var hormiga_vel: float = 34.0
+## Cada hormiga lleva un factor propio fijo de por vida, para que la fila no
+## avance en bloque.
+@export var hormiga_vel_dispersion := Vector2(0.85, 1.15)
+## Cuántas hay ya puestas al empezar. El resto entra caminando por la
+## superficie: la primera media docena de segundos se ve LLEGAR la colonia, que
+## enseña por dónde se entra sin un solo cartel.
+@export var hormiga_siembra: int = 12
+@export var hormiga_entrada_cada: float = 0.35
+## Lo que tarda el morro en apuntar al nodo nuevo. Con cero se ve el codo.
+@export var hormiga_giro: float = 0.18
+## Solo en callejón sin salida, que es el único caso en que se da la vuelta.
+@export var hormiga_media_vuelta: float = 0.25
+## Probabilidad de pararse al entrar en una cámara, y cuánto. Es lo que separa
+## una hormiga de un coche: llega a un sitio y se queda un momento.
+@export var hormiga_pausa_camara: float = 0.12
+@export var hormiga_pausa := Vector2(0.3, 0.9)
+## Tope de espera en un cruce ocupado. Pasado el tope pasa igual: un atasco
+## permanente es un objetivo que el jugador no puede leer.
+@export var hormiga_espera_max: float = 1.2
+## Cuánto tarda en volver por el otro extremo la que se fue por la superficie.
+@export var hormiga_reentrada := Vector2(0.5, 1.5)
+@export var hormiga_reaparece_cada: float = 0.45
+## Segundos entre dos partos del mismo nodo.
+@export var hormiga_nodo_descanso: float = 2.5
+## A cuántos radios de contagio de la última detonación puede nacer una. Menos
+## que esto sería repoblar dentro del anillo con la cadena aún corriendo.
+@export var hormiga_margen_detonacion: float = 3.0
+
 @export_group("Pruebas")
 ## Abre toda la campaña sin tener que superarla.
 ##
@@ -597,6 +629,10 @@ var _t_alarma: float = 0.0
 var _destello: float = 0.0
 ## Última posición conocida de la ventana, y lo que falta para guardarla.
 ## En negativo significa que no hay nada pendiente de guardar.
+## El nido, cuando el bioma en curso es Hormigas. En cualquier otro es null y
+## los objetivos se mueven como siempre.
+var _hormiguero: Hormiguero = null
+
 var _ventana_pos := Vector2i.ZERO
 var _ventana_pendiente: float = -1.0
 var _ventana_sondeo: float = 0.0
@@ -1378,6 +1414,9 @@ func _tap(pos: Vector2) -> void:
 	var valor := objetivo.valor_mult
 	var onda := objetivo.onda_mult
 	_dots.erase(objetivo)
+	if _hormiguero != null:
+		_hormiguero.baja(objetivo)
+		_hormiguero.detonacion(donde, get_viewport_rect().size)
 	objetivo.queue_free()
 
 	_next_chain += 1
@@ -1587,6 +1626,10 @@ func _check_cleared() -> void:
 ## Los puntos entran desde fuera de la pantalla, nunca aparecen en medio: eso
 ## rompería la lectura de trayectorias y podría regalar un contagio.
 func _refill_field(delta: float) -> void:
+	# En el nido repuebla el hormiguero, que sabe en qué nodo no se va a notar.
+	# Dejar que entren además por los bordes las metería en la tierra maciza.
+	if _hormiguero != null:
+		return
 	if _dots.size() >= _target_dots():
 		return
 
@@ -1595,6 +1638,22 @@ func _refill_field(delta: float) -> void:
 		return
 	_respawn_timer = _respawn_interval()
 	_alta_dot()
+
+
+## Fabrica una hormiga y la deja en el campo, sin colocarla: de eso se encarga
+## el hormiguero, que es quien sabe dónde hay hueco.
+##
+## Se pasa como Callable en vez de que el hormiguero construya el Dot él mismo:
+## el aspecto —forma, color, radio, velocidad base del bioma— lo decide la
+## paleta, y esa es cosa de Main. El hormiguero solo sabe de caminos.
+func _crear_hormiga() -> Dot:
+	var d := Dot.new()
+	_preparar_dot(d, Dot.Movimiento.HORMIGA, Vector2.RIGHT)
+	d.guiado = true
+	d.entrar_creciendo()
+	_dots_root.add_child(d)
+	_dots.append(d)
+	return d
 
 
 ## Da de alta un objetivo, entrando desde fuera de la pantalla.
@@ -1772,6 +1831,8 @@ func _tick_fugaz(delta: float) -> void:
 
 
 func _mover_dots(delta: float) -> void:
+	if _hormiguero != null:
+		_hormiguero.actualizar(delta, get_viewport_rect().size, _crear_hormiga)
 	match _movimiento_actual():
 		Dot.Movimiento.CHOQUE:
 			_resolver_choques()
@@ -2453,6 +2514,30 @@ func _poblar_campo() -> void:
 	var rect := area.size
 	var modo := _movimiento_actual()
 	var cuantos := _target_dots()
+	_hormiguero = null
+	if modo == Dot.Movimiento.HORMIGA:
+		# Las hormigas no se reparten por el campo: viven en el grafo del nido.
+		# Si el grafo faltara se sigue con el reparto genérico, que es feo pero
+		# jugable; quedarse sin objetivos no lo es.
+		var nido := Hormiguero.new()
+		if nido.preparar(float(_paleta.get("radio", 9.0))):
+			nido.vel = hormiga_vel * float(_paleta.get("vel_mult", 1.0))
+			nido.vel_dispersion = hormiga_vel_dispersion
+			nido.siembra = hormiga_siembra
+			nido.entrada_cada = hormiga_entrada_cada
+			nido.giro = hormiga_giro
+			nido.media_vuelta = hormiga_media_vuelta
+			nido.pausa_camara = hormiga_pausa_camara
+			nido.pausa = hormiga_pausa
+			nido.espera_max = hormiga_espera_max
+			nido.reentrada = hormiga_reentrada
+			nido.objetivo = cuantos
+			nido.reaparece_cada = hormiga_reaparece_cada
+			nido.nodo_descanso = hormiga_nodo_descanso
+			nido.margen_detonacion = hormiga_margen_detonacion
+			_hormiguero = nido
+			_hormiguero.sembrar(get_viewport_rect().size, _crear_hormiga)
+			return
 	if _es_defensa():
 		# En un bioma de defensa el campo NO arranca lleno: empezar con veinte
 		# proyectiles ya a media caída sería una derrota servida. Y se les da de

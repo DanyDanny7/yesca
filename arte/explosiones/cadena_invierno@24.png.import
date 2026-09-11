@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://qhhn2gvkg72s"
-path="res://.godot/imported/cadena_cielo_abierto@12.png-0d409e617ea1da26b730ff940b67408b.ctex"
+uid="uid://cun57ysyai11x"
+path="res://.godot/imported/cadena_invierno@24.png-2089a8eb6d29ec464d92229f0764f50a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://arte/explosiones/cadena_cielo_abierto@12.png"
-dest_files=["res://.godot/imported/cadena_cielo_abierto@12.png-0d409e617ea1da26b730ff940b67408b.ctex"]
+source_file="res://arte/explosiones/cadena_invierno@24.png"
+dest_files=["res://.godot/imported/cadena_invierno@24.png-2089a8eb6d29ec464d92229f0764f50a.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cedipxco4cov1"
-path="res://.godot/imported/basico.png-6703e0f99931233496b81178f067ba7c.ctex"
+uid="uid://b7o423x2050ah"
+path="res://.godot/imported/cadena_hormigas@24.png-14bd1c8e86427e35a5d0c7d26401c7c1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://arte/telones/basico.png"
-dest_files=["res://.godot/imported/basico.png-6703e0f99931233496b81178f067ba7c.ctex"]
+source_file="res://arte/explosiones/cadena_hormigas@24.png"
+dest_files=["res://.godot/imported/cadena_hormigas@24.png-14bd1c8e86427e35a5d0c7d26401c7c1.ctex"]
 
 [params]
 

@@ -451,6 +451,11 @@ func mover(delta: float, area: Rect2) -> void:
 	# Las formas con orientación la actualizan aquí: el dron mira hacia donde
 	# va, la hoja voltea despacio como si cayera.
 	_orientar(delta)
+	# Un objetivo GUIADO recibe la posición desde fuera: el hormiguero la calcula
+	# sobre el grafo del nido y la posa él. Aquí solo se anima y se orienta, que
+	# es lo que no sabe hacer quien lo guía.
+	if guiado:
+		return
 	match modo:
 		Movimiento.ABEJA:
 			_mover_abeja(delta, area)
@@ -889,6 +894,9 @@ const HALO_ALFA := 0.014
 ## y la estela es lo que esa luz deja en el aire: en Cielo abierto la cabeza es
 ## blanca y el rastro tira a azul, como el de la onda.
 var color_estela: Color = Color("8ec5ff")
+
+## Si la posición la pone otro. Ver Hormiguero.
+var guiado: bool = false
 
 var curva_fugaz: float = 0.35
 ## Cuántos puntos de rastro guarda para dibujar la estela.
