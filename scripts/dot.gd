@@ -92,7 +92,7 @@ const GIRO_DE_FORMA := [
 	Giro.RUMBO,    ## meteoro: la estela tiene que quedar detrás
 	Giro.FIJO,     ## robot: uno ladeado se lee como averiado
 	Giro.RUMBO,    ## hormiga: vista desde arriba
-	Giro.RUMBO,    ## fugaz: la estela tiene que quedar detrás
+	Giro.FIJO,     ## fugaz: un destello no tiene "delante"
 ]
 
 ## Cuánto vale este objetivo respecto a uno normal.
@@ -856,6 +856,40 @@ func _robot(r: float) -> void:
 
 
 ## Cuánto se arquea la trayectoria de la fugaz, en radianes por segundo.
+## Largo de la punta vertical del destello, en radios de dibujo.
+const DESTELLO_LARGO := 2.3
+## Las puntas horizontales son más cortas que las verticales: un destello con
+## las cuatro iguales se lee como una cruz, no como un brillo.
+const DESTELLO_ANCHO := 0.72
+## Cuánto se hunden los lados entre dos puntas. Es lo que hace la silueta
+## cóncava; con 0 saldría un rombo.
+const DESTELLO_CONCAVIDAD := 2.6
+## Segmentos del contorno. A 72 la curva ya no se ve poligonal al tamaño al que
+## cruza.
+const DESTELLO_SEGMENTOS := 72
+## El destello interior, más pequeño y teñido, es lo que le da volumen: sin él
+## la silueta blanca se lee plana, como un recorte.
+const DESTELLO_INTERIOR := 0.52
+const TINTE_DESTELLO := Color("a99fd0")
+## Semianchos y opacidades de las dos cintas, en radios de dibujo.
+const ESTELA_HALO_ANCHO := 0.42
+const ESTELA_HALO_ALFA := 0.34
+const ESTELA_FILO_ANCHO := 0.16
+const ESTELA_FILO_ALFA := 0.95
+## Capas del halo y opacidad de cada una.
+##
+## Seis capas de 0.06 se veían como seis aros concéntricos con su borde: una
+## diana. El salto de brillo entre capas es lo que delata el escalón, así que la
+## solución no es repartir mejor seis, sino que cada salto sea tan pequeño que
+## no se distinga.
+const HALO_CAPAS := 20
+const HALO_ALFA := 0.014
+
+## Color del rastro. Va aparte del color del objetivo porque la cabeza es la luz
+## y la estela es lo que esa luz deja en el aire: en Cielo abierto la cabeza es
+## blanca y el rastro tira a azul, como el de la onda.
+var color_estela: Color = Color("8ec5ff")
+
 var curva_fugaz: float = 0.35
 ## Cuántos puntos de rastro guarda para dibujar la estela.
 var largo_estela: int = 16
@@ -866,26 +900,97 @@ var largo_estela: int = 16
 ## Es lo que hace que la curvatura se vea. Con una recta, arquear el rumbo no se
 ## notaría y la curva sería trabajo perdido.
 ##
-## Se dibuja tramo a tramo y no como una polilínea entera porque el grosor tiene
-## que ir cambiando a lo largo, y una polilínea admite un solo grosor.
+## Va como UN polígono con color por vértice, y no como tramos sueltos. Tramo a
+## tramo el grosor sí podía cambiar, pero cada segmento acaba en corte recto y a
+## este grosor los cortes se ven: la estela salía dentada, como una escalera. Un
+## polígono con los bordes ya calculados no tiene juntas que se noten.
 func _dibujar_estela(r: float) -> void:
 	if _estela.size() < 2:
 		return
-	for i in range(1, _estela.size()):
-		var t := float(i) / float(_estela.size() - 1)
-		draw_line(to_local(_estela[i - 1]), to_local(_estela[i]),
-				Color(color, 0.55 * t * t), maxf(1.0, r * 0.75 * t))
+	# Dos cintas, no una. Una sola no puede ser a la vez el filo brillante que
+	# marca la trayectoria y el resplandor ancho que la envuelve: subir su ancho
+	# la vuelve una mancha y bajarlo la deja como un pelo. Separadas, la ancha
+	# pone el color y la fina pone el trazo.
+	_cinta(r, ESTELA_HALO_ANCHO, ESTELA_HALO_ALFA, color_estela)
+	_cinta(r, ESTELA_FILO_ANCHO, ESTELA_FILO_ALFA, color_estela.lerp(color, 0.85))
 
 
-## Estrella fugaz: núcleo brillante. La estela la pone _dibujar_estela.
+## Una cinta a lo largo del rastro, que se estrecha y se apaga hacia atrás.
+func _cinta(r: float, ancho: float, alfa: float, col: Color) -> void:
+	var n := _estela.size()
+	var izq := PackedVector2Array()
+	var der := PackedVector2Array()
+	var col_izq := PackedColorArray()
+	var col_der := PackedColorArray()
+	for i in n:
+		var t := float(i) / float(n - 1)
+		var p := to_local(_estela[i])
+		# El rumbo en cada punto sale de sus vecinos; en los extremos, del único
+		# que hay. Sin esto la cinta se retuerce justo en las puntas.
+		var antes := to_local(_estela[maxi(i - 1, 0)])
+		var luego := to_local(_estela[mini(i + 1, n - 1)])
+		var rumbo := luego - antes
+		if rumbo.length() < 0.001:
+			rumbo = Vector2.RIGHT
+		# El ancho va con t al cuadrado, no lineal: la cinta se abre despacio al
+		# principio y deprisa junto a la cabeza. Lineal salía una cuña recta, y
+		# al cubo se abría de golpe, como un ala.
+		var semi := r * ancho * t * t
+		var c := Color(col, alfa * t * t)
+		var normal := rumbo.orthogonal().normalized()
+		izq.append(p + normal * semi)
+		der.append(p - normal * semi)
+		col_izq.append(c)
+		col_der.append(c)
+	# El contorno va por un lado y vuelve por el otro.
+	der.reverse()
+	col_der.reverse()
+	draw_polygon(izq + der, col_izq + col_der)
+
+
+## Estrella fugaz: una chispa, y nada más. La estela la pone _dibujar_estela.
+##
+## Antes era un rombo alargado en el sentido de la marcha. El rombo se leía como
+## una punta de flecha —algo disparado, con forma propia— y competía con el
+## rastro por contar la misma cosa. Una fugaz no tiene forma: tiene brillo, y lo
+## que de verdad se ve de ella es lo que deja detrás. Así que la cabeza pasa a
+## ser redonda y la dirección la cuenta la estela, ella sola.
+##
+## Mismo esquema que _chispa —núcleo y halo, sin efectos— pero más grande y con
+## el centro en blanco: es un objetivo que vale diez y tiene que pedir el dedo
+## desde el otro lado de la pantalla.
 func _fugaz(r: float) -> void:
-	# Núcleo: un rombo alargado en el sentido de la marcha, más un halo. El halo
-	# es lo que la hace mirar sin buscarla, que es media gracia del objetivo.
-	draw_circle(Vector2.ZERO, r * 1.5, Color(color, 0.18))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(r * 1.3, 0.0), Vector2(0.0, r * 0.55),
-		Vector2(-r * 0.8, 0.0), Vector2(0.0, -r * 0.55)]), color)
-	draw_circle(Vector2(r * 0.25, 0.0), r * 0.42, Color(1, 1, 1, 0.9))
+	# El halo va en capas finas y no en dos círculos. Dos dejan un borde duro
+	# cada uno y la cabeza se lee como una diana. El radio va con t al cuadrado:
+	# así las capas se apiñan junto al centro y se separan hacia fuera, que es
+	# como cae la luz de verdad.
+	for i in HALO_CAPAS:
+		var t := 1.0 - float(i) / float(HALO_CAPAS)
+		draw_circle(Vector2.ZERO, r * (0.3 + 1.2 * t * t), Color(color, HALO_ALFA))
+	draw_colored_polygon(_silueta_destello(r * DESTELLO_LARGO), color)
+	draw_colored_polygon(_silueta_destello(r * DESTELLO_LARGO * DESTELLO_INTERIOR),
+			color.lerp(TINTE_DESTELLO, 0.45))
+
+
+## Contorno del destello de cuatro puntas.
+##
+## Va SIN girar con el rumbo —Giro.FIJO en GIRO_DE_FORMA—. Antes giraba, y tenía
+## sentido cuando la cabeza era un rombo apuntando a donde iba: había que
+## orientarlo. Un destello no tiene delante ni detrás, y ladeado deja de leerse
+## como un brillo y pasa a parecer un aspa torcida. La estela no se entera del
+## cambio porque se dibuja a partir de posiciones del mundo, no del nodo.
+##
+## Sale de una fórmula polar —el radio se estrangula según se separa de una
+## punta— y no de dos rombos cruzados. Dos rombos dan lados RECTOS entre punta y
+## punta, y lo que hace que un brillo parezca brillo es justo lo contrario: que
+## los lados se hundan hacia el centro y las puntas salgan afiladas.
+func _silueta_destello(largo: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in DESTELLO_SEGMENTOS:
+		var a := TAU * float(i) / float(DESTELLO_SEGMENTOS)
+		var radio := largo / (1.0 + DESTELLO_CONCAVIDAD * absf(sin(a * 2.0)))
+		pts.append(Vector2(cos(a) * radio * DESTELLO_ANCHO, sin(a) * radio))
+	return pts
 
 
 ## Hormiga: tres segmentos, seis patas y dos antenas.

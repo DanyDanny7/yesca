@@ -94,9 +94,13 @@ func _draw() -> void:
 	var asset := Arte.explosion(tipo, bioma)
 	var tex: Texture2D = asset["tex"]
 	if tex != null:
-		var lado := radius * Arte.EXPLOSION_EN_RADIOS
-		var destino := Rect2(Vector2(-lado, -lado) * 0.5, Vector2(lado, lado))
 		var n: int = asset["fotogramas"]
+		# Quieta: se escala al radio de ESTE instante, así que el crecimiento lo
+		# pone el nodo. Tira: la escala se fija UNA vez, con el radio de contagio
+		# entero. La crecida ya va dibujada en los primeros fotogramas, y
+		# escalarla además la aplicaría dos veces: el pulso saldría con un tirón.
+		var lado := (radius if n <= 1 else max_radius) * Arte.EXPLOSION_EN_RADIOS
+		var destino := Rect2(Vector2(-lado, -lado) * 0.5, Vector2(lado, lado))
 		if n <= 1:
 			draw_texture_rect(tex, destino, false, Color(1, 1, 1, fade))
 			return

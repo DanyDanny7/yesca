@@ -32,9 +32,57 @@ pausa. Corriendo ya en un teléfono real. Ver `contexto/08-campana.md`,
 ## Cómo correrlo
 
 ```powershell
+.\jugar                  # juega y relanza a cada cambio
+.\jugar 12               # ... entrando de una en el nivel 12
+.\jugar derrota          # ... con esa pantalla a la vista
+.\jugar 12 -SinMorir     # el nivel 12 sin que te maten mientras miras
+.\jugar 12 -Una          # una sola ejecución, sin vigilante
+```
+
+Deja esa terminal al lado mientras se edita: avisa de qué archivo cambió y
+vuelve a arrancar el juego con ese cambio dentro, sin tocar nada. Los `print()`
+y los errores del motor salen ahí mismo.
+
+El argumento dice **dónde caer**, y existe para no repetir los clics del menú en
+cada reinicio: retocar algo del nivel 12 obligaba a cruzar menú → campaña → doce
+flechas → jugar → briefing en cada arranque. Acepta dos cosas:
+
+- **Un número de nivel**, contando desde 1, como los enseña el juego: `.\jugar 12`.
+- **El nombre de una pantalla**, de esta lista:
+
+| nombre | qué deja a la vista |
+| --- | --- |
+| `menu` | el menú principal |
+| `seleccion` | el selector de nivel de la campaña |
+| `briefing` | la tarjeta con el objetivo del nivel |
+| `listo` | el campo montado, esperando el primer toque |
+| `jugando` | la partida en marcha |
+| `pausa` | la pantalla de pausa y sus opciones |
+| `derrota` | el resultado tras perder |
+| `victoria` | el resultado tras superar el nivel |
+| `final` | el cierre de campaña completa |
+| `log` | el registro de la sesión anterior |
+
+Las que enseñan datos de partida —`derrota`, `victoria`, `pausa`— montan una
+antes de mostrarse: sin ella salían con los marcadores vacíos y parecía un fallo
+del juego. Se pueden combinar con el nivel: `.\jugar derrota -Nivel 5`.
+
+Son los mismos nombres que salen en el registro (`pantalla=derrota`), y a
+propósito: mantener una segunda lista de nombres es mantener una que se queda
+vieja. Todo esto solo funciona en compilación de depuración; en una de
+publicación no hace nada, pase lo que pase por la línea de comandos.
+
+No hay recarga en caliente porque el hot reload de GDScript solo funciona cuando
+quien lanza el juego es el editor de Godot. Desde una terminal, reiniciar es la
+única forma fiable de ver el cambio — y este proyecto arranca en un segundo.
+
+Debajo siguen los lanzadores de siempre:
+
+```powershell
 .\tools\run.ps1              # ejecuta el juego
 .\tools\run.ps1 -Editor      # abre el editor
 .\tools\run.ps1 -Calibrar    # banco de calibración headless
+.\tools\vigilar.ps1          # el vigilante, con -Nivel / -Pantalla / -SinFin / -SinMorir
 ```
 
 El lanzador encuentra Godot solo. Existe porque una terminal abierta antes de

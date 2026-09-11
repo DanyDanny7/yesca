@@ -81,15 +81,31 @@ extends Node2D
 ## `Dot.onda_mult`) y no en el bioma: el segundo caso que aparezca no tendrá que
 ## reescribir nada.
 @export_subgroup("Estrella fugaz")
-## Cada cuánto aparece de media, en segundos.
-@export var fugaz_periodo: float = 60.0
-## Lo menos que puede pasar entre dos apariciones, en segundos.
+## Entre dos apariciones, en segundos: se sortea dentro de este rango.
 ##
-## Sin este mínimo, "una por minuto" permite una en el segundo 55 y otra en el
-## 62: cada una es la de su minuto, pero juntas se leen como un fallo. El
-## intervalo se sortea entre este mínimo y lo que sobra hasta el doble del
-## periodo, así que la media sigue siendo un minuto justo.
-@export var fugaz_separacion_min: float = 20.0
+## El mínimo existe para que no caigan dos casi seguidas —una en el segundo 28 y
+## otra en el 31 se leen como un fallo aunque cada una sea legítima—. El máximo
+## marca lo que se puede llegar a esperar sin que parezca que ya no hay.
+##
+## Antes esto era un periodo medio con un mínimo, y el máximo salía de una
+## cuenta para que la media cayera clavada en el periodo. Sonaba elegante y
+## obligaba a resolver una ecuación para saber cuánto se espera de verdad. Un
+## rango dice lo mismo y se lee de un vistazo.
+@export var fugaz_intervalo_min: float = 9.0
+@export var fugaz_intervalo_max: float = 39.0
+## Lo que tarda la PRIMERA de la partida, en segundos.
+##
+## Va aparte del intervalo normal porque el mínimo de separación existe para que
+## no caigan dos seguidas, y antes de la primera no hay ninguna de la que
+## separarse: aplicárselo solo servía para retrasarla.
+##
+## Y retrasarla la borraba. La fugaz solo sale en Cielo abierto, cuyos cuatro
+## niveles son de meta y no de tiempo —60 puntos, cadena ×4, 250 puntos, cadena
+## ×6—; los dos primeros se acaban en menos de veinte segundos. Con el mínimo
+## general, lo normal era terminar la campaña de ese bioma sin haber visto
+## ninguna, y es el único sitio donde las hay: no verla ahí es no verla nunca.
+@export var fugaz_primera_min: float = 3.0
+@export var fugaz_primera_max: float = 9.0
 ## Cuántas veces vale respecto a un objetivo normal.
 @export var fugaz_puntos: float = 10.0
 ## Cuánto más grande es su detonación. No es solo estética: la onda ES el radio
@@ -98,9 +114,20 @@ extends Node2D
 ## Cuánto más rápido cruza que un objetivo normal.
 @export var fugaz_vel: float = 2.6
 ## Cuánto se arquea su trayectoria, en radianes por segundo.
-@export var fugaz_curva: float = 0.35
+##
+## Bajó de 0.35 a 0.12 al cambiar el recorrido. Cruzar lleva unos 2.7 s, así que
+## 0.35 son 54 grados de arco: entrando a 50 grados de subida, la fugaz acababa
+## BAJANDO y se iba por la derecha a media altura. Medido, no supuesto: salía por
+## y=519 de 1280. Con 0.12 el arco son 18 grados, los justos para que la subida
+## se note curva y siga siendo una subida cuando se va.
+@export var fugaz_curva: float = 0.12
 ## Cuántos puntos de rastro guarda para dibujar la estela.
-@export var fugaz_estela: int = 16
+##
+## Son fotogramas de recorrido, así que esto ES el largo del rastro: a la
+## velocidad a la que cruza, 16 daban una cola corta y rechoncha que se leía
+## como un cometa de dibujos. Treinta y cuatro la alargan hasta que se ve por
+## dónde ha venido, que es lo que hace mirar hacia ella.
+@export var fugaz_estela: int = 34
 
 @export_group("Pruebas")
 ## Abre toda la campaña sin tener que superarla.
@@ -241,6 +268,18 @@ const COMBO_POP_TIME := 0.45
 const COMBO_SIZE := Vector2(240.0, 100.0)
 const STAGE_COLOR_TOPE := 10.0
 const SAVE_PATH := "user://cadena.cfg"
+## Dónde estaba la ventana la última vez. Va en su propio archivo y no en
+## SAVE_PATH a propósito: esto es comodidad de escritorio, no partida del
+## jugador, y no tiene por qué reescribir el progreso cada vez que se arrastra
+## la ventana.
+const VENTANA_PATH := "user://ventana.cfg"
+## Cada cuánto se mira si la ventana se ha movido, en segundos. Preguntar la
+## posición es una llamada al sistema; cuatro veces por segundo basta y no se
+## nota.
+const VENTANA_SONDEO := 0.25
+## Lo que hay que estarse quieto antes de guardar. Sin esto se escribiría el
+## archivo en cada fotograma del arrastre.
+const VENTANA_REPOSO := 0.4
 ## Un nombre por cada Dot.Movimiento, EN SU ORDEN. Si se añade un movimiento y
 ## no se añade aquí, el juego revienta al entrar al bioma: se indexa con el
 ## valor del enum y el array se queda corto.
@@ -330,6 +369,13 @@ const SLOWMO_DUR_DERROTA := 0.8
 const ANTICIPA_FACTOR := 0.5
 ## Tope para que una falsa alarma no deje el juego a medio gas.
 const ANTICIPA_MAX := 2.0
+## Cuánto tarda la anticipación en entrar y en salir, en segundos de reloj.
+##
+## Antes el cambio era un salto: de velocidad normal a la mitad en un fotograma,
+## y vuelta igual. Se notaba como un tirón, y llega justo encima de las
+## explosiones de la cascada que está cumpliendo el objetivo, así que parecía
+## que el juego se atascaba en vez de que se estuviera fijando en la jugada.
+const ANTICIPA_RAMPA := 0.35
 
 ## PAUSA va al FINAL a propósito. Insertar un estado en medio desplaza los
 ## índices y rompe tools/simulacion.gd, que ya se quedó girando en vacío una vez
@@ -549,6 +595,11 @@ var _fondo_cambiado: bool = false
 var _t_alarma: float = 0.0
 ## Fogonazo de victoria, de 1 a 0.
 var _destello: float = 0.0
+## Última posición conocida de la ventana, y lo que falta para guardarla.
+## En negativo significa que no hay nada pendiente de guardar.
+var _ventana_pos := Vector2i.ZERO
+var _ventana_pendiente: float = -1.0
+var _ventana_sondeo: float = 0.0
 ## Círculos supervivientes esperando su turno para reventar en la celebración.
 var _celebra_cola: Array[Dot] = []
 var _celebra_intervalo: float = 0.03
@@ -560,6 +611,7 @@ var _antes_de_pausar: State = State.PLAYING
 
 
 func _ready() -> void:
+	_restaurar_ventana()
 	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _fallos_label, _score_label,
 			_best_label, _objetivo_label, _hint_label, _flash_label, _combos_root,
 			_btn_pausa]
@@ -589,7 +641,87 @@ func _ready() -> void:
 		_diag.evento("PRUEBAS: campaña abierta entera (%d niveles)" % Niveles.total())
 	_sonar_musica()
 	_poblar_campo()
-	_ir_a(State.MENU)
+	if not _arranque_directo():
+		_ir_a(State.MENU)
+
+
+## Salta el menu y arranca donde diga la linea de comandos.
+##
+## Existe por el ciclo de edicion. Retocar algo del nivel 12 obligaba a cruzar
+## menu -> campana -> doce flechas -> jugar -> briefing en CADA arranque, y con
+## tools/vigilar.ps1 relanzando a cada guardado eso son doce clics por cambio:
+## el coste de mirar un ajuste pasaba a ser mayor que el del ajuste.
+##
+## Los argumentos van detras de `--`, que es donde Godot deja de quedarselos y
+## empiezan a ser del juego:
+##
+##   godot --path . -- --nivel=12             juega ya el nivel 12
+##   godot --path . -- --sinfin               juega ya en modo sin fin
+##   godot --path . -- --pantalla=derrota     deja la pantalla de derrota a la vista
+##   godot --path . -- --nivel=12 --sin-morir para mirar sin que te maten
+##
+## Los nombres de pantalla son los de NOMBRES_ESTADO, los mismos que salen en el
+## registro. Mantener una segunda lista de nombres es mantener una que se queda
+## vieja.
+##
+## Sin argumentos devuelve false y se entra por el menu, como el jugador. En una
+## compilacion de publicacion no hace nada, pase lo que pase por la linea de
+## comandos: esto abre la campana entera y quita la muerte.
+func _arranque_directo() -> bool:
+	if not OS.is_debug_build():
+		return false
+
+	var pantalla := ""
+	var nivel := -1
+	var sinfin := false
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--nivel="):
+			# Fuera se cuenta desde 1, que es lo que ensena el juego; dentro desde
+			# 0. Traducirlo aqui evita repartir el fallo de uno por todo el resto.
+			nivel = arg.trim_prefix("--nivel=").to_int() - 1
+		elif arg.begins_with("--pantalla="):
+			pantalla = arg.trim_prefix("--pantalla=").to_lower()
+		elif arg == "--sinfin":
+			sinfin = true
+		elif arg == "--sin-morir":
+			_sin_morir = true
+
+	if nivel < 0 and not sinfin and pantalla == "":
+		return false
+
+	if nivel >= 0:
+		_mode = Mode.CAMPANA
+		_nivel = clampi(nivel, 0, Niveles.total() - 1)
+	elif sinfin:
+		_mode = Mode.SIN_FIN
+
+	var destino := NOMBRES_ESTADO.find(pantalla) if pantalla != "" else -1
+	if pantalla != "" and destino < 0:
+		push_warning("--pantalla=%s no existe. Hay: %s" % [pantalla, str(NOMBRES_ESTADO)])
+		return false
+
+	# MENU, SELECCION y LOG se pintan solas. Las demas ensenan datos de una
+	# partida -puntos, dificultad, el campo de fondo-, asi que hay que montar una
+	# antes o el cartel sale vacio y parece un fallo del juego.
+	if destino == State.MENU or destino == State.SELECT or destino == State.LOG:
+		_ir_a(destino)
+		_diag.evento("ARRANQUE DIRECTO pantalla=%s" % pantalla)
+		return true
+
+	_empezar_partida()
+	if destino >= 0:
+		# Para que "Seguir" en la pantalla de pausa lleve a algun sitio y no
+		# devuelva al estado en que quedo la partida de mentira.
+		_antes_de_pausar = State.PLAYING
+		_ir_a(destino)
+	elif _state == State.BRIEFING:
+		# El briefing es un clic mas antes de ver nada. Quien pide un nivel por la
+		# linea de comandos ya sabe lo que le piden.
+		_ir_a(State.READY)
+	_diag.evento("ARRANQUE DIRECTO modo=%s nivel=%d pantalla=%s" % [
+			"campana" if _mode == Mode.CAMPANA else "sinfin", _nivel + 1,
+			NOMBRES_ESTADO[_state]])
+	return true
 
 
 ## Al cerrar hay que parar el audio a mano.
@@ -627,6 +759,7 @@ func _exit_tree() -> void:
 
 
 func _process(delta: float) -> void:
+	_tick_ventana(delta)
 	_explosions = _prune(_explosions)
 	_effects = _prune(_effects)
 
@@ -681,6 +814,7 @@ func _process(delta: float) -> void:
 		_rematar()
 
 	_actualizar_anticipacion()
+	_suavizar_time_scale(delta)
 
 	# READY entra aquí por lo mismo que en el reloj: si la barra puede vaciarse
 	# esperando, vaciarse tiene que significar algo. Si no, la espera volvería a
@@ -979,35 +1113,43 @@ func _hay_fugaces() -> bool:
 	return bool(_paleta.get("fugaz", false))
 
 
-## Cuánto falta para la siguiente, respetando la separación mínima.
-##
-## Se sortea entre el mínimo y lo que sobra hasta el doble del periodo: la media
-## sale exactamente el periodo, pero nunca caen dos seguidas.
+## Cuánto falta para la siguiente.
 func _proxima_fugaz() -> float:
-	var techo := maxf(fugaz_separacion_min, fugaz_periodo * 2.0 - fugaz_separacion_min)
-	return randf_range(fugaz_separacion_min, techo)
+	return randf_range(fugaz_intervalo_min, maxf(fugaz_intervalo_min, fugaz_intervalo_max))
 
 
-## Suelta una estrella fugaz: entra por un lateral y cruza en diagonal.
+## Cuánto falta para la primera de la partida. Ver `fugaz_primera_min`.
+func _primera_fugaz() -> float:
+	return randf_range(fugaz_primera_min, maxf(fugaz_primera_min, fugaz_primera_max))
+
+
+## Suelta una estrella fugaz: entra por la izquierda y sube hacia la derecha.
 ##
 ## Vale diez veces lo normal y revienta un cincuenta por ciento más grande, así
 ## que no es un objetivo más: es una ocasión. Por eso cruza deprisa y por eso no
 ## vuelve —quien la ve tiene que decidir en el momento, que es justo lo contrario
 ## de lo que pide el resto del juego.
+##
+## Siempre por el mismo lado y en el mismo sentido, y no por uno al azar. Un
+## objetivo que vale diez y pasa una vez tiene que poder anticiparse: si puede
+## venir de cualquier parte, verla es suerte. Viniendo siempre de abajo a la
+## izquierda, el ojo aprende dónde mirar y atraparla pasa a ser mérito.
 func _soltar_fugaz() -> void:
-	var pantalla := get_viewport_rect().size
 	var area := _area_juego()
 	var d := Dot.new()
 	var fuera := d.radius * 3.0
-	var desde_izq := randf() < 0.5
 
-	d.position = Vector2(-fuera if desde_izq else pantalla.x + fuera,
-			randf_range(area.position.y, area.position.y + area.size.y * 0.35))
-	# Apunta a la mitad de abajo del campo para que cruce por delante del
-	# jugador, no por un rincón.
+	# Entra por la izquierda, en la banda que va del 20 % al 50 % de altura
+	# contando DESDE ABAJO —que es del 50 % al 80 % contando desde arriba, que es
+	# como se miden las coordenadas.
+	d.position = Vector2(area.position.x - fuera,
+			area.position.y + area.size.y * randf_range(0.50, 0.80))
+	# Y se va por arriba a la derecha. La diana cae fuera del campo a propósito:
+	# lo que importa no es adónde llega sino por dónde sale, y apuntar dentro la
+	# dejaría muriéndose en mitad de la pantalla.
 	var diana := area.position + Vector2(
-			randf_range(area.size.x * 0.25, area.size.x * 0.75),
-			randf_range(area.size.y * 0.55, area.size.y * 0.95))
+			area.size.x * randf_range(0.75, 1.10),
+			area.size.y * randf_range(-0.35, -0.05))
 	var rumbo := (diana - d.position).normalized()
 
 	_preparar_dot(d, Dot.Movimiento.FUGAZ, rumbo)
@@ -1016,10 +1158,14 @@ func _soltar_fugaz() -> void:
 	d.velocity = rumbo * d.base_speed
 	d.valor_mult = fugaz_puntos
 	d.onda_mult = fugaz_onda
-	# Se curva siempre hacia el mismo lado que va, para que el arco acompañe la
-	# diagonal en vez de pelearse con ella.
-	d.curva_fugaz = fugaz_curva * (1.0 if desde_izq else -1.0)
+	# El arco abre la subida: entra trepando y se va tumbando conforme cruza, en
+	# vez de subir en línea recta. Ya no hace falta invertir el signo según el
+	# lado, porque el lado ya no cambia.
+	d.curva_fugaz = fugaz_curva
 	d.largo_estela = fugaz_estela
+	# El rastro toma el color de la ONDA del bioma, no el del objetivo: la
+	# cabeza es la luz y la estela es lo que esa luz deja detrás.
+	d.color_estela = Color(str(_paleta.get("onda", "8ec5ff")))
 	d.entrar_creciendo()
 
 	_dots_root.add_child(d)
@@ -1609,8 +1755,15 @@ func _area_cadena() -> Rect2:
 
 
 ## Lleva la cuenta atrás de la próxima estrella fugaz.
+##
+## No mira en qué pantalla se está: basta con que el bioma tenga fugaces. Quien
+## llama a esto ya exige que el mundo esté en marcha —_mundo_activo()—, así que
+## en pausa, en la derrota y en la victoria no corre porque ahí no corre nada.
+## Lo que cambia es que ahora también cruzan en el briefing y en el "toca para
+## empezar": antes se exigía PLAYING, y quedarse mirando la pantalla de inicio
+## de Cielo abierto era el único sitio del juego donde el cielo estaba muerto.
 func _tick_fugaz(delta: float) -> void:
-	if not _hay_fugaces() or _state != State.PLAYING:
+	if not _hay_fugaces():
 		return
 	_fugaz_espera -= delta
 	if _fugaz_espera <= 0.0:
@@ -2144,6 +2297,26 @@ func _terminar(estado: State) -> void:
 ##
 ## Si la jugada se tuerce y ya no está cerca, se restaura la velocidad: la
 ## anticipación no puede castigar al que estuvo a punto y no lo consiguió.
+## Lleva Engine.time_scale hasta donde toque, sin saltos.
+##
+## No toca nada mientras hay un final en marcha: la cámara lenta de la victoria
+## y la de la derrota ponen su propia escala y no son de este mecanismo.
+func _suavizar_time_scale(delta: float) -> void:
+	if _final_pendiente >= 0:
+		return
+	var objetivo := _ts_base * (ANTICIPA_FACTOR if _anticipando else 1.0)
+	if is_equal_approx(Engine.time_scale, objetivo):
+		Engine.time_scale = objetivo
+		return
+	# El delta llega YA escalado por time_scale, así que dividirlo lo devuelve a
+	# segundos de reloj. Sin esto la rampa de salida tardaría el doble solo por
+	# estar saliendo de ir a la mitad de velocidad.
+	var real := delta / maxf(Engine.time_scale, 0.01)
+	var recorrido := _ts_base * (1.0 - ANTICIPA_FACTOR)
+	Engine.time_scale = move_toward(Engine.time_scale, objetivo,
+			recorrido * real / ANTICIPA_RAMPA)
+
+
 func _actualizar_anticipacion() -> void:
 	if _final_pendiente >= 0:
 		return
@@ -2156,15 +2329,14 @@ func _actualizar_anticipacion() -> void:
 	if cerca and not _anticipando:
 		_anticipando = true
 		_anticipa_hasta = Time.get_ticks_msec() + int(ANTICIPA_MAX * 1000.0)
-		Engine.time_scale = _ts_base * ANTICIPA_FACTOR
 		_diag.evento("anticipacion pts=%d cadena=%d" % [_score, _best_cascade])
 	elif _anticipando and (not cerca or Time.get_ticks_msec() >= _anticipa_hasta):
 		_fin_anticipacion()
 
 
+## Solo baja la bandera: de devolver la velocidad se encarga la rampa.
 func _fin_anticipacion() -> void:
 	_anticipando = false
-	Engine.time_scale = _ts_base
 
 
 ## Si el objetivo se puede cumplir con el siguiente movimiento.
@@ -2242,7 +2414,7 @@ func _empezar_partida() -> void:
 	# de una derrota, la partida nueva arrancaría bloqueada.
 	_final_pendiente = -1
 	_burbujas.limpiar()
-	_fugaz_espera = _proxima_fugaz()
+	_fugaz_espera = _primera_fugaz()
 	_bioma_sinfin = 0
 	_rellenar_bolsa()
 	_transicion = -1.0
@@ -2495,6 +2667,83 @@ func _cargar() -> void:
 	# Ojo: todos_los_niveles NO toca _nivel_max, que sigue siendo el progreso
 	# real. Solo levanta el tope del selector, así se puede curiosear la campaña
 	# entera sin perder por dónde se iba.
+
+
+## Devuelve la ventana a donde estaba la última vez.
+##
+## Se llama lo primero de _ready, antes de montar nada: cuanto más tarde se
+## mueva, más se ve el salto desde el centro.
+func _restaurar_ventana() -> void:
+	if not _ventana_movible():
+		return
+	var cfg := ConfigFile.new()
+	if cfg.load(VENTANA_PATH) != OK:
+		return
+	var pos := Vector2i(
+			int(cfg.get_value("ventana", "x", 0)),
+			int(cfg.get_value("ventana", "y", 0)))
+	# Si la posición guardada ya no cae en ninguna pantalla —un monitor que se
+	# desconectó, o una resolución que cambió— se ignora y se deja donde el
+	# sistema la puso. Una ventana fuera de cuadro no se recupera con el ratón,
+	# y recordar dónde estaba no puede costar perderla.
+	if not _cabe_en_alguna_pantalla(pos):
+		return
+	DisplayServer.window_set_position(pos)
+	_ventana_pos = pos
+
+
+## Si esto es un escritorio con una ventana que se pueda mover.
+##
+## En el teléfono no hay ventana que colocar y en headless no hay ninguna, así
+## que todo esto sobra. Se mira la plataforma y no una capacidad de
+## DisplayServer porque no hay ninguna que signifique esto: la que lo parecía
+## —FEATURE_WINDOW_POSITION— no existe.
+func _ventana_movible() -> bool:
+	return OS.has_feature("pc") and DisplayServer.get_name() != "headless"
+
+
+## Si la esquina cae dentro del área usable de alguna pantalla conectada.
+##
+## Se comprueba la esquina y no la ventana entera a propósito: sacar medio
+## juego fuera del monitor es una postura legítima —y bastante común al
+## comparar dos ventanas—, mientras que la barra de título fuera de cuadro es
+## lo único que de verdad deja la ventana inalcanzable.
+func _cabe_en_alguna_pantalla(pos: Vector2i) -> bool:
+	for i in DisplayServer.get_screen_count():
+		if DisplayServer.screen_get_usable_rect(i).has_point(pos):
+			return true
+	return false
+
+
+## Guarda la posición cuando deja de moverse.
+##
+## Se guarda MIENTRAS corre y no al cerrar, que sería lo natural, porque el
+## vigilante de tools/vigilar.ps1 mata el proceso con taskkill /F para relanzarlo
+## a cada cambio: ahí no se ejecuta ni _exit_tree ni la notificación de cierre.
+## Guardar solo al salir habría funcionado en todas las pruebas menos en el
+## único caso para el que esto existe.
+func _tick_ventana(delta: float) -> void:
+	if not _ventana_movible():
+		return
+
+	_ventana_sondeo -= delta
+	if _ventana_sondeo <= 0.0:
+		_ventana_sondeo = VENTANA_SONDEO
+		var ahora := DisplayServer.window_get_position()
+		if ahora != _ventana_pos:
+			_ventana_pos = ahora
+			_ventana_pendiente = VENTANA_REPOSO
+
+	if _ventana_pendiente < 0.0:
+		return
+	_ventana_pendiente -= delta
+	if _ventana_pendiente > 0.0:
+		return
+	_ventana_pendiente = -1.0
+	var cfg := ConfigFile.new()
+	cfg.set_value("ventana", "x", _ventana_pos.x)
+	cfg.set_value("ventana", "y", _ventana_pos.y)
+	cfg.save(VENTANA_PATH)
 
 
 func _guardar() -> void:
