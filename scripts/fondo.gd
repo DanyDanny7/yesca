@@ -255,7 +255,7 @@ func _dibujar_algas_sueltas(r: Vector2, a: Dictionary) -> void:
 		# no de randf(), o cambiaría en cada fotograma y las algas darían
 		# saltos de tamaño.
 		var v := sin(float(k) * 2.399963) * 0.5 + 0.5
-		var mide := lerpf(1.0 - VARIACION_ALGA, 1.0 + VARIACION_ALGA, v)
+		var mide := lerpf(ALGA_ESCALA_MIN, ALGA_ESCALA_MAX, v)
 		var ww := w * mide
 		var hh := h * mide
 		draw_texture_rect_region(tex,
@@ -435,7 +435,7 @@ const ARTE_PLANETA := Vector3(26.0, -8.0, 96.0)
 ##
 ## Más lento que el coleo del pez, que es 1.1: una planta se mece, no se agita.
 ## Pero 2.6 se leía como agua parada, no como corriente.
-const CICLO_ALGAS := 1.3
+const CICLO_ALGAS := 1.8
 ## Cada cuántos píxeles se planta un alga cuando se repite una sola.
 const PASO_ALGA := 46.0
 ## Cuánto se retrasa cada alga respecto a la de su izquierda, en vueltas.
@@ -445,8 +445,11 @@ const PASO_ALGA := 46.0
 ## hacia la derecha, así que el mecido VIAJA aguas abajo, en el mismo sentido que
 ## corre el azulejo.
 const DESFASE_ALGA := 0.37
-## Cuánto varía de tamaño cada alga respecto a la de al lado.
-const VARIACION_ALGA := 0.28
+## Entre qué tamaños se planta cada alga. El máximo es 1.0 —el alga dibujada a
+## su tamaño— y hacia abajo hay margen: una mata donde todas midan igual se lee
+## como una estampa repetida, y hacia arriba solo se vería el pixelado.
+const ALGA_ESCALA_MIN := 0.58
+const ALGA_ESCALA_MAX := 1.0
 
 ## Cuántas bandas puede llevar un bioma.
 ##
