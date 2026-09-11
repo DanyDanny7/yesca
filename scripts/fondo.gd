@@ -237,12 +237,14 @@ func _dibujar_algas_sueltas(r: Vector2, a: Dictionary) -> void:
 	var n: int = a["fotogramas"]
 	var ancho := tex.get_width() / maxi(1, n)
 	var alto := float(tex.get_height())
-	# Se escala igual que el telón: por el ancho de la pantalla respecto al
-	# lienzo del arte, para que el alga mida lo mismo que el lecho de debajo.
-	var esc := r.x / ARTE_ANCHO * (ARTE_ANCHO / 208.0)
-	var paso := PASO_ALGA * (r.x / 540.0)
-	var w := float(ancho) * (r.x / 540.0)
-	var h := alto * (r.x / 540.0)
+	# Se escala igual que el telón, pero pasando por las unidades de arte: el
+	# alga y el lecho no vienen rasterizados a la misma resolución.
+	var por_unidad := r.x / ARTE_ANCHO
+	var esc := por_unidad * (ALGA_ANCHO_UNIDADES / float(ancho))
+	var paso := PASO_ALGA * por_unidad
+	var base := r.y - ALGA_BASE * por_unidad
+	var w := float(ancho) * esc
+	var h := alto * esc
 	var vuelta := _reloj / CICLO_ALGAS
 	var k := 0
 	var x := -paso * 0.5
@@ -259,7 +261,7 @@ func _dibujar_algas_sueltas(r: Vector2, a: Dictionary) -> void:
 		var ww := w * mide
 		var hh := h * mide
 		draw_texture_rect_region(tex,
-				Rect2(Vector2(x - (ww - w) * 0.5, r.y - hh), Vector2(ww, hh)),
+				Rect2(Vector2(x - (ww - w) * 0.5, base - hh), Vector2(ww, hh)),
 				Rect2(float(i * ancho), 0.0, float(ancho), alto))
 		x += paso * lerpf(0.82, 1.18, fposmod(v * 3.7, 1.0))
 		k += 1
@@ -436,8 +438,23 @@ const ARTE_PLANETA := Vector3(26.0, -8.0, 96.0)
 ## Más lento que el coleo del pez, que es 1.1: una planta se mece, no se agita.
 ## Pero 2.6 se leía como agua parada, no como corriente.
 const CICLO_ALGAS := 1.8
-## Cada cuántos píxeles se planta un alga cuando se repite una sola.
-const PASO_ALGA := 46.0
+## Ancho del lienzo de un cuadro del alga, en unidades de arte.
+##
+## Hace falta porque cada pieza viene rasterizada a su propia resolución: el
+## telón a 3x -624 px para 208 unidades- y el alga a 2x. Escalando por píxeles,
+## como se hacía antes con un 540 mágico heredado del alga vieja, la nueva salía
+## al 77% de su tamaño y se quedaba enterrada en el lecho. Pasando por unidades,
+## una entrega futura a otra resolución sale del tamaño correcto sin tocar nada.
+const ALGA_ANCHO_UNIDADES := 36.0
+## A qué altura sobre el borde inferior se planta la base del alga, en unidades.
+##
+## No en el suelo de la pantalla: el lecho de Río sube hasta 38,7 unidades y se
+## dibuja ENCIMA, así que un alga plantada abajo queda entera detrás. Plantada a
+## 27 la base queda enterrada unas once unidades —que es lo que pide la entrega,
+## que el limo le tape el arranque— y el resto asoma.
+const ALGA_BASE := 27.0
+## Cada cuántas unidades se planta un alga cuando se repite una sola.
+const PASO_ALGA := 17.7
 ## Cuánto se retrasa cada alga respecto a la de su izquierda, en vueltas.
 ##
 ## No es una fracción entera a propósito: con 1/2 o 1/4 las algas volverían a
