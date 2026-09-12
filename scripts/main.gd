@@ -267,9 +267,6 @@ extends Node2D
 @export var barrido_dur: float = 1.1
 
 @export_subgroup("Fallos")
-@export var fallos_base: int = 5
-@export var fallos_step: float = 0.4
-@export var fallos_min: int = 3
 
 const SPAWN_MARGIN := 40.0
 ## Umbrales de la barra. Tres estados y no dos: con solo verde y rojo, el aviso
@@ -304,6 +301,8 @@ const XN_ASIENTO := 0.12
 ## Caja de la etiqueta flotante de cada cadena.
 const COMBO_SIZE := Vector2(240.0, 100.0)
 const STAGE_COLOR_TOPE := 10.0
+## Cuántos escalones puede subir un nivel de campaña por encima del suyo.
+const ESCALON_TOPE_CAMPANA := 10
 const SAVE_PATH := "user://cadena.cfg"
 ## Dónde estaba la ventana la última vez. Va en su propio archivo y no en
 ## SAVE_PATH a propósito: esto es comodidad de escritorio, no partida del
@@ -428,10 +427,8 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _score_label: Label = $UI/Score
 @onready var _best_label: Label = $UI/Best
 @onready var _objetivo_label: Label = $UI/Objetivo
-@onready var _hint_label: Label = $UI/Hint
 @onready var _flash_label: Label = $UI/Flash
 @onready var _stage_label: Label = $UI/Stage
-@onready var _fallos_label: Label = $UI/Fallos
 @onready var _combos_root: Control = $UI/Combos
 @onready var _destello_rect: ColorRect = $UI/Destello
 @onready var _barrido: ColorRect = $UI/Barrido
@@ -531,7 +528,6 @@ var _flash_left: float = 0.0
 var _record_nuevo: bool = false
 ## El récord que había antes de batirlo, para poder decir por cuánto.
 var _best_previo: int = 0
-var _fallos: int = 0
 var _stage_shown: int = 1
 var _shake: float = 0.0
 ## Congelación pendiente, en segundos.
@@ -659,8 +655,8 @@ var _antes_de_pausar: State = State.PLAYING
 
 func _ready() -> void:
 	_restaurar_ventana()
-	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _fallos_label, _score_label,
-			_best_label, _objetivo_label, _hint_label, _flash_label, _combos_root,
+	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _score_label,
+			_best_label, _flash_label, _combos_root,
 			_btn_pausa]
 	_hud_nuevo = Hud.new()
 	$UI.add_child(_hud_nuevo)
@@ -928,7 +924,6 @@ func _tick_hud(delta: float) -> void:
 	_score_label.visible = false
 	_best_label.visible = false
 	_stage_label.visible = false
-	_fallos_label.visible = false
 	# El objetivo pertenece a la pantalla de inicio, no al juego: mientras se
 	# juega estorba justo en la banda donde caen los targets, y el jugador ya
 	# sabe lo que le piden porque acaba de leerlo.
@@ -940,9 +935,6 @@ func _tick_hud(delta: float) -> void:
 	_hud_nuevo.estado = _estado_hud()
 	_hud_nuevo.puntos = _score
 	_hud_nuevo.record = _best
-	_hud_nuevo.cadena = _stage()
-	_hud_nuevo.vidas = _fallos_permitidos()
-	_hud_nuevo.vidas_gastadas = _fallos
 	_hud_nuevo.multiplicador = _multiplicador_vivo()
 	var frac := clampf(_time_left / time_max, 0.0, 1.0)
 	# En pausa el HUD se dibuja pero no avanza, igual que los círculos: quien
@@ -1067,7 +1059,20 @@ func _unhandled_input(event: InputEvent) -> void:
 func _stage() -> int:
 	var por_puntos := floori(float(_score) / float(stage_size)) + 1
 	var por_tiempo := floori(_elapsed / stage_seconds) + 1
-	return maxi(por_puntos, por_tiempo) + _stage_offset
+	var s := maxi(por_puntos, por_tiempo) + _stage_offset
+	if _mode == Mode.CAMPANA:
+		# En campaña el escalón sube DIEZ sobre el del nivel y ahí se queda.
+		#
+		# Un nivel de campaña tiene un objetivo y se acaba al cumplirlo, así que
+		# no hace falta que siga endureciéndose sin fin: al que tarda en cumplir
+		# se le acabaría poniendo imposible justo el nivel que ya le costaba.
+		# El nivel lo calibra su escalón de salida, no cuánto se alargue.
+		#
+		# En sin fin no hay tope, y ahí sí debe haberlo: esa partida no termina
+		# por objetivo, termina cuando el juego te gana, y sin escalada no hay
+		# final.
+		return mini(s, _stage_offset + ESCALON_TOPE_CAMPANA)
+	return s
 
 
 func _es_respiro(s: int) -> bool:
@@ -1158,30 +1163,7 @@ func _speed_bonus() -> float:
 	return speed_step * (_stage() - 1)
 
 
-func _fallos_permitidos() -> int:
-	return maxi(fallos_min, fallos_base - floori(fallos_step * (_stage() - 1)))
-
-
 ## Cuántos fallos quedan antes de que el contador empiece a avisar.
-const FALLOS_AVISO := 2
-
-
-## El texto del contador de fallos: el número, y el margen solo si aprieta.
-##
-## Antes ponía siempre "Fallos 2 / 5", y ese denominador no informaba: lo normal
-## es perder por tiempo con dos fallos, y entonces los tres que quedaban no
-## significaron nada. Un dato que casi nunca es el que te mata se lee como ruido,
-## y el ruido en un HUD tapa el campo.
-##
-## Pero el límite existe y mata de verdad —con la barra en ocho segundos, cinco
-## fallos se agotan antes de que el tiempo llegue a matarte—, así que esconderlo
-## del todo sería cambiar el ruido por una emboscada. La solución es enseñarlo
-## exactamente cuando pasa a ser lo que decide la partida.
-func _texto_fallos() -> String:
-	var quedan := _fallos_permitidos() - _fallos
-	if quedan <= FALLOS_AVISO:
-		return "Fallos  %d  ·  queda%s %d" % [_fallos, "" if quedan == 1 else "n", maxi(0, quedan)]
-	return "Fallos  %d" % _fallos
 
 
 ## Las detonaciones se calientan de color con los escalones. No cambia nada del
@@ -1464,23 +1446,22 @@ func _tap(pos: Vector2) -> void:
 		_spawn_effect(mundo)
 		_sonar(SND_FALLO)
 		_vibrar(45)
-		_fallos += 1
+		# La barra es la ÚNICA vida. Antes había además un contador de fallos
+		# seguidos que mataba al llegar a su tope, y eran dos relojes contando lo
+		# mismo: fallar ya cuesta tiempo, y el tiempo ya se ve. Con los dos, el
+		# jugador podía morir con barra de sobra sin entender por qué, porque el
+		# que lo mataba era el que no estaba mirando.
+		#
+		# Lo que sí se queda es la muerte de los niveles que EXIGEN limpieza: ahí
+		# no fallar no es una vida, es el objetivo del nivel.
 		if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):
 			_marcar_muerte(mundo)
 			_perder("Fallaste el toque")
-		elif _fallos >= _fallos_permitidos():
-			_marcar_muerte(mundo)
-			_perder("Demasiados fallos")
 		else:
-			var quedan := _fallos_permitidos() - _fallos
-			if quedan <= FALLOS_AVISO:
-				_flash("Fallo  ·  queda%s %d" % ["" if quedan == 1 else "n", quedan])
-			else:
-				_flash("Fallo")
+			_flash("Fallo")
 		return
 
 	_time_left -= tap_cost
-	_fallos = 0
 	_vibrar(12)
 
 	# Un tap ARRANCA su propia cadena. No continúa la que hubiera en curso ni la
@@ -2596,7 +2577,6 @@ func _empezar_partida() -> void:
 		_soltar_combo_label(id)
 	_best_cascade = 0
 	_limpias = 0
-	_fallos = 0
 	_respawn_timer = _respawn_interval()
 	_field_was_empty = false
 	_flash_left = 0.0
@@ -2626,7 +2606,16 @@ func _empezar_partida() -> void:
 	_sonar_musica()
 	# En campaña se lee el objetivo antes de empezar. Es lo que faltaba al
 	# encadenar niveles: tras "SIGUE" caías dentro sin saber qué te pedían.
-	_ir_a(State.BRIEFING if _mode == Mode.CAMPANA else State.READY)
+	#
+	# Con el HUD nuevo ese paso desaparece: su pantalla de inicio YA enseña el
+	# bioma, el objetivo y el récord, que es justo lo que traía la tarjeta de
+	# briefing. Teniendo las dos, el jugador tocaba una vez y no pasaba nada
+	# visible -cerraba el briefing y aparecía una pantalla igual- y tenía que
+	# tocar otra vez para empezar. Dos toques para un solo mensaje.
+	if _hud_nuevo != null:
+		_ir_a(State.READY)
+	else:
+		_ir_a(State.BRIEFING if _mode == Mode.CAMPANA else State.READY)
 
 
 func _poblar_campo() -> void:
@@ -2877,15 +2866,21 @@ func _ir_a(s: State) -> void:
 func _sincronizar_hud(s: State) -> void:
 	var inicio := s == State.BRIEFING or s == State.READY
 	var fin := s == State.DEAD or s == State.WIN or s == State.FINAL
+	# El objetivo se compone para las dos pantallas que lo enseñan, inicio y
+	# pausa. En sin fin no hay objetivo que recordar: se juega hasta que se
+	# acabe el tiempo, y eso no es algo que se pueda olvidar.
+	_hud_nuevo.objetivo = ""
+	if _mode == Mode.CAMPANA:
+		_hud_nuevo.objetivo = Niveles.capitalizar(Niveles.describir(_nivel))
 	if s == State.PAUSA:
 		_hud_nuevo.poner_opciones(_opciones_hud())
 		_pause_screen.visible = false
 	elif inicio:
 		_hud_nuevo.titulo = _bioma_actual()
-		_hud_nuevo.objetivo = ""
-		if _mode == Mode.CAMPANA:
-			_hud_nuevo.objetivo = Niveles.capitalizar(Niveles.describir(_nivel))
-		_hud_nuevo.pie = "récord %d · cadena %d" % [_best, _stage()]
+		# El pie solo lleva el récord. La dificultad se quitó de la pantalla: es
+		# un número interno con el que el jugador no puede hacer nada, y encima
+		# se llamaba «cadena», que en este juego ya significa otra cosa.
+		_hud_nuevo.pie = "récord %d" % _best if _best > 0 else ""
 	elif fin:
 		_hud_nuevo.fin_titulo = _titulo_de_fin(s)
 		_hud_nuevo.fin_noticia = _noticia_de_fin()
@@ -2897,7 +2892,6 @@ func _sincronizar_hud(s: State) -> void:
 		_hud_nuevo.poner_opciones([])
 	_over_screen.visible = _over_screen.visible and not fin
 	_win_screen.visible = _win_screen.visible and not fin
-	_hint_label.visible = _hint_label.visible and not inicio
 
 
 ## Las cuatro opciones, en el orden en que se dibujan y se tocan.
@@ -3138,7 +3132,6 @@ func _update_ui() -> void:
 	_score_label.pivot_offset = _score_label.size * 0.5
 	var punch := 1.0 + 0.18 * _score_pop * _score_pop
 	_score_label.scale = Vector2(punch, punch)
-	_hint_label.visible = _state == State.READY
 
 	if _mode == Mode.CAMPANA:
 		_best_label.text = "Nivel %d" % (_nivel + 1)
@@ -3151,15 +3144,6 @@ func _update_ui() -> void:
 
 	var s := _stage()
 	_stage_label.text = "dificultad %d  ·  %s" % [_dificultad(), NOMBRES_MOV[_movimiento_actual()]]
-	# En los niveles que se pierden al primer fallo, un contador 0 / 5 sería
-	# mentira: no hay margen que gastar.
-	if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):
-		_fallos_label.text = "Sin fallos permitidos"
-		_fallos_label.modulate = Color("ff5470")
-	else:
-		_fallos_label.text = _texto_fallos()
-		_fallos_label.modulate = Color("ff5470") if _fallos > 0 else Color(0.45, 0.45, 0.55)
-
 	var frac := clampf(_time_left / time_max, 0.0, 1.0)
 	_bar_fill.size = Vector2(_bar_bg.size.x * frac, _bar_bg.size.y)
 	if _time_left < WARN_TIME:

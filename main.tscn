@@ -59,17 +59,6 @@ theme_override_font_sizes/font_size = 22
 text = "Escalón 1"
 horizontal_alignment = 2
 
-[node name="Fallos" type="Label" parent="UI"]
-anchor_right = 1.0
-offset_left = 40.0
-offset_top = 100.0
-offset_right = -40.0
-offset_bottom = 126.0
-mouse_filter = 2
-theme_override_font_sizes/font_size = 22
-text = "Fallos  0 / 5"
-horizontal_alignment = 2
-
 [node name="Score" type="Label" parent="UI"]
 anchor_right = 1.0
 offset_top = 140.0
@@ -137,19 +126,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="Hint" type="Label" parent="UI"]
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_top = 60.0
-offset_bottom = 120.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.72, 0.72, 0.8, 1)
-theme_override_font_sizes/font_size = 34
-text = "Toca un círculo"
-horizontal_alignment = 1
-vertical_alignment = 1
-
 [node name="Destello" type="ColorRect" parent="UI"]
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -189,19 +165,6 @@ mouse_filter = 2
 theme_override_font_sizes/font_size = 84
 text = "Cadena"
 horizontal_alignment = 1
-
-[node name="Sub" type="Label" parent="UI/MenuScreen"]
-anchor_right = 1.0
-offset_left = 60.0
-offset_top = 348.0
-offset_right = -60.0
-offset_bottom = 400.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.55, 0.55, 0.66, 1)
-theme_override_font_sizes/font_size = 26
-text = "Toca un círculo. La onda contagia al resto."
-horizontal_alignment = 1
-autowrap_mode = 2
 
 [node name="Campana" type="Control" parent="UI/MenuScreen"]
 anchor_left = 0.5

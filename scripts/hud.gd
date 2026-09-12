@@ -15,23 +15,31 @@ extends Control
 const RUTA_FUENTE := "res://fuentes/Fredoka[wdth,wght].ttf"
 const RUTA_COLORES := "res://datos/hud_colores.json"
 
+## Los parámetros de ajuste van como @export y el resto de medidas como const.
+##
+## La raya la pone la especificación, que lista trece: los que se espera que
+## alguien mueva para probar. Las demás cifras —dónde va el marcador, cuánto
+## mide el récord— no son ajustes sino el diseño en sí, y abrirlas a que se
+## toquen sueltas es como acaban los HUD en los que cada pieza está donde
+## alguien la dejó una tarde.
+##
 ## El lienzo de diseño. Todas las medidas de la especificación van aquí dentro.
-const LIENZO := Vector2(1080.0, 1920.0)
+@export var LIENZO := Vector2(1080.0, 1920.0)
 ## Suelo de legibilidad para lo secundario y techo para todo.
-const K_MIN_SECUNDARIO := 0.75
-const K_MAX := 1.6
+@export var K_MIN_SECUNDARIO: float = 0.75
+@export var K_MAX: float = 1.6
 
 ## Arco del tiempo.
-const ARCO_RADIO := 408.0
-const ARCO_GROSOR := 21.0
+@export var ARCO_RADIO: float = 408.0
+@export var ARCO_GROSOR: float = 21.0
 const ARCO_CENTRO := Vector2(540.0, 456.0)
 ## Fracción de tiempo por debajo de la cual el arco pulsa, y cada cuánto.
-const CRITICO_UMBRAL := 0.15
-const CRITICO_PULSO := 0.5
+@export var CRITICO_UMBRAL: float = 0.15
+@export var CRITICO_PULSO: float = 0.5
 
 ## El velo bajo el arco. No es decoración: sin él el HUD claro no aguanta sobre
 ## Hormigas ni Río, que tienen la mitad de arriba clara.
-const VELO_ALTO := 384.0
+@export var VELO_ALTO: float = 384.0
 const VELO_DE := 0.9
 const VELO_MEDIO := 0.62
 const VELO_A := 0.0
@@ -59,12 +67,6 @@ const PILDORA_TAM := 54.0
 const PILDORA_Y := 396.0
 const PILDORA_AIRE := Vector2(30.0, 9.0)
 const PILDORA_RADIO := 60.0
-const CADENA_TAM := 27.0
-const CADENA_MARGEN := 42.0
-const VIDA_DIAMETRO := 21.0
-const VIDA_SEPARACION := 12.0
-const VIDA_CONTORNO := 3.6
-const VIDA_GASTADA_ALFA := 0.45
 ## El botón de pausa. Se DIBUJA a 78 pero el toque mide 132: en el pulgar, un
 ## objetivo de 78 units en la esquina superior se falla más de lo que parece, y
 ## fallar la pausa en un juego con reloj cuesta la partida.
@@ -74,12 +76,12 @@ const PAUSA_Y := 54.0
 const PAUSA_DERECHA := 42.0
 
 const FLOTANTE_TAM := 72.0
-const FLOTANTE_SUBE := 78.0
-const FLOTANTE_VIDA := 1.1
-const FLOTANTE_REBOTE := 1.12
+@export var FLOTANTE_SUBE: float = 78.0
+@export var FLOTANTE_VIDA: float = 1.1
+@export var FLOTANTE_REBOTE: float = 1.12
 ## El golpe del marcador al sumar: no se anima la cifra contando hacia arriba,
 ## el número salta y el golpe es el que cuenta la subida.
-const MARCADOR_GOLPE := 1.14
+@export var MARCADOR_GOLPE: float = 1.14
 const MARCADOR_GOLPE_SUBE := 0.07
 const MARCADOR_GOLPE_BAJA := 0.2
 
@@ -134,6 +136,21 @@ const TOCA_INTER := 4.5
 const OBJETIVO_TAM := 108.0
 const PIE_TAM := 63.0
 const PIE_MARGEN := 36.0
+## Margen lateral de TODO texto centrado, en units por lado.
+##
+## Ningún texto toca el borde. Los objetivos y los nombres de bioma los escribe
+## quien disena, no el HUD, asi que su largo no se puede dar por sabido: «Haz
+## una cadena de x6» llegaba de lado a lado de la pantalla y se leia como si se
+## saliera. Si no cabe, el texto ENCOGE hasta caber con su margen; antes que
+## recortarlo o dejarlo pegado al filo, se reduce, que un punto mas pequeno se
+## lee y un texto cortado no.
+const MARGEN_TEXTO := 72.0
+
+## El objetivo, recordado arriba en la pausa. Más pequeño que en la pantalla de
+## inicio: allí es la noticia y aquí es un recordatorio, que no es lo mismo.
+const PAUSA_OBJETIVO_TAM := 72.0
+const PAUSA_OBJETIVO_Y := 186.0
+
 const FIN_MARCADOR_TAM := 366.0
 const FIN_MARCADOR_INTER := -2.5
 const NOTICIA_TAM := 63.0
@@ -181,9 +198,6 @@ var corriendo: bool = false
 var puntos: int = 0
 var record: int = 0
 var multiplicador: int = 0
-var cadena: int = 0
-var vidas: int = 0
-var vidas_gastadas: int = 0
 
 ## Los flotantes vivos. Cada uno es {texto, origen, t}.
 var _flotantes: Array[Dictionary] = []
@@ -404,8 +418,6 @@ func _draw() -> void:
 	_dibujar_marcador()
 	_dibujar_record()
 	_dibujar_pildora()
-	_dibujar_cadena()
-	_dibujar_vidas()
 	_dibujar_flotantes()
 	_dibujar_boton_pausa()
 
@@ -417,10 +429,13 @@ func _dibujar_boton_pausa() -> void:
 		return
 	var c := _centro_pausa()
 	var d := medida(PAUSA_TAM)
-	draw_circle(c, d * 0.5, Color(onda, OP_PILDORA))
+	# Relleno pleno y el icono en la paleta, igual que SEGUIR y que una ficha
+	# encendida. Con el círculo al 18% se leía como un botón deshabilitado: en
+	# este HUD «lleno» significa «esto se puede tocar», y la pausa se puede.
+	draw_circle(c, d * 0.5, Color(onda, OP_PRINCIPAL))
 	var lado := d * ICONO_CAJA
 	draw_texture_rect(tex, Rect2(c - Vector2(lado, lado) * 0.5,
-			Vector2(lado, lado)), false, Color(onda, OP_SECUNDARIO))
+			Vector2(lado, lado)), false, paleta)
 
 
 func _centro_pausa() -> Vector2:
@@ -457,7 +472,7 @@ func _dibujar_inicio() -> void:
 			Color(claro, OP_PRINCIPAL))
 	var y_toca := arriba + alto_titulo + hueco
 	_texto_centrado_px("TOCA PARA EMPEZAR", y_toca, TOCA_TAM, PESO_MEDIO,
-			Color(onda, OP_SECUNDARIO), TOCA_INTER)
+			Color(onda, OP_SECUNDARIO), TOCA_INTER, true)
 
 	# El objetivo se centra en SU BANDA, no a una altura fija: con una altura
 	# fija, dos líneas lo bajan y cuatro lo pegan al borde.
@@ -492,6 +507,12 @@ func rect_opcion(i: int) -> Rect2:
 ## lleva fondo lleno.
 func _dibujar_pausa() -> void:
 	_apagar(FONDO_PAUSA)
+	# El objetivo va arriba, donde en la partida está el marcador. Es el sitio
+	# que el arco deja libre al desaparecer, y quien pausa suele hacerlo para
+	# mirar precisamente eso: qué le estaban pidiendo.
+	if not objetivo.is_empty():
+		_texto_centrado_px(objetivo, medida(PAUSA_OBJETIVO_Y), PAUSA_OBJETIVO_TAM,
+				PESO_SEMI, Color(onda, OP_SECUNDARIO))
 	var alto_t := medida(TOCA_TAM)
 	var alto_m := medida(MARCADOR_TAM)
 	var alto_b := medida(BOTON_ALTO)
@@ -662,18 +683,41 @@ func _dibujar_fin() -> void:
 ## centran no pueden expresar su altura en units del lienzo, porque dependen de
 ## lo que mida la pantalla de verdad.
 func _texto_centrado_px(txt: String, y_px: float, u_tam: float, peso: int,
-		col: Color, u_inter: float = 0.0) -> void:
+		col: Color, u_inter: float = 0.0, con_suelo := false) -> void:
 	var f: Font = fuente(peso)
 	if f == null or txt.is_empty():
 		return
-	var tam := int(round(medida(u_tam)))
+	var escala := k_secundario() if con_suelo else k()
+	var tam := int(round(u_tam * escala))
 	if tam <= 0:
 		return
-	var inter := medida(u_inter)
+	# El interletrado va con la MISMA escala que la letra. Uno fijo sobre una
+	# letra escalada se abre o se cierra según el móvil.
+	var inter := u_inter * escala
+	var caben := _encoger(f, txt, tam, inter)
+	tam = int(caben.x)
+	inter = caben.y
 	var base := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
 	var ancho := base + inter * float(maxi(0, txt.length() - 1))
 	_texto_en(f, txt, Vector2(pantalla().x * 0.5 - ancho * 0.5, y_px + float(tam) * 0.8),
 			tam, col, inter)
+
+
+## Reduce tamaño e interletrado hasta que el texto quepa entre los márgenes.
+##
+## Devuelve el par (tamaño, interletrado) que cabe. El interletrado baja con el
+## tamaño: si se dejara fijo, un texto encogido acabaría con las letras más
+## separadas de lo que le toca a su cuerpo.
+func _encoger(f: Font, txt: String, tam: int, inter: float) -> Vector2:
+	var ancho_max := pantalla().x - medida(MARGEN_TEXTO) * 2.0
+	if ancho_max <= 0.0:
+		return Vector2(float(tam), inter)
+	var base := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
+	var ancho := base + inter * float(maxi(0, txt.length() - 1))
+	if ancho <= ancho_max or ancho <= 0.0:
+		return Vector2(float(tam), inter)
+	var factor := ancho_max / ancho
+	return Vector2(float(maxi(8, int(floor(float(tam) * factor)))), inter * factor)
 
 
 ## Solo la pista del arco, sin el tramo lleno.
@@ -681,8 +725,8 @@ func _dibujar_pista() -> void:
 	var radio := medida(ARCO_RADIO)
 	if radio <= 0.0:
 		return
-	draw_arc(punto(ARCO_CENTRO), radio, PI, TAU, 96,
-			Color(onda, OP_PISTA), medida(ARCO_GROSOR), true)
+	_arco_con_puntas(punto(ARCO_CENTRO), radio, PI, TAU,
+			Color(onda, OP_PISTA), medida(ARCO_GROSOR))
 
 
 ## Texto centrado en X sobre una Y del lienzo, con su interletrado.
@@ -699,6 +743,9 @@ func _texto_centrado(txt: String, u_y: float, u_tam: float, peso: int,
 	if tam <= 0:
 		return
 	var inter := medida(u_inter) * escala
+	var caben := _encoger(f, txt, tam, inter)
+	tam = int(caben.x)
+	inter = caben.y
 	var base := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x
 	var ancho := base + inter * float(maxi(0, txt.length() - 1))
 	var x := pantalla().x * 0.5 - ancho * 0.5
@@ -742,8 +789,10 @@ func _dibujar_marcador() -> void:
 func _dibujar_record() -> void:
 	if record <= 0:
 		return
+	# El récord es secundario, así que lleva suelo: antes de perderlo de vista en
+	# una pantalla pequeña, preferimos que ocupe algo más de lo previsto.
 	_texto_centrado("RÉCORD %d" % record, RECORD_Y, RECORD_TAM, PESO_MEDIO,
-			Color(onda, OP_SECUNDARIO), RECORD_INTER)
+			Color(onda, OP_SECUNDARIO), RECORD_INTER, k_secundario() / maxf(k(), 0.01))
 
 
 ## El multiplicador solo existe mientras la cascada está viva.
@@ -763,36 +812,6 @@ func _dibujar_pildora() -> void:
 	_texto_en(f, txt,
 			Vector2(esquina.x + aire.x, esquina.y + aire.y + float(tam) * 0.78),
 			tam, Color(onda, OP_PRINCIPAL))
-
-
-func _dibujar_cadena() -> void:
-	if cadena <= 0:
-		return
-	var f: Font = fuente(PESO_MEDIO)
-	if f == null:
-		return
-	var tam := int(round(CADENA_TAM * k_secundario()))
-	var m := medida(CADENA_MARGEN)
-	_texto_en(f, "CADENA %d" % cadena, Vector2(m, m + float(tam)), tam,
-			Color(onda, OP_TENUE), medida(RECORD_INTER))
-
-
-## Las vidas, bajo la cadena. Las gastadas se quedan en contorno: enseñar solo
-## las que quedan esconde cuántas había, que es la mitad de la información.
-func _dibujar_vidas() -> void:
-	if vidas <= 0:
-		return
-	var d := medida(VIDA_DIAMETRO)
-	var sep := medida(VIDA_SEPARACION)
-	var m := medida(CADENA_MARGEN)
-	var y := m + CADENA_TAM * k_secundario() + sep + d * 0.5
-	for i in vidas:
-		var c := Vector2(m + d * 0.5 + float(i) * (d + sep), y)
-		if i < vidas - vidas_gastadas:
-			draw_circle(c, d * 0.5, Color(onda, OP_SECUNDARIO))
-		else:
-			draw_arc(c, d * 0.5, 0.0, TAU, 24,
-					Color(onda, VIDA_GASTADA_ALFA), medida(VIDA_CONTORNO), true)
 
 
 ## Los puntos flotantes son el premio: nacen donde se tocó, rebotan y suben.
@@ -864,7 +883,7 @@ func _dibujar_arco() -> void:
 		return
 	# De PI a TAU: el semicírculo de arriba, que en Godot —con la Y hacia
 	# abajo— va del extremo izquierdo, por encima, al derecho.
-	draw_arc(centro, radio, PI, TAU, 96, Color(onda, OP_PISTA), grosor, true)
+	_arco_con_puntas(centro, radio, PI, TAU, Color(onda, OP_PISTA), grosor)
 	if frac_tiempo <= 0.0:
 		return
 	var alfa := OP_PRINCIPAL
@@ -874,5 +893,19 @@ func _dibujar_arco() -> void:
 		# peligro.
 		var f := 0.5 - 0.5 * cos(TAU * _pulso / CRITICO_PULSO)
 		alfa = lerpf(0.35, 1.0, f)
-	draw_arc(centro, radio, PI, PI + PI * frac_tiempo, 96,
-			Color(onda, alfa), grosor, true)
+	_arco_con_puntas(centro, radio, PI, PI + PI * frac_tiempo,
+			Color(onda, alfa), grosor)
+
+
+## Un arco con los extremos redondeados.
+##
+## draw_arc los deja a corte recto y no hay forma de pedirle otra cosa, así que
+## se remata con un círculo del grosor del trazo en cada punta. A 21 units de
+## grosor el corte recto se ve, y en un arco tan largo las dos puntas son lo
+## único con lo que el ojo mide cuánto queda.
+func _arco_con_puntas(centro: Vector2, radio: float, desde: float, hasta: float,
+		col: Color, grosor: float) -> void:
+	draw_arc(centro, radio, desde, hasta, 96, col, grosor, true)
+	var r := grosor * 0.5
+	draw_circle(centro + Vector2(cos(desde), sin(desde)) * radio, r, col)
+	draw_circle(centro + Vector2(cos(hasta), sin(hasta)) * radio, r, col)

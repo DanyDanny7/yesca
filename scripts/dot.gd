@@ -58,6 +58,7 @@ enum Giro {
 	ESPEJO,   ## no gira: se refleja al ir hacia la izquierda
 	CABECEO,  ## se refleja Y se inclina un poco hacia donde va. Perfiles vivos
 	NORIA,    ## gira por su cuenta, sin relación con el rumbo. Hojas cayendo
+	DERIVA,   ## gira despacio y cada uno a su ritmo. Copos en el aire
 }
 
 ## Cuánto se inclina como mucho una forma con CABECEO, en radianes.
@@ -67,6 +68,17 @@ enum Giro {
 const INCLINACION_MAX := 0.55
 ## Vueltas por segundo de una forma con NORIA.
 const NORIA_VUELTAS := 0.9
+## Entre qué velocidades gira una forma con DERIVA, en radianes por segundo.
+##
+## Lento y desigual a propósito. Un copo no cae recto: la inercia y el roce del
+## aire lo hacen voltear, y cada uno lo hace a su aire porque cada uno tiene su
+## masa y su forma. Con una sola velocidad para todos, veinticinco copos girando
+## igual se leen como un engranaje.
+##
+## El máximo da una vuelta completa en once segundos y el mínimo en cuarenta y
+## dos. Más rápido dejaría de parecer deriva y empezaría a parecer un molinillo.
+const DERIVA_MIN := 0.15
+const DERIVA_MAX := 0.55
 
 ## La política de giro de cada forma, EN EL ORDEN DEL ENUM Forma.
 ##
@@ -75,7 +87,7 @@ const NORIA_VUELTAS := 0.9
 ## en main.gd, y ya se rompió una vez por olvidarlo.
 const GIRO_DE_FORMA := [
 	Giro.FIJO,     ## circulo
-	Giro.FIJO,     ## copo
+	Giro.DERIVA,   ## copo: lo voltea el aire, no el rumbo
 	Giro.CABECEO,  ## abeja: de perfil, no puede ir boca arriba
 	Giro.NORIA,    ## hoja: cae dando vueltas
 	Giro.FIJO,     ## bola
@@ -203,6 +215,8 @@ var _fase: float = 0.0
 ## Desfase propio, para que dos círculos con el mismo modo no se muevan
 ## sincronizados como un coro.
 var _semilla: float = 0.0
+## Lo que gira por segundo una forma con DERIVA. Propio de cada instancia.
+var _deriva: float = 0.0
 var _giro: float = 0.0
 ## Cuánto vira por segundo el planeo, hasta el próximo cambio de rumbo.
 var _vira: float = 0.0
@@ -212,6 +226,10 @@ var _pausa: float = 0.0
 
 func _ready() -> void:
 	_semilla = randf() * TAU
+	# Se sortea UNA vez, al nacer, y no en cada fotograma: un giro que cambiara
+	# de ritmo se vería como un tirón, no como deriva. El signo decide hacia
+	# dónde voltea, que también es cosa del aire y no del copo.
+	_deriva = randf_range(DERIVA_MIN, DERIVA_MAX) * (1.0 if randf() < 0.5 else -1.0)
 	_giro = randf_range(0.2, 0.6)
 
 
@@ -555,6 +573,12 @@ func _orientar(delta: float) -> void:
 	var politica: int = GIRO_DE_FORMA[forma] if forma < GIRO_DE_FORMA.size() else Giro.FIJO
 	if politica == Giro.NORIA:
 		rotation += delta * NORIA_VUELTAS
+		return
+	if politica == Giro.DERIVA:
+		# Antes del corte por velocidad: un copo casi parado sigue volteando, y
+		# es justo ahí donde más se nota que el aire lo mueve.
+		rotation += delta * _deriva
+		queue_redraw()
 		return
 	if politica == Giro.FIJO or velocity.length_squared() < 1.0:
 		return
