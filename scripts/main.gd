@@ -428,7 +428,6 @@ enum Mode { CAMPANA, SIN_FIN }
 @onready var _best_label: Label = $UI/Best
 @onready var _objetivo_label: Label = $UI/Objetivo
 @onready var _flash_label: Label = $UI/Flash
-@onready var _stage_label: Label = $UI/Stage
 @onready var _combos_root: Control = $UI/Combos
 @onready var _destello_rect: ColorRect = $UI/Destello
 @onready var _barrido: ColorRect = $UI/Barrido
@@ -655,7 +654,7 @@ var _antes_de_pausar: State = State.PLAYING
 
 func _ready() -> void:
 	_restaurar_ventana()
-	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _score_label,
+	_hud = [_bar_bg, $UI/BarCaption, _score_label,
 			_best_label, _flash_label, _combos_root,
 			_btn_pausa]
 	_hud_nuevo = Hud.new()
@@ -923,7 +922,6 @@ func _tick_hud(delta: float) -> void:
 	$UI/BarCaption.visible = false
 	_score_label.visible = false
 	_best_label.visible = false
-	_stage_label.visible = false
 	# El objetivo pertenece a la pantalla de inicio, no al juego: mientras se
 	# juega estorba justo en la banda donde caen los targets, y el jugador ya
 	# sabe lo que le piden porque acaba de leerlo.
@@ -936,10 +934,25 @@ func _tick_hud(delta: float) -> void:
 	_hud_nuevo.puntos = _score
 	_hud_nuevo.record = _best
 	_hud_nuevo.multiplicador = _multiplicador_vivo()
+	_hud_nuevo.cuenta_atras = _cuenta_atras()
 	var frac := clampf(_time_left / time_max, 0.0, 1.0)
 	# En pausa el HUD se dibuja pero no avanza, igual que los círculos: quien
 	# vuelve de la pausa se encuentra el flotante donde lo dejó.
 	_hud_nuevo.actualizar(delta, frac, _reloj_corriendo(), _state == State.PAUSA)
+
+
+## Los segundos que faltan para cumplir, o negativo si el nivel no los pide.
+##
+## Solo la meta de aguantar tiene cuenta atrás. Las demás se miden en puntos,
+## cadenas o pantallas limpias, y un reloj al lado de ellas diría que el tiempo
+## importa cuando lo que importa es otra cosa.
+func _cuenta_atras() -> float:
+	if _mode != Mode.CAMPANA:
+		return -1.0
+	var n := Niveles.nivel(_nivel)
+	if int(n["meta"]) != Niveles.Meta.SEGUNDOS:
+		return -1.0
+	return maxf(0.0, float(n["valor"]) - _elapsed)
 
 
 ## Qué pantalla del HUD toca para el estado del juego.
@@ -1039,8 +1052,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _toque_boton_pausa(p):
 				_pausar()
 			else:
+				# El primer toque es MUERTO: solo retira los textos y arranca.
+				#
+				# Antes detonaba, y ese toque se da mirando un cartel que ocupa
+				# media pantalla, no el campo: si caía en hueco contaba como
+				# fallo, costaba tiempo y en los niveles que exigen limpieza
+				# perdías la partida antes de haberla empezado. Un toque que
+				# sirve para quitar un texto no puede penalizar por dónde cayó.
 				_state = State.PLAYING
-				_tap(p)
 		State.PLAYING:
 			if _toque_boton_pausa(p):
 				_pausar()
@@ -1073,10 +1092,6 @@ func _stage() -> int:
 		# final.
 		return mini(s, _stage_offset + ESCALON_TOPE_CAMPANA)
 	return s
-
-
-func _es_respiro(s: int) -> bool:
-	return rest_every > 0 and s % rest_every == 0
 
 
 ## Cuántas veces ha subido la presión hasta este escalón, descontando respiros.
@@ -1423,7 +1438,11 @@ func _check_stage() -> void:
 	_diag.evento("dificultad %d (esc %d) presion=%d escasez=%d generosidad=%d legibilidad=%d" % [
 		_dificultad(), s, _nivel_presion(), _nivel_escasez(),
 		_nivel_generosidad(), _nivel_legibilidad()])
-	_flash("Dificultad %d%s" % [_dificultad(), "   ·   Respiro" if _es_respiro(s) else ""])
+	# El aviso de subida de dificultad se quitó de la pantalla, por lo mismo que
+	# el contador: es un número interno con el que el jugador no puede hacer
+	# nada, y llegaba emergente justo mientras estaba jugando. El cambio ya se
+	# siente -hay menos objetivos, la barra baja antes-, que es como se debe
+	# notar. En el registro sigue anotado, que ahí sí sirve para calibrar.
 
 
 func _objetivo_cumplido() -> bool:
@@ -2759,9 +2778,18 @@ func _preparar_dot(d: Dot, modo: int, rumbo: Vector2) -> void:
 ## mundo espera al primer toque, el reloj espera con él: cobrar por una espera en
 ## la que no hay nada que mirar ni que hacer sería una trampa, no una decisión.
 func _reloj_corriendo() -> bool:
-	if _state == State.PLAYING:
-		return true
-	return _state == State.READY and not _defensa_sin_empezar()
+	# El reloj corre SOLO jugando. En la pantalla de inicio no.
+	#
+	# Antes corría también en READY, y tenía su motivo: con el reloj parado, la
+	# pantalla de "toca para empezar" regalaba una espera infinita para abrir
+	# con la cascada perfecta. Ese motivo valía cuando READY era una pista
+	# pequeña sobre el campo a la vista.
+	#
+	# Ya no lo es. Ahora READY es la pantalla de inicio del nivel: un velo, el
+	# nombre del bioma y el objetivo tapando media pantalla. Ahí no se está
+	# planeando nada, se está LEYENDO, y el jugador puede morirse sin haber
+	# empezado por tardar en leer lo que el propio juego le puso delante.
+	return _state == State.PLAYING
 
 
 func _defensa_sin_empezar() -> bool:
@@ -2882,7 +2910,9 @@ func _sincronizar_hud(s: State) -> void:
 		# se llamaba «cadena», que en este juego ya significa otra cosa.
 		_hud_nuevo.pie = "récord %d" % _best if _best > 0 else ""
 	elif fin:
-		_hud_nuevo.fin_titulo = _titulo_de_fin(s)
+		var partes := _titulo_de_fin(s)
+		_hud_nuevo.fin_destacado = partes[0]
+		_hud_nuevo.fin_titulo = partes[1]
 		_hud_nuevo.fin_noticia = _noticia_de_fin()
 
 	# Las pantallas viejas de inicio y fin se callan: las dibuja el HUD. Los
@@ -2950,12 +2980,16 @@ func _toque_pausa(p: Vector2) -> bool:
 	return false
 
 
-func _titulo_de_fin(s: State) -> String:
+## El título de la pantalla de fin, partido en [destacado, resto].
+##
+## El destacado va en negrita. En una victoria lo que importa es QUÉ nivel se
+## superó, no la palabra «superado», que es la misma todas las veces.
+func _titulo_de_fin(s: State) -> Array:
 	if s == State.FINAL:
-		return "CAMPAÑA COMPLETA"
+		return ["CAMPAÑA", "COMPLETA"]
 	if s == State.WIN:
-		return "NIVEL %d SUPERADO" % (_nivel + 1)
-	return "SE ACABÓ"
+		return ["NIVEL %d" % (_nivel + 1), "SUPERADO"]
+	return ["", "SE ACABÓ"]
 
 
 ## La noticia del final: lo que el jugador no sabía hasta ahora.
@@ -3143,7 +3177,6 @@ func _update_ui() -> void:
 		_objetivo_label.text = ""
 
 	var s := _stage()
-	_stage_label.text = "dificultad %d  ·  %s" % [_dificultad(), NOMBRES_MOV[_movimiento_actual()]]
 	var frac := clampf(_time_left / time_max, 0.0, 1.0)
 	_bar_fill.size = Vector2(_bar_bg.size.x * frac, _bar_bg.size.y)
 	if _time_left < WARN_TIME:

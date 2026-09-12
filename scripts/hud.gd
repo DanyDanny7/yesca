@@ -63,8 +63,21 @@ const MARCADOR_INTER := -4.0
 const RECORD_TAM := 30.0
 const RECORD_Y := 336.0
 const RECORD_INTER := 4.5
+## La cuenta atrás de los niveles que piden aguantar. Va bajo el récord.
+const CUENTA_TAM := 42.0
+const CUENTA_Y := 378.0
+const CUENTA_INTER := -1.5
+## Cuando quedan menos segundos que esto, la cifra pasa a tono pleno.
+const CUENTA_APURO := 5.0
+
 const PILDORA_TAM := 54.0
 const PILDORA_Y := 396.0
+## Dónde cae la píldora cuando además hay cuenta atrás.
+##
+## No se mueve durante la partida: un nivel o pide aguantar o no, así que la
+## píldora está siempre en el mismo sitio mientras se juega. Lo que no se podía
+## era dejarlas encima la una de la otra.
+const PILDORA_Y_CON_CUENTA := 444.0
 const PILDORA_AIRE := Vector2(30.0, 9.0)
 const PILDORA_RADIO := 60.0
 ## El botón de pausa. Se DIBUJA a 78 pero el toque mide 132: en el pulgar, un
@@ -95,6 +108,9 @@ const BOTON_TAM := 63.0
 const BOTON_ALTO := 96.0
 const BOTON_RADIO := 48.0
 const BOTON_AIRE := Vector2(42.0, 12.0)
+## Lo que separa SALIR del botón de SEGUIR, en units. Casi el doble que el hueco
+## normal del bloque: es la distancia la que evita el toque equivocado.
+const HUECO_SALIR := 78.0
 ## Las fichas son círculos con un icono dentro, no etiquetas de texto.
 ##
 ## Un icono se reconoce de un vistazo y no hay que leerlo, que es lo que quieres
@@ -179,6 +195,10 @@ var estado: Estado = Estado.JUEGO
 var titulo := ""
 var objetivo := ""
 var pie := ""
+## El título de fin se parte en dos: lo que va en negrita y el resto. «NIVEL 4»
+## es el dato —qué acabas de superar— y «SUPERADO» es la frase que lo envuelve;
+## con el mismo peso, el ojo tiene que leer la línea entera para sacar el número.
+var fin_destacado := ""
 var fin_titulo := ""
 var fin_noticia := ""
 ## Las opciones de la pausa: [{icono, encendida}]. Las pone Main.
@@ -198,6 +218,8 @@ var corriendo: bool = false
 var puntos: int = 0
 var record: int = 0
 var multiplicador: int = 0
+## Segundos que faltan para cumplir el objetivo. En negativo, no hay cuenta.
+var cuenta_atras: float = -1.0
 
 ## Los flotantes vivos. Cada uno es {texto, origen, t}.
 var _flotantes: Array[Dictionary] = []
@@ -417,6 +439,7 @@ func _draw() -> void:
 		return
 	_dibujar_marcador()
 	_dibujar_record()
+	_dibujar_cuenta()
 	_dibujar_pildora()
 	_dibujar_flotantes()
 	_dibujar_boton_pausa()
@@ -518,7 +541,11 @@ func _dibujar_pausa() -> void:
 	var alto_b := medida(BOTON_ALTO)
 	var alto_s := medida(BOTON_TAM)
 	var hueco := alto_t * 0.6
-	var bloque := alto_t + hueco + alto_m + hueco + alto_b + hueco + alto_s
+	# SALIR va más lejos del botón que el resto del bloque. Abandona la partida,
+	# y a un dedo de distancia de SEGUIR el error cuesta lo que llevabas jugado.
+	# Un hueco de dedo -no de renglón- es lo que separa las dos acciones.
+	var hueco_salir := medida(HUECO_SALIR)
+	var bloque := alto_t + hueco + alto_m + hueco + alto_b + hueco_salir + alto_s
 	var arriba := pantalla().y * 0.5 - bloque * 0.5
 
 	_texto_centrado_px("PAUSA", arriba, TOCA_TAM, PESO_MEDIO,
@@ -529,7 +556,7 @@ func _dibujar_pausa() -> void:
 
 	y += alto_m + hueco
 	_r_seguir = _boton("SEGUIR", y)
-	y += alto_b + hueco
+	y += alto_b + hueco_salir
 	_r_salir = _enlace("SALIR", y)
 
 	# Las fichas van al pie, lejos del botón: son ajustes, no la salida.
@@ -669,14 +696,49 @@ func _dibujar_fin() -> void:
 	if not fin_noticia.is_empty():
 		bloque += hueco + alto_n
 	var arriba := pantalla().y * 0.5 - bloque * 0.5
-	_texto_centrado_px(fin_titulo, arriba, TOCA_TAM, PESO_MEDIO,
-			Color(onda, OP_SECUNDARIO), TOCA_INTER)
+	_titulo_de_fin(arriba)
 	var y_m := arriba + alto_t + hueco
 	_texto_centrado_px(str(puntos), y_m, FIN_MARCADOR_TAM, PESO_SEMI,
 			Color(onda, OP_PRINCIPAL), FIN_MARCADOR_INTER)
 	if not fin_noticia.is_empty():
 		_texto_centrado_px(fin_noticia, y_m + alto_m + hueco, NOTICIA_TAM,
 				PESO_SEMI, Color(onda, OP_PRINCIPAL), TOCA_INTER)
+
+
+## El título de fin, con la parte destacada en negrita y el resto normal.
+##
+## Se mide todo junto y se centra como una sola línea, no cada mitad por su
+## cuenta: centradas por separado, «NIVEL 4» y «SUPERADO» quedarían una encima
+## del centro de la otra y se leería como dos renglones pegados.
+func _titulo_de_fin(y_px: float) -> void:
+	var negrita: Font = fuente(PESO_NEGRITA)
+	var normal: Font = fuente(PESO_MEDIO)
+	if negrita == null or normal == null:
+		return
+	var tam := int(round(medida(TOCA_TAM)))
+	if tam <= 0:
+		return
+	var inter := medida(TOCA_INTER)
+	var hueco := float(tam) * 0.45
+	var a := fin_destacado
+	var b := fin_titulo
+	var ancho_a := _ancho_con_inter(negrita, a, tam, inter)
+	var ancho_b := _ancho_con_inter(normal, b, tam, inter)
+	var separa := hueco if not a.is_empty() and not b.is_empty() else 0.0
+	var x := pantalla().x * 0.5 - (ancho_a + separa + ancho_b) * 0.5
+	var y := y_px + float(tam) * 0.8
+	if not a.is_empty():
+		_texto_en(negrita, a, Vector2(x, y), tam, Color(onda, OP_PRINCIPAL), inter)
+	if not b.is_empty():
+		_texto_en(normal, b, Vector2(x + ancho_a + separa, y), tam,
+				Color(onda, OP_SECUNDARIO), inter)
+
+
+func _ancho_con_inter(f: Font, txt: String, tam: int, inter: float) -> float:
+	if txt.is_empty():
+		return 0.0
+	return f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x \
+			+ inter * float(maxi(0, txt.length() - 1))
 
 
 ## Como _texto_centrado, pero con la Y ya en píxeles: las pantallas que se
@@ -795,6 +857,23 @@ func _dibujar_record() -> void:
 			Color(onda, OP_SECUNDARIO), RECORD_INTER, k_secundario() / maxf(k(), 0.01))
 
 
+## Lo que falta para cumplir, en los niveles que piden aguantar.
+##
+## Cuenta hacia ATRÁS y no hacia arriba. «38 s» dice cuánto queda de sufrimiento;
+## «17 / 55 s» obliga a restar, y restar es justo lo que no se hace mientras se
+## juega. Va bajo el récord porque es lo mismo que él: una cifra de referencia,
+## no el marcador.
+func _dibujar_cuenta() -> void:
+	if cuenta_atras < 0.0:
+		return
+	var quedan := int(ceil(cuenta_atras))
+	# En el apuro pasa a tono pleno. No pulsa: de eso ya se encarga el arco, y
+	# dos cosas parpadeando a la vez no dicen cuál corre peligro.
+	var alfa := OP_PRINCIPAL if cuenta_atras <= CUENTA_APURO else OP_SECUNDARIO
+	_texto_centrado("%d s" % maxi(0, quedan), CUENTA_Y, CUENTA_TAM, PESO_SEMI,
+			Color(onda, alfa), CUENTA_INTER)
+
+
 ## El multiplicador solo existe mientras la cascada está viva.
 func _dibujar_pildora() -> void:
 	if multiplicador < 2:
@@ -807,7 +886,8 @@ func _dibujar_pildora() -> void:
 	var med := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam)
 	var aire := Vector2(medida(PILDORA_AIRE.x), medida(PILDORA_AIRE.y))
 	var caja := Vector2(med.x + aire.x * 2.0, float(tam) + aire.y * 2.0)
-	var esquina := Vector2(pantalla().x * 0.5 - caja.x * 0.5, medida(PILDORA_Y))
+	var y := PILDORA_Y_CON_CUENTA if cuenta_atras >= 0.0 else PILDORA_Y
+	var esquina := Vector2(pantalla().x * 0.5 - caja.x * 0.5, medida(y))
 	_caja_redonda(Rect2(esquina, caja), medida(PILDORA_RADIO), Color(onda, OP_PILDORA))
 	_texto_en(f, txt,
 			Vector2(esquina.x + aire.x, esquina.y + aire.y + float(tam) * 0.78),

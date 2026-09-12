@@ -30,18 +30,42 @@ enum Meta {
 }
 
 const LISTA: Array[Dictionary] = [
-	# --- Cielo abierto: rebote. Aqui se aprende a jugar ---------------------
+	# --- Basico: circulos lisos que se buscan. El grupo viene servido ------
+	#
+	# Abre la campaña. Es el bioma sin ficcion: circulos lisos sobre celulas, sin
+	# nada que interpretar, y ademas el unico donde el grupo VIENE SERVIDO. Quien
+	# no ha jugado nunca no tiene que buscar la jugada, solo elegir el instante,
+	# que es la mitad del juego y la mas facil de entender.
+	#
+	# Sus escalones bajan a 0-0-1. Traia 2-3-3, calibrados para ir en el quinto
+	# puesto de la curva; dejarlos ahi seria abrir con la dificultad de la mitad
+	# de la campana. El escalon es la posicion en la curva, no una propiedad del
+	# bioma, asi que se mueve con el.
+	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
+		"meta": Meta.CADENA, "valor": 10, "escalon": 0,
+		"pista": "se agrupan solos; aquí lo difícil no es encontrarlos sino el instante"},
+	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
+		"meta": Meta.PUNTOS, "valor": 600, "escalon": 0,
+		"pista": "el grumo se deshace tras cada onda: hay que dejarlo rehacerse"},
+	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
+		"meta": Meta.SEGUNDOS, "valor": 60, "escalon": 1,
+		"pista": "con el grupo tan junto, la tentación de tocar todo el rato te mata"},
+
+	# --- Cielo abierto: rebote. Aqui se aprende a apuntar -------------------
+	#
+	# Sube a 1-1-2-2 al pasar al segundo puesto: ya no es la primera pantalla que
+	# se ve, asi que puede pedir algo mas.
 	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
-		"meta": Meta.PUNTOS, "valor": 60, "escalon": 0,
+		"meta": Meta.PUNTOS, "valor": 60, "escalon": 1,
 		"pista": "toca un círculo y deja que la onda haga el resto"},
 	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
-		"meta": Meta.CADENA, "valor": 4, "escalon": 0,
+		"meta": Meta.CADENA, "valor": 4, "escalon": 1,
 		"pista": "busca cuatro juntos, no toques el primero que veas"},
 	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
-		"meta": Meta.PUNTOS, "valor": 250, "escalon": 1,
+		"meta": Meta.PUNTOS, "valor": 250, "escalon": 2,
 		"pista": "cada eslabón vale más que el anterior"},
 	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
-		"meta": Meta.CADENA, "valor": 6, "escalon": 1,
+		"meta": Meta.CADENA, "valor": 6, "escalon": 2,
 		"pista": "puedes tener varias cadenas a la vez, cada una con su cuenta"},
 
 	# --- Invierno: nieve. Lento, para respirar antes de apretar -------------
@@ -76,17 +100,6 @@ const LISTA: Array[Dictionary] = [
 	{"bioma": "Hormigas", "mov": Dot.Movimiento.HORMIGA,
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
 		"pista": "no dejan de venir: aquí el problema nunca es a quién tocar"},
-
-	# --- Basico: circulos lisos que se buscan. El grupo viene servido ------
-	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
-		"meta": Meta.CADENA, "valor": 10, "escalon": 2,
-		"pista": "se agrupan solos; aquí lo difícil no es encontrarlos sino el instante"},
-	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
-		"meta": Meta.PUNTOS, "valor": 600, "escalon": 3,
-		"pista": "el grumo se deshace tras cada onda: hay que dejarlo rehacerse"},
-	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
-		"meta": Meta.SEGUNDOS, "valor": 60, "escalon": 3,
-		"pista": "con el grupo tan junto, la tentación de tocar todo el rato te mata"},
 
 	# --- Billar: chocan entre ellos. Nada se queda quieto -------------------
 	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,

@@ -57,6 +57,17 @@ enum Marco { NADA, MESA, TINA, PLANETA }
 const ALTO_CIUDAD := 420
 const ALTO_AURORA := 190
 
+## En cuántas columnas se ve el azulejo entregado, sea cual sea la pantalla.
+##
+## Es propiedad del BIOMA, no del fichero. Dibujarlo a su tamaño en píxeles del
+## dispositivo hacía que la célula cambiara de tamaño con cada móvil: en 720 de
+## ancho entraban cuatro columnas y en 1080 seis, y el mismo fondo pasaba de
+## tener células grandes a leerse como un estampado de tela. Cuatro es lo que se
+## dibujó y lo que se revisó.
+const COLUMNAS_AZULEJO := 4
+## Ancho del viewport para el que están medidas las velocidades de deriva.
+const ANCHO_BASE := 720.0
+
 ## Lado del mosaico. Potencia de dos y divisible por los pasos de todos los
 ## patrones, que es lo que hace que encajen consigo mismos sin costura.
 const LADO := 128
@@ -124,7 +135,7 @@ func configurar(nuevo_tipo: Tipo, nuevo_color: Color,
 	_fugaz_espera = randf_range(3.0, 7.0)
 	_scroll = Vector2.ZERO
 	_scroll_banda = 0.0
-	_deriva = _deriva_de(tipo)
+	_deriva = _deriva_del_bioma(bioma, tipo)
 	_tex = _mosaico(tipo)
 	_tipo_banda = banda
 	_tex_banda = _mosaico(banda) if banda != Tipo.LISO else null
@@ -141,6 +152,40 @@ func configurar(nuevo_tipo: Tipo, nuevo_color: Color,
 ## Hacia dónde y a qué velocidad se desplaza el mosaico, en píxeles por segundo.
 ## La dirección cuenta la historia del bioma sin decir una palabra: la nieve
 ## cae, las pavesas suben, el río va de lado.
+## A qué velocidad corre el azulejo de cada bioma, en píxeles del viewport base
+## por segundo. De la tabla de REGLA-FONDOS.md §4.
+##
+## Va por BIOMA y no por tipo de azulejo. El tipo dice qué se dibuja —células,
+## copos, rejilla— y eso no decide a qué ritmo se mueve: dos biomas pueden
+## compartir motivo y querer velocidades distintas. Básico corría a (3, −2), o
+## sea casi quieto y hacia ARRIBA, cuando su ficha pide bajar a 34.
+##
+## Los biomas que no están aquí siguen sacando su deriva del tipo, que es lo que
+## hacían antes.
+const DERIVA_BIOMA := {
+	# Básico va en DIAGONAL. Mismo módulo que tenía en vertical -34- repartido
+	# entre los dos ejes, así que la velocidad que se percibe no cambia: solo
+	# cambia hacia dónde.
+	#
+	# Y no a 45 grados: un reparto exacto se lee como una diagonal dibujada, y
+	# además haría que las dos envolturas coincidieran y el mosaico volviera a
+	# su sitio cada pocas baldosas, que se ve como un latido. Con 17 y 29 los dos
+	# periodos no cuadran y el fondo no se repite a ojo.
+	"basico": Vector2(17.0, 29.0),
+	"cielo_abierto": Vector2(0.0, 52.0),
+	"invierno": Vector2(0.0, 40.0),
+	"rio": Vector2(64.0, 0.0),
+}
+
+
+## La deriva del bioma si la tiene declarada; si no, la de su tipo de azulejo.
+func _deriva_del_bioma(nombre: String, t: Tipo) -> Vector2:
+	var clave := Arte.slug(nombre)
+	if DERIVA_BIOMA.has(clave):
+		return DERIVA_BIOMA[clave]
+	return _deriva_de(t)
+
+
 func _deriva_de(t: Tipo) -> Vector2:
 	match t:
 		Tipo.COPOS: return Vector2(4.0, 16.0)
@@ -169,7 +214,10 @@ func _process(delta: float) -> void:
 		_scroll_bandas[i] = fposmod(_scroll_bandas[i] + delta * BANDA_VELOCIDAD[i],
 			float(banda.get_width()))
 	_reloj += delta
-	_scroll += _deriva * delta
+	# La deriva va en píxeles del viewport base por segundo, así que se escala
+	# con el ancho. Sin esto, en tableta el fondo se arrastra más despacio de lo
+	# previsto en relación a lo que se ve.
+	_scroll += _deriva * (get_viewport_rect().size.x / ANCHO_BASE) * delta
 	# Se envuelve por el PERIODO DEL AZULEJO, no por LADO.
 	#
 	# Envolver a 128 valía mientras todos los mosaicos los generaba el juego a
@@ -281,10 +329,21 @@ func _cubrir(tex: Texture2D, r: Vector2) -> void:
 ## El azulejo entregado manda sobre el generado, y si no hay ninguno vale LADO,
 ## que es lo que mide el que fabrica el propio juego.
 func _periodo_azulejo() -> Vector2:
-	var az := Arte.fondo_bioma(bioma)
-	if az != null:
-		return Vector2(az.get_size())
+	if Arte.fondo_bioma(bioma) != null:
+		var lado := _lado_baldosa()
+		return Vector2(lado, lado)
 	return Vector2(LADO, LADO)
+
+
+## Cuánto mide en pantalla una baldosa del azulejo entregado.
+##
+## Se redondea a entero: cada célula está dibujada nueve veces en el fichero
+## —una por vecino— para que las que cruzan el borde continúen en la baldosa de
+## al lado, y eso solo encaja si el mosaico se repite EXACTAMENTE cada lado. Con
+## medio píxel de sobra o de menos aparece la costura.
+func _lado_baldosa() -> float:
+	var ancho := get_viewport_rect().size.x
+	return maxf(1.0, round(ancho / float(COLUMNAS_AZULEJO)))
 
 
 func _draw() -> void:
@@ -325,10 +384,19 @@ func _draw() -> void:
 				true)
 
 	if azulejo != null:
+		# Se ESCALA para que quepan cuatro columnas, no se repite más veces. La
+		# repetición se hace en el espacio del propio azulejo y de ahí se escala
+		# entero: draw_texture_rect repite al tamaño de la textura y no a uno
+		# cualquiera, así que la escala tiene que venir de la transformación.
+		var lado := _lado_baldosa()
+		var esc := lado / maxf(1.0, float(azulejo.get_width()))
+		var per := Vector2(azulejo.get_size())
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(esc, esc))
 		# El margen de más tiene que ser el periodo del propio azulejo: con uno
 		# menor, el desplazamiento descubriría el borde antes de repetir.
-		var per := Vector2(azulejo.get_size())
-		draw_texture_rect(azulejo, Rect2(_scroll - per, r + per * 2.0), true)
+		draw_texture_rect(azulejo,
+				Rect2(_scroll / esc - per, r / esc + per * 2.0), true)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	elif _tex == null and _tex_banda == null and capa == null and elastica == null:
 		return
 
