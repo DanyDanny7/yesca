@@ -1,0 +1,42 @@
+{
+ "nota": "onda = todo el HUD · paleta = fondos y contorno del xN · claro = solo el titulo del bioma en inicio",
+ "biomas": {
+  "cielo_abierto": {
+   "onda": "#ffd694",
+   "paleta": "#070b16",
+   "claro": "#fff6ea"
+  },
+  "invierno": {
+   "onda": "#8fd8ff",
+   "paleta": "#0f2033",
+   "claro": "#f4fbff"
+  },
+  "rio": {
+   "onda": "#2fd6c0",
+   "paleta": "#07161c",
+   "claro": "#eafdf9"
+  },
+  "hormigas": {
+   "onda": "#ffb066",
+   "paleta": "#150d07",
+   "claro": "#fff6ec"
+  },
+  "basico": {
+   "onda": "#b45cff",
+   "paleta": "#150f1a",
+   "claro": "#f6efff"
+  }
+ },
+ "opacidades": {
+  "cifra_principal": 1,
+  "secundario": 0.82,
+  "tenue": 0.72,
+  "pista_del_arco": 0.2,
+  "pildora_de_fondo": 0.18
+ },
+ "velo": {
+  "de": 0.9,
+  "a": 0,
+  "alto_units": 384
+ }
+}

@@ -296,6 +296,11 @@ const DESTELLO_CAIDA := 1.5
 const DESTELLO_MAX := 0.5
 const FLASH_TIME := 1.4
 const COMBO_POP_TIME := 0.45
+## Lo que tarda el xN en entrar, y lo que tarda en asentarse del 106 al 100.
+## La entrada es la MISMA que la crecida del aro: los dos son la misma cosa
+## apareciendo, y si no coinciden se ven como dos sucesos.
+const XN_ENTRADA := 0.15
+const XN_ASIENTO := 0.12
 ## Caja de la etiqueta flotante de cada cadena.
 const COMBO_SIZE := Vector2(240.0, 100.0)
 const STAGE_COLOR_TOPE := 10.0
@@ -524,6 +529,8 @@ var _respawn_timer: float = 0.0
 var _field_was_empty: bool = false
 var _flash_left: float = 0.0
 var _record_nuevo: bool = false
+## El récord que había antes de batirlo, para poder decir por cuánto.
+var _best_previo: int = 0
 var _fallos: int = 0
 var _stage_shown: int = 1
 var _shake: float = 0.0
@@ -632,6 +639,10 @@ var _destello: float = 0.0
 ## El nido, cuando el bioma en curso es Hormigas. En cualquier otro es null y
 ## los objetivos se mueven como siempre.
 var _hormiguero: Hormiguero = null
+## El HUD nuevo. Se crea por código y no en la escena porque piensa en units de
+## un lienzo de 1080 x 1920: colocarlo a mano en el editor sería volver a poner
+## medidas en píxeles de un dispositivo concreto.
+var _hud_nuevo: Hud = null
 
 var _ventana_pos := Vector2i.ZERO
 var _ventana_pendiente: float = -1.0
@@ -651,6 +662,9 @@ func _ready() -> void:
 	_hud = [_bar_bg, $UI/BarCaption, _stage_label, _fallos_label, _score_label,
 			_best_label, _objetivo_label, _hint_label, _flash_label, _combos_root,
 			_btn_pausa]
+	_hud_nuevo = Hud.new()
+	$UI.add_child(_hud_nuevo)
+	$UI.move_child(_hud_nuevo, 0)
 	_paleta = Niveles.paleta_neutra()
 	_fondo.configurar(
 		int(_paleta.get("telon", Fondo.Tipo.LISO)),
@@ -886,8 +900,69 @@ func _process(delta: float) -> void:
 		_flash_left -= delta
 	for id in _cadenas:
 		_cadenas[id]["pop"] = maxf(0.0, _cadenas[id]["pop"] - delta / COMBO_POP_TIME)
+		_cadenas[id]["edad"] = float(_cadenas[id].get("edad", 0.0)) + delta
 
 	_update_ui()
+	_tick_hud(delta)
+
+
+## El paso del HUD nuevo.
+##
+## Va en _process y NO dentro de _update_ui, que era donde estaba: _update_ui
+## corta antes para varias pantallas —en pausa se sale en cuanto refresca los
+## interruptores— así que el HUD no llegaba a pedir redibujado y la pantalla de
+## pausa no se pintaba nunca.
+##
+## Y el estado se saca de `_state` en cada fotograma, no del cambio de pantalla:
+## a PLAYING no se entra por _ir_a sino poniendo `_state` a mano en el primer
+## toque, así que el HUD se quedaba enseñando la pantalla de inicio encima de la
+## partida.
+func _tick_hud(delta: float) -> void:
+	if _hud_nuevo == null:
+		return
+	# El arco sustituye a la barra y el marcador nuevo a las etiquetas sueltas:
+	# dos medidores de lo mismo en la misma pantalla se contradicen en cuanto uno
+	# se retrasa un fotograma.
+	_bar_bg.visible = false
+	$UI/BarCaption.visible = false
+	_score_label.visible = false
+	_best_label.visible = false
+	_stage_label.visible = false
+	_fallos_label.visible = false
+	# El objetivo pertenece a la pantalla de inicio, no al juego: mientras se
+	# juega estorba justo en la banda donde caen los targets, y el jugador ya
+	# sabe lo que le piden porque acaba de leerlo.
+	_objetivo_label.visible = false
+	# El botón de pausa lo dibuja ahora el HUD, a su medida y con su área de
+	# toque, que es más grande que el dibujo.
+	_btn_pausa.visible = false
+
+	_hud_nuevo.estado = _estado_hud()
+	_hud_nuevo.puntos = _score
+	_hud_nuevo.record = _best
+	_hud_nuevo.cadena = _stage()
+	_hud_nuevo.vidas = _fallos_permitidos()
+	_hud_nuevo.vidas_gastadas = _fallos
+	_hud_nuevo.multiplicador = _multiplicador_vivo()
+	var frac := clampf(_time_left / time_max, 0.0, 1.0)
+	# En pausa el HUD se dibuja pero no avanza, igual que los círculos: quien
+	# vuelve de la pausa se encuentra el flotante donde lo dejó.
+	_hud_nuevo.actualizar(delta, frac, _reloj_corriendo(), _state == State.PAUSA)
+
+
+## Qué pantalla del HUD toca para el estado del juego.
+func _estado_hud() -> Hud.Estado:
+	match _state:
+		State.BRIEFING, State.READY:
+			return Hud.Estado.INICIO
+		State.PAUSA:
+			return Hud.Estado.PAUSA
+		State.DEAD, State.WIN, State.FINAL:
+			return Hud.Estado.FIN
+		State.PLAYING:
+			return Hud.Estado.JUEGO
+	# Menú, selector y registro son de la interfaz vieja.
+	return Hud.Estado.OCULTO
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -948,6 +1023,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			# El tap que cierra la tarjeta NO detona: solo arranca la partida.
 			_ir_a(State.READY)
 		State.PAUSA:
+			if _toque_pausa(p):
+				return
 			if _btn_seguir.contiene(p):
 				_ir_a(_antes_de_pausar)
 			elif _btn_menu.contiene(p):
@@ -967,13 +1044,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				sacudida = not sacudida
 				_guardar()
 		State.READY:
-			if _btn_pausa.contiene(p):
+			if _toque_boton_pausa(p):
 				_pausar()
 			else:
 				_state = State.PLAYING
 				_tap(p)
 		State.PLAYING:
-			if _btn_pausa.contiene(p):
+			if _toque_boton_pausa(p):
 				_pausar()
 			else:
 				_tap(p)
@@ -1420,7 +1497,7 @@ func _tap(pos: Vector2) -> void:
 	objetivo.queue_free()
 
 	_next_chain += 1
-	_cadenas[_next_chain] = {"len": 0, "pos": donde, "pop": 0.0}
+	_cadenas[_next_chain] = {"len": 0, "pos": donde, "pop": 0.0, "edad": 0.0}
 	_cobrar_punto(_next_chain, donde, valor)
 	_spawn_explosion(donde, tap_radius * onda, _next_chain)
 
@@ -1457,7 +1534,11 @@ func _cobrar_punto(id: int, pos: Vector2, valor: float = 1.0) -> void:
 	# de la cadena: una fugaz vale diez, pero no cuenta como diez eslabones. Si
 	# contara, un solo objetivo especial dispararía el multiplicador de toda la
 	# cascada y la cadena dejaría de medir lo que mide.
-	_score += int(round(float(n) * valor))
+	var ganado := int(round(float(n) * valor))
+	_score += ganado
+	if _hud_nuevo != null:
+		_hud_nuevo.golpe()
+		_hud_nuevo.flotante("+%d" % ganado, pos)
 	_best_cascade = maxi(_best_cascade, n)
 	_time_left = minf(time_max, _time_left + reward_base + reward_step * (n - 1))
 
@@ -1992,6 +2073,18 @@ func _prune_cadenas() -> void:
 			_cadenas.erase(id)
 
 
+## La cascada viva más larga. Es lo que enseña la píldora del HUD.
+##
+## Se toma la MÁS LARGA y no la última: con varias cadenas a la vez, enseñar la
+## última haría que el número bajara al prender una nueva, y el multiplicador
+## que le importa al jugador es el mejor que tiene en marcha.
+func _multiplicador_vivo() -> int:
+	var mejor := 0
+	for id in _cadenas:
+		mejor = maxi(mejor, int(_cadenas[id]["len"]))
+	return mejor
+
+
 ## Un contador por cadena, colocado donde acaba de propagarse.
 ##
 ## El contador vive junto a su explosión y no en el centro de la pantalla: con
@@ -2003,17 +2096,57 @@ func _sync_combos() -> void:
 			continue
 		if not _combo_labels.has(id):
 			_combo_labels[id] = _tomar_combo_label()
+			# Se viste al tomarlo y no en cada fotograma: son cinco overrides de
+			# tema por etiqueta, y con varias cadenas vivas eso es trabajo
+			# repetido sesenta veces por segundo para un resultado que no cambia.
+			_vestir_combo(_combo_labels[id])
 		var lbl: Label = _combo_labels[id]
 		lbl.text = "×%d" % int(c["len"])
 		lbl.position = Vector2(c["pos"]) - COMBO_SIZE * 0.5
-		var pop := float(c["pop"])
-		var golpe := 1.0 + 0.5 * pop * pop
-		lbl.scale = Vector2(golpe, golpe)
-		lbl.modulate = _stage_color()
+		lbl.scale = Vector2.ONE * _escala_xn(float(c.get("edad", 1.0)))
+		lbl.modulate = Color.WHITE
 
 	for id in _combo_labels.keys():
 		if not _cadenas.has(id):
 			_soltar_combo_label(id)
+
+
+## El xN crece con la explosión y ahí se queda.
+##
+## Entra al 18%, llega al 106% en los mismos 0,15 s que tarda el aro en crecer y
+## se asienta al 100%. Y no se vuelve a mover: antes daba un golpe con cada
+## eslabón nuevo, y con una cascada larga el número temblaba sin parar justo
+## mientras el jugador intentaba leerlo. El aro se acorta; el número no.
+func _escala_xn(edad: float) -> float:
+	if edad >= XN_ENTRADA + XN_ASIENTO:
+		return 1.0
+	if edad <= XN_ENTRADA:
+		return lerpf(0.18, 1.06, edad / XN_ENTRADA)
+	return lerpf(1.06, 1.0, (edad - XN_ENTRADA) / XN_ASIENTO)
+
+
+## El xN vive DENTRO de la explosión, así que no escala con la k del HUD sino
+## con la tira: su tamaño sale del radio de contagio del bioma, que es lo que
+## fija el lienzo de la detonación. Con la k se despegaría del anillo en cuanto
+## cambiara la proporción de la pantalla.
+##
+## El contorno es la paleta del bioma, no negro. Un negro ajeno lo deja pegado
+## encima del dibujo; su propio negro lo asienta dentro.
+func _vestir_combo(lbl: Label) -> void:
+	if _hud_nuevo == null:
+		lbl.modulate = _stage_color()
+		return
+	var f: Font = _hud_nuevo.fuente(Hud.PESO_NEGRITA)
+	if f == null:
+		return
+	# 90 de los 540 units del lienzo de tres radios: un sexto del ancho.
+	var tam := int(round(_chain_radius() * 0.5))
+	tam = maxi(12, tam)
+	lbl.add_theme_font_override("font", f)
+	lbl.add_theme_font_size_override("font_size", tam)
+	lbl.add_theme_color_override("font_color", _hud_nuevo.onda)
+	lbl.add_theme_color_override("font_outline_color", _hud_nuevo.paleta)
+	lbl.add_theme_constant_override("outline_size", int(round(float(tam) * 0.233)))
 
 
 func _tomar_combo_label() -> Label:
@@ -2430,6 +2563,10 @@ func _rematar() -> void:
 	if estado == State.DEAD and _mode == Mode.SIN_FIN:
 		_record_nuevo = _score > _best
 		if _record_nuevo:
+			# Hay que guardarse el récord ANTERIOR antes de pisarlo: la pantalla
+			# de fin no dice el récord nuevo, dice por cuánto se batió el viejo,
+			# y una vez sobrescrito esa diferencia ya no se puede calcular.
+			_best_previo = _best
 			_best = _score
 			_guardar()
 	_ir_a(estado)
@@ -2481,6 +2618,8 @@ func _empezar_partida() -> void:
 	_transicion = -1.0
 	_barrido.visible = false
 	_barrido_halo.visible = false
+	if _hud_nuevo != null:
+		_hud_nuevo.configurar(_bioma_actual(), _paleta)
 	_diag.evento("PARTIDA modo=%s nivel=%d mov=%s" % [
 		"campana" if _mode == Mode.CAMPANA else "sinfin",
 		_nivel + 1, NOMBRES_MOV[_movimiento_actual()]])
@@ -2679,6 +2818,8 @@ func _ir_a(s: State) -> void:
 		_brief_num.text = "Nivel %d" % (_nivel + 1)
 		_brief_meta.text = Niveles.capitalizar(Niveles.describir(_nivel))
 		_brief_pista.text = Niveles.capitalizar(str(Niveles.nivel(_nivel)["pista"]))
+	if _hud_nuevo != null:
+		_sincronizar_hud(s)
 	_log_screen.visible = s == State.LOG
 	if s == State.LOG:
 		_log_estado.text = "La sesión anterior se cerró sola" if _diag.hubo_cierre_brusco 			else "La sesión anterior cerró con normalidad"
@@ -2722,6 +2863,117 @@ func _ir_a(s: State) -> void:
 			_over_detail.text = "¡NUEVO RÉCORD!\ncadena ×%d  ·  %d:%02d" % [_best_cascade, m, seg]
 		else:
 			_over_detail.text = "mejor  %d\ncadena ×%d  ·  %d:%02d" % [_best, _best_cascade, m, seg]
+
+
+## Le pasa al HUD nuevo la pantalla en la que está el juego y sus textos.
+##
+## Se hace aquí, en el cambio de pantalla, y no en el paso de cada fotograma:
+## los textos de inicio y fin no cambian mientras esa pantalla está puesta, y
+## recomponerlos sesenta veces por segundo sería trabajo para nada.
+##
+## La PAUSA se queda con la pantalla vieja a propósito: el diseño solo trae
+## SEGUIR y SALIR, y la de ahora lleva además sonido, música, vibración y
+## sacudida. Quitarlas es una decisión de diseño, no de implementación.
+func _sincronizar_hud(s: State) -> void:
+	var inicio := s == State.BRIEFING or s == State.READY
+	var fin := s == State.DEAD or s == State.WIN or s == State.FINAL
+	if s == State.PAUSA:
+		_hud_nuevo.poner_opciones(_opciones_hud())
+		_pause_screen.visible = false
+	elif inicio:
+		_hud_nuevo.titulo = _bioma_actual()
+		_hud_nuevo.objetivo = ""
+		if _mode == Mode.CAMPANA:
+			_hud_nuevo.objetivo = Niveles.capitalizar(Niveles.describir(_nivel))
+		_hud_nuevo.pie = "récord %d · cadena %d" % [_best, _stage()]
+	elif fin:
+		_hud_nuevo.fin_titulo = _titulo_de_fin(s)
+		_hud_nuevo.fin_noticia = _noticia_de_fin()
+
+	# Las pantallas viejas de inicio y fin se callan: las dibuja el HUD. Los
+	# botones no se tocan, que son los que reciben el toque.
+	_brief_screen.visible = _brief_screen.visible and not inicio
+	if s != State.PAUSA:
+		_hud_nuevo.poner_opciones([])
+	_over_screen.visible = _over_screen.visible and not fin
+	_win_screen.visible = _win_screen.visible and not fin
+	_hint_label.visible = _hint_label.visible and not inicio
+
+
+## Las cuatro opciones, en el orden en que se dibujan y se tocan.
+##
+## El orden es el contrato entre el dibujo y el toque: el HUD devuelve el
+## rectángulo de la ficha número i y aquí se resuelve qué ajusta esa i. Cambiar
+## el orden en un sitio y no en el otro deja al jugador apagando la música al
+## querer quitar la vibración.
+func _opciones_hud() -> Array[Dictionary]:
+	return [
+		{"icono": Hud.ICONO_SONIDO, "encendida": sonido},
+		{"icono": Hud.ICONO_MUSICA, "encendida": musica},
+		{"icono": Hud.ICONO_VIBRA, "encendida": vibracion},
+		{"icono": Hud.ICONO_SACUDIDA, "encendida": sacudida},
+	]
+
+
+## Si el toque cayó en el botón de pausa que dibuja el HUD.
+##
+## El área es mayor que el dibujo —132 units contra 78— porque fallar la pausa
+## en un juego con reloj cuesta la partida, y en el pulgar una esquina superior
+## se falla más de lo que parece.
+func _toque_boton_pausa(p: Vector2) -> bool:
+	if _hud_nuevo == null:
+		return _btn_pausa.contiene(p)
+	return _hud_nuevo.rect_pausa().has_point(p)
+
+
+## Resuelve un toque en la pantalla de pausa nueva. Devuelve si lo consumió.
+func _toque_pausa(p: Vector2) -> bool:
+	if _hud_nuevo == null:
+		return false
+	if _hud_nuevo.rect_seguir().has_point(p):
+		_ir_a(_antes_de_pausar)
+		return true
+	if _hud_nuevo.rect_salir().has_point(p):
+		_ir_a(State.MENU)
+		return true
+	for i in 4:
+		if not _hud_nuevo.rect_opcion(i).has_point(p):
+			continue
+		match i:
+			0:
+				sonido = not sonido
+			1:
+				musica = not musica
+				_sonar_musica()
+			2:
+				vibracion = not vibracion
+				_vibrar(40)
+			3:
+				sacudida = not sacudida
+		_guardar()
+		_hud_nuevo.cambiar_opcion(i, bool(_opciones_hud()[i]["encendida"]))
+		return true
+	return false
+
+
+func _titulo_de_fin(s: State) -> String:
+	if s == State.FINAL:
+		return "CAMPAÑA COMPLETA"
+	if s == State.WIN:
+		return "NIVEL %d SUPERADO" % (_nivel + 1)
+	return "SE ACABÓ"
+
+
+## La noticia del final: lo que el jugador no sabía hasta ahora.
+##
+## Batir el récord es lo único que merece una línea propia. Si no se batió, la
+## cifra grande ya lo cuenta todo y una línea de consuelo solo estorba.
+func _noticia_de_fin() -> String:
+	if _mode == Mode.CAMPANA:
+		return "MEJOR CADENA ×%d" % _best_cascade
+	if _record_nuevo:
+		return "+%d SOBRE TU RÉCORD" % maxi(0, _score - _best_previo)
+	return ""
 
 
 ## Hasta dónde deja avanzar el selector: el progreso real, o toda la campaña

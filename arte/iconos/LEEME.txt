@@ -1,0 +1,21 @@
+ICONOS DE LA PAUSA
+
+Material Symbols, variante ROUNDED. De google/material-design-icons,
+ruta symbols/web/<nombre>/materialsymbolsrounded/.
+
+  sonido.svg     volume_up
+  musica.svg     music_note
+  vibra.svg      vibration
+  sacudida.svg   earthquake
+
+Se eligio la variante Rounded y no la Outlined porque Fredoka -la fuente
+del HUD- es redondeada: con la Outlined los iconos se leian como de otra
+familia que el texto de al lado.
+
+Licencia Apache 2.0, en LICENSE.txt. Permite empaquetarlos en un juego
+comercial; la unica condicion es que la licencia viaje con ellos.
+
+El juego los TINE con el color del bioma: el SVG viene en negro y se
+dibuja modulado, asi que no hay una copia por bioma.
+
+  pausa.svg      pause
