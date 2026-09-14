@@ -496,6 +496,24 @@ const ARTE_ANCHO := 208.0
 ## lee como que el juego está roto. Disparar un poco antes sobre un hueco entre
 ## edificios se lee, en cambio, como el espacio aéreo de la ciudad.
 const ARTE_TEJADO := 104.0
+## El perfil de la ciudad de Asedio, como lista de tramos [x0, x1, alto].
+##
+## ARTE_TEJADO es el tejado MÁS ALTO, el de la torre de la izquierda. Usado como
+## recta, toda la ciudad tenía ese techo: un misil que cruzaba por x=105 estallaba
+## a 104 de alto cuando el edificio de debajo mide 31. Setenta y tres units de
+## cielo entre la explosión y lo que supuestamente había tocado.
+##
+## Es el mismo error que ya se corrigió en Lluvia de meteoros —el contacto es la
+## curva, no una línea— con una vuelta más: aquí el borde no es una curva sino
+## una escalera de trece edificios.
+##
+## ARTE_TEJADO no desaparece: sigue siendo el máximo del perfil y vale para
+## encuadrar y descartar rápido. Lo que deja de ser es el contacto.
+const RUTA_SILUETA := "res://datos/asedio_silueta.json"
+
+## Los tramos, cargados una vez. Vacío mientras no se pidan.
+static var _silueta: Array[Vector3] = []
+static var _silueta_leida := false
 ## El planeta de Lluvia de meteoros: x desde la izquierda, y sobre el borde
 ## inferior, y radio. La y es NEGATIVA a propósito: el centro cae por debajo del
 ## borde, así que solo se ve un casquete y se lee como un mundo, no como una
@@ -592,10 +610,56 @@ func planeta_radio(r: Vector2) -> float:
 
 
 ## Altura de la franja de abajo que cuenta como ciudad, en píxeles.
+##
+## Es el MÁXIMO del perfil, así que sirve para encuadrar y para descartar rápido,
+## no para decidir el contacto. Para eso está altura_contacto().
 func altura_ciudad(r: Vector2, por_defecto: float) -> float:
 	if Arte.telon_bioma(bioma) != null:
 		return ARTE_TEJADO * _escala_arte(r)
 	return por_defecto
+
+
+## A qué altura toca la ciudad bajo la HUELLA de un target, en píxeles.
+##
+## Se toma el máximo de los tramos que solapan la huella y no el tramo del
+## centro: con el centro solo, un target de 48 px podría colar media silueta por
+## el canto de un edificio y estallar por detrás de él.
+##
+## Sin perfil cargado se cae a la franja plana de siempre, que es lo que hacen
+## los biomas de defensa que no tienen ciudad dibujada.
+func altura_contacto(r: Vector2, x_izq: float, x_der: float,
+		por_defecto: float) -> float:
+	if Arte.telon_bioma(bioma) == null:
+		return por_defecto
+	var tramos := _tramos_silueta()
+	if tramos.is_empty():
+		return ARTE_TEJADO * _escala_arte(r)
+	var esc := _escala_arte(r)
+	var u_izq := x_izq / esc
+	var u_der := x_der / esc
+	var alto := 0.0
+	for t in tramos:
+		# t = (x0, x1, alto). Solapa si empieza antes de que acabe la huella y
+		# acaba después de que empiece.
+		if t.y > u_izq and t.x < u_der:
+			alto = maxf(alto, t.z)
+	return alto * esc
+
+
+## El perfil, leído una vez por ejecución.
+func _tramos_silueta() -> Array[Vector3]:
+	if _silueta_leida:
+		return _silueta
+	_silueta_leida = true
+	if not FileAccess.file_exists(RUTA_SILUETA):
+		return _silueta
+	var datos = JSON.parse_string(FileAccess.get_file_as_string(RUTA_SILUETA))
+	if typeof(datos) != TYPE_DICTIONARY:
+		return _silueta
+	for t in datos.get("tramos", []):
+		if typeof(t) == TYPE_ARRAY and t.size() >= 3:
+			_silueta.append(Vector3(float(t[0]), float(t[1]), float(t[2])))
+	return _silueta
 
 
 ## La Tierra, abajo a la izquierda.

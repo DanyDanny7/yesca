@@ -129,6 +129,38 @@ extends Node2D
 ## dónde ha venido, que es lo que hace mirar hacia ella.
 @export var fugaz_estela: int = 34
 
+@export_subgroup("Misiles")
+## Caída de un misil, en píxeles por segundo. El doble que la nieve: Asedio es
+## el bioma donde se pierde por dejar pasar algo, así que la caída tiene que ser
+## la fuente de tensión.
+@export var misil_caida := Vector2(70.0, 140.0)
+## Reparto de las tres trayectorias: recta, ese y quiebro.
+##
+## La recta es mayoría a propósito. Sin un fondo de misiles que caen rectos, los
+## otros dos no destacan: lo errático se mide contra lo normal. El 15% que tenía
+## el remolino se reparte entre la recta y el quiebro.
+@export var misil_reparto := [0.45, 0.35, 0.20]
+@export var misil_deriva := Vector2(-14.0, 14.0)
+@export var misil_ese_amplitud := Vector2(26.0, 58.0)
+## La ficha pide 1,6–3,2, pero medido en juego eso daba un pico lateral de 322
+## px/s contra 135 de caída: el misil corría de lado más del doble de lo que
+## bajaba, y se leía como nervioso en vez de errático.
+##
+## Se alarga el PERIODO y no se baja la amplitud: la amplitud es cuánto barre
+## —la forma de la ese, que funciona— y el periodo es a qué ritmo la recorre.
+@export var misil_ese_periodo := Vector2(3.0, 5.9)
+@export var misil_quiebro_instante := Vector2(0.8, 2.2)
+## Cuánto se desvía el quiebro, en grados, y hacia qué lado al azar.
+##
+## Bajó de 25–50 a 12–26: la corrección tiene que ser SUTIL. A cincuenta grados
+## el misil casi se cruzaba la pantalla y el jugador lo perdía de vista; lo que
+## hace funcionar al quiebro no es lo grande que es la desviación, es que llega
+## después de que él ya hubiera calculado dónde iba a caer.
+@export var misil_quiebro_angulo := Vector2(12.0, 26.0)
+## Dos misiles que nacen a menos de esto en x no pueden llevar la misma
+## trayectoria. Dos eses en paralelo dejan de ser errático y pasan a ser patrón.
+@export var misil_separacion: float = 40.0
+
 @export_subgroup("Hormiguero")
 ## Rapidez de una hormiga en unidades del lienzo del nido por segundo. El
 ## `vel_mult` del bioma —0,6— se aplica encima.
@@ -1381,9 +1413,12 @@ func _tick_transicion(delta: float) -> void:
 		if modo == Dot.Movimiento.METEORO:
 			var diana := _diana_planeta(get_viewport_rect().size)
 			d.velocity = (diana - d.position).normalized() * maxf(1.0, d.velocity.length())
-		elif modo == Dot.Movimiento.BOMBARDEO and d.velocity.y <= 0.0:
-			# Lo mismo por otro motivo: un proyectil que sube nunca amenaza nada.
-			d.velocity = Vector2(d.velocity.x * 0.3, absf(d.velocity.y) + 1.0)
+		elif modo == Dot.Movimiento.BOMBARDEO:
+			# Un target convertido a misil necesita su trayectoria como uno
+			# recién nacido: sin ella se queda con la de por defecto, cuya
+			# vertical de referencia es cero, y el misil salta al borde
+			# izquierdo en el primer fotograma.
+			_preparar_misil(d)
 		d.queue_redraw()
 
 	if _transicion >= 1.0:
@@ -1641,12 +1676,20 @@ func _check_impactos() -> void:
 	# cosas caen en sitios distintos.
 	var centro := _fondo.planeta_centro(pantalla)
 	var radio := _fondo.planeta_radio(pantalla)
-	var suelo := pantalla.y - _fondo.altura_ciudad(pantalla, ALTURA_CIUDAD)
+	# El techo del perfil sirve para descartar de un vistazo: por encima de él no
+	# hay ciudad en ningún x, así que no hace falta preguntar por el tramo.
+	var techo := pantalla.y - _fondo.altura_ciudad(pantalla, ALTURA_CIUDAD)
 	for d in _dots:
 		var toca := false
 		if contra_planeta:
 			toca = d.position.distance_squared_to(centro) <= pow(radio + d.radius, 2.0)
-		else:
+		elif d.position.y >= techo:
+			# Y solo entonces se mira el perfil bajo su HUELLA, no bajo su
+			# centro: un misil no toca la ciudad con un punto, la toca con todo
+			# su ancho.
+			var suelo := pantalla.y - _fondo.altura_contacto(pantalla,
+					d.position.x - d.radius, d.position.x + d.radius,
+					ALTURA_CIUDAD)
 			toca = d.position.y >= suelo
 		if not toca:
 			continue
@@ -1658,14 +1701,18 @@ func _check_impactos() -> void:
 
 
 func _impacto_ciudad(pos: Vector2, contra_planeta: bool = false) -> void:
+	# El impacto usa la MISMA detonación que un toque, solo que enorme.
+	#
+	# Traía la suya —Tipo.IMPACTO, que en Asedio es una imagen quieta— y era la
+	# única explosión del juego que no se parecía a las demás: el bioma tiene su
+	# tira de veinticuatro cuadros dibujada y el momento más importante de la
+	# partida se la perdía. El tamaño sí se queda: es lo que separa «has perdido»
+	# de «has encadenado».
 	var e := Explosion.new()
 	e.position = pos
 	e.max_radius = tap_radius * 1.6
-	e.color = Color("ff7a3c")
-	e.tipo = Explosion.Tipo.IMPACTO
-	e.grow_time = 0.18
-	e.hold_time = 0.5
-	e.decay_time = 0.6
+	e.color = _stage_color()
+	e.tipo = Explosion.Tipo.CADENA
 	e.bioma = _bioma_actual()
 	_explosions_root.add_child(e)
 	_effects.append(e)
@@ -1719,6 +1766,61 @@ func _refill_field(delta: float) -> void:
 		return
 	_respawn_timer = _respawn_interval()
 	_alta_dot()
+
+
+## Qué trayectoria le toca a un misil que nace en esta x.
+##
+## Dos reglas de reparto, y las dos existen por lo mismo: cuatro trayectorias
+## mal repartidas se leen como papel pintado: dos misiles vecinos no pueden
+## llevar la misma manera de caer.
+func _trayectoria_de_misil(x: float) -> Dot.Misil:
+	var vecinas := {}
+	for d in _dots:
+		if d.modo != Dot.Movimiento.BOMBARDEO:
+			continue
+		if absf(d.position.x - x) < misil_separacion:
+			vecinas[d.misil_tray] = true
+
+	var opciones: Array[int] = []
+	var pesos: Array[float] = []
+	var suma := 0.0
+	for i in 3:
+		if vecinas.has(i):
+			continue
+		var peso := float(misil_reparto[i]) if i < misil_reparto.size() else 0.33
+		if peso <= 0.0:
+			continue
+		opciones.append(i)
+		pesos.append(peso)
+		suma += peso
+
+	# Si las reglas se comen todas las opciones —campo lleno y apretado— se cae a
+	# la trayectoria MÁS PROBABLE del reparto, no a una fija.
+	#
+	# Estaba fija en recta, y eso rompía el ajuste: poniendo el reparto en 100%
+	# ese para mirar una sola trayectoria, las vecinas se excluían entre sí y por
+	# el respaldo se colaban rectas que el reparto había puesto a cero.
+	if opciones.is_empty():
+		var mejor := 0
+		for i in misil_reparto.size():
+			if float(misil_reparto[i]) > float(misil_reparto[mejor]):
+				mejor = i
+		return mejor as Dot.Misil
+	var tirada := randf() * suma
+	for i in opciones.size():
+		tirada -= pesos[i]
+		if tirada <= 0.0:
+			return opciones[i] as Dot.Misil
+	return opciones[opciones.size() - 1] as Dot.Misil
+
+
+## Deja listo un misil recién nacido: su caída y su trayectoria.
+func _preparar_misil(d: Dot) -> void:
+	d.base_speed = randf_range(misil_caida.x, misil_caida.y)
+	d.velocity = Vector2.DOWN * d.base_speed
+	d.preparar_misil(_trayectoria_de_misil(d.position.x), misil_deriva,
+			misil_ese_amplitud, misil_ese_periodo, misil_quiebro_instante,
+			misil_quiebro_angulo)
 
 
 ## Fabrica una hormiga y la deja en el campo, sin colocarla: de eso se encarga
@@ -1830,9 +1932,14 @@ func _alta_dot() -> void:
 		rumbo = (objetivo - d.position).normalized()
 
 	_preparar_dot(d, modo, rumbo)
+	if modo == Dot.Movimiento.BOMBARDEO:
+		_preparar_misil(d)
 	# Los que llegan durante la partida entran creciendo: se leen como que venían
 	# de lejos, y de paso el campo parece repoblarse antes de estar lleno.
-	d.entrar_creciendo()
+	#
+	# El misil no: viene LANZADO, no de lejos, y nace ya a su tamaño.
+	if modo != Dot.Movimiento.BOMBARDEO:
+		d.entrar_creciendo()
 
 	_dots_root.add_child(d)
 	_dots.append(d)
@@ -2715,6 +2822,8 @@ func _poblar_campo() -> void:
 			# volar.
 			rumbo = Vector2(1.0 if randf() < 0.5 else -1.0, randf_range(-0.3, 0.3)).normalized()
 		_preparar_dot(d, modo, rumbo)
+		if modo == Dot.Movimiento.BOMBARDEO:
+			_preparar_misil(d)
 		_dots_root.add_child(d)
 		_dots.append(d)
 

@@ -214,6 +214,44 @@ const ENTRADA_MIN := 0.28
 var _fase: float = 0.0
 ## Desfase propio, para que dos círculos con el mismo modo no se muevan
 ## sincronizados como un coro.
+## Las cuatro maneras de caer de un misil de Asedio. Se sortea UNA al nacer y se
+## conserva toda la vida: un misil que el jugador venía siguiendo no cambia de
+## carácter a mitad de caída.
+## Tres, no cuatro. Hubo un cuarto —remolino, un bucle a mitad de caída— y se
+## retiró: para que el bucle se lea como un círculo, la caída durante la vuelta
+## tiene que ser pequeña frente a su diámetro, y con una caída de 70 a 140 px/s
+## eso pedía o un círculo enorme o frenar tanto el misil que parecía colgado.
+## Está en el historial por si algún día la caída se ralentiza y vuelve a caber.
+enum Misil { RECTA, ESE, QUIEBRO }
+
+## La trayectoria de este misil y sus parámetros, todos sorteados al nacer.
+var misil_tray: Misil = Misil.RECTA
+var misil_deriva: float = 0.0
+var misil_amplitud: float = 0.0
+var misil_periodo: float = 2.0
+var misil_quiebro: float = 1.0
+var misil_tangente: float = 0.0
+## La vertical alrededor de la que serpentea, y dónde nació.
+var _misil_x: float = 0.0
+var _misil_y0: float = 0.0
+## El desplazamiento que tenía en su primer fotograma, que se resta siempre.
+##
+## Sin esto el misil SALTA de lado nada más nacer: la ese arranca en sin(semilla),
+## que no es cero, así que la primera x calculada estaba hasta 78 px a un lado de
+## donde había nacido. Medido antes de arreglarlo: picos de 3690 px/s de
+## velocidad lateral, que no es velocidad sino un teletransporte.
+##
+## Y se ancla al MOVERSE, no al sortear la trayectoria. Main prepara el misil
+## antes de meterlo en el árbol, así que en ese momento _semilla todavía vale
+## cero —la sortea _ready— y el desfase salía calculado con una semilla que no
+## era la suya. Anclando en el primer paso, la cuenta es la buena venga de donde
+## venga el misil.
+var _misil_dx0: float = 0.0
+var _misil_anclado := false
+## La vertical que cae sola. La posición es esta más el desplazamiento, no una
+## integración: así el bucle del remolino puede subir sin deshacer la caída.
+var _misil_y: float = 0.0
+
 var _semilla: float = 0.0
 ## Lo que gira por segundo una forma con DERIVA. Propio de cada instancia.
 var _deriva: float = 0.0
@@ -1120,26 +1158,115 @@ func _mover_misil(delta: float, area: Rect2) -> void:
 	_rebotar(area)
 
 
-## Bombardeo: cae de arriba abajo trazando eses.
+## Bombardeo: el misil CAE, y cada uno cae a su manera.
 ##
-## Dos senos de periodos que no encajan entre sí, así que el zigzag nunca se
-## repite igual y no se puede memorizar: hay que leerlo. Y el descenso es
-## constante, que es lo que convierte el nivel en una cuenta atrás por cada
-## proyectil en vez de una carrera contra la barra.
+## Antes cruzaban de lado a lado con un zigzag único, y eso era doblemente falso:
+## un misil no viaja en horizontal, y si todos hacen el mismo zigzag el campo se
+## memoriza en dos partidas.
 ##
-## No rebota abajo a propósito: llegar al suelo es perder, y de eso se encarga
-## main.gd.
+## La trayectoria es un desplazamiento que se SUMA a la vertical, no un cambio de
+## rumbo: el misil no deriva hacia un lado, serpentea alrededor de su vertical.
+## Por eso se guarda `_misil_x` y la x de cada fotograma sale de ella más el
+## desplazamiento, en vez de integrarse.
+##
+## No rebota abajo a propósito: llegar a la ciudad es perder, y de eso se encarga
+## main.gd. Un misil solo desaparece por detonación.
 func _mover_bombardeo(delta: float, area: Rect2) -> void:
-	var lateral := sin(_fase * 1.5 + _semilla) * 0.8 + sin(_fase * 2.9 + _semilla * 1.7) * 0.35
-	var v := Vector2(lateral * base_speed * 0.75, base_speed)
-	position += v * delta
-	rotation = v.angle()
-	# Los lados sí rebotan: un proyectil que se va por un costado no habría
-	# amenazado nada y el jugador se quedaría esperándolo.
-	if position.x < area.position.x + radius:
-		position.x = area.position.x + radius
-	elif position.x > area.end.x - radius:
-		position.x = area.end.x - radius
+	var antes := position
+	var t := _fase
+	var caida := base_speed
+
+	if not _misil_anclado:
+		_misil_anclado = true
+		_misil_x = position.x
+		_misil_y = position.y
+		_misil_y0 = position.y
+	# La vertical cae sola y la posición sale de ella más el desplazamiento. No
+	# se integra la posición: el bucle del remolino SUBE durante parte de la
+	# vuelta, y si eso se integrara la caída se perdería un trozo cada bucle.
+	_misil_y += caida * delta
+
+	var dx := 0.0
+	var dy := 0.0
+	match misil_tray:
+		Misil.RECTA:
+			dx = misil_deriva * t
+		Misil.ESE:
+			dx = _dx_ese(t)
+		Misil.QUIEBRO:
+			# Cae recto, corrige UNA vez y mantiene el rumbo nuevo. Es el único
+			# que cambia de rumbo de verdad, y funciona porque el jugador ya
+			# había calculado dónde iba a caer.
+			if t >= misil_quiebro:
+				dx = misil_tangente * caida * (t - misil_quiebro)
+
+	# El desfase de nacimiento se ancla al MOVERSE y no al sortear la
+	# trayectoria: Main prepara el misil antes de meterlo en el árbol, y ahí
+	# _semilla todavía vale cero porque la sortea _ready.
+	if is_zero_approx(t - delta) and not is_zero_approx(dx):
+		_misil_dx0 = dx
+	dx -= _misil_dx0
+
+	position.y = _misil_y + dy
+	# En los lados el desplazamiento se PLIEGA contra la guarda, no se envuelve:
+	# teletransportar un misil que el jugador viene siguiendo rompe lo único que
+	# se le pide hacer en este bioma.
+	position.x = _plegar(_misil_x + dx, area.position.x + radius,
+			area.end.x - radius)
+
+	# El ángulo sale de la velocidad de ESTE fotograma, no de un valor fijo.
+	# Con la llamarada al triple dejó de ser un detalle: con un ángulo fijo el
+	# fuego apunta a donde el misil no va, y en el remolino sale de costado.
+	var v := (position - antes) / maxf(delta, 0.0001)
+	if v.length_squared() > 1.0:
+		velocity = v
+		rotation = v.angle()
+
+
+## El desplazamiento lateral de la ese en un instante.
+##
+## Dos senos de periodos que no encajan —el segundo es 0,41 del primero, que no
+## es fracción entera— así que la ese no se repite nunca igual. Es el mismo truco
+## que la nieve, con más amplitud y menos periodo: la nieve oscila, el misil
+## serpentea.
+func _dx_ese(t: float) -> float:
+	var d := misil_amplitud * sin(TAU * t / misil_periodo + _semilla)
+	return d + misil_amplitud * 0.34 * sin(
+			TAU * t / (misil_periodo * 0.41) + _semilla * 1.7)
+
+
+## Refleja un valor dentro de un rango, las veces que haga falta.
+##
+## Una reflexión y no un recorte: recortado, el misil se quedaría pegado al borde
+## mientras su seno sigue empujando hacia fuera, y lo que se ve es un misil
+## clavado en la pared. Plegado, rebota y sigue.
+func _plegar(v: float, lo: float, hi: float) -> float:
+	if hi <= lo:
+		return lo
+	var ancho := hi - lo
+	var u := fposmod(v - lo, ancho * 2.0)
+	return lo + (u if u <= ancho else ancho * 2.0 - u)
+
+
+## Sortea la trayectoria y sus parámetros. La llama Main al dar de alta el misil.
+func preparar_misil(cual: Misil, deriva: Vector2, amplitud: Vector2,
+		periodo: Vector2, quiebro: Vector2, angulo: Vector2) -> void:
+	misil_tray = cual
+	_misil_x = position.x
+	_misil_y0 = position.y
+	_misil_y = position.y
+	_misil_dx0 = 0.0
+	_misil_anclado = false
+	match cual:
+		Misil.RECTA:
+			misil_deriva = randf_range(deriva.x, deriva.y)
+		Misil.ESE:
+			misil_amplitud = randf_range(amplitud.x, amplitud.y)
+			misil_periodo = randf_range(periodo.x, periodo.y)
+		Misil.QUIEBRO:
+			misil_quiebro = randf_range(quiebro.x, quiebro.y)
+			var grados := randf_range(angulo.x, angulo.y) * (1.0 if randf() < 0.5 else -1.0)
+			misil_tangente = tan(deg_to_rad(grados))
 
 
 ## Circuito: solo horizontal y vertical, con giros de noventa grados. Las
