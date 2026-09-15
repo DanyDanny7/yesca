@@ -136,6 +136,30 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
   Tiene que correr con ventana, no en headless: los targets se capturan
   renderizando de verdad.
 
+## Idiomas
+
+Todo el texto que ve el jugador vive en `datos/idiomas/`, una tabla por idioma.
+`scripts/textos.gd` la carga y `Textos.t("clave")` la consulta. Una clave que
+falte se devuelve tal cual, así que un idioma a medias enseña la clave y no un
+hueco: se ve qué falta sin que nada se rompa.
+
+`es.json` es la referencia. Para añadir un idioma:
+
+1. Copiar `datos/idiomas/es.json` a `datos/idiomas/<código>.json` y traducir los
+   valores. Las claves y los `%d` / `%s` no se tocan: el orden de los `%` es el
+   que espera el código.
+2. Añadir el código y su nombre a `Textos.IDIOMAS`, en `scripts/textos.gd`. Ese
+   diccionario es el que dibuja las fichas del selector del menú.
+3. Correr la auditoría, que comprueba que no falte ni sobre ninguna clave y que
+   no se haya colado texto dentro del código:
+
+       python tools/auditar-idioma.py
+
+El selector del menú es temporal y está a la vista a propósito: mientras se
+traduce, cambiar de idioma tiene que costar un toque. Cuelga del menú y no del
+HUD porque el HUD está en el índice 0 de la interfaz y el fondo del menú es
+opaco al 90 %: desde ahí abajo la fila se leía gris sobre gris.
+
 ## Antes de publicar
 
 - [ ] **`todos_los_niveles` a false** en el inspector de `Main`, grupo Pruebas.

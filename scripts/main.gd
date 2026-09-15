@@ -947,7 +947,7 @@ func _process(delta: float) -> void:
 		elif _time_left <= 0.0 and _explosions.is_empty():
 			# La muerte solo ocurre con el tablero quieto, así que un último tap
 			# desesperado todavía puede salvarte si atrapa algo.
-			_perder("Se acabó el tiempo")
+			_perder("perder_tiempo")
 
 	_pico_exp = maxi(_pico_exp, _explosions.size())
 	_pico_cad = maxi(_pico_cad, _cadenas.size())
@@ -1607,7 +1607,7 @@ func _tap(pos: Vector2) -> void:
 		# no fallar no es una vida, es el objetivo del nivel.
 		if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):
 			_marcar_muerte(mundo)
-			_perder(Textos.t("perder_fallaste"))
+			_perder("perder_fallaste")
 		else:
 			_flash(Textos.t("aviso_fallo"))
 		return
@@ -1835,7 +1835,7 @@ func _impacto_ciudad(pos: Vector2, contra_planeta: bool = false) -> void:
 		_flash(Textos.t("aviso_impacto", [int(coste_impacto)]))
 		_time_left = maxf(0.0, _time_left - coste_impacto)
 		return
-	_perder("Impactó la Tierra" if contra_planeta else "Impactó la ciudad")
+	_perder("perder_tierra" if contra_planeta else "perder_ciudad")
 
 
 ## Vaciar la pantalla es lo más parecido a ganar que tiene una partida sin fin.
@@ -2670,19 +2670,25 @@ func _congelar() -> void:
 	pass
 
 
+## Recibe la CLAVE del motivo, no el motivo escrito.
+##
+## Asi el registro anota siempre lo mismo pase lo que pase con el idioma -un log
+## que cambia de palabras no se puede comparar entre dos sesiones- y la pantalla
+## traduce en el momento de ensenarlo.
 func _perder(motivo: String) -> void:
+	var texto := Textos.t(motivo)
 	if _sin_morir:
 		# Se anota igual: el registro tiene que decir DÓNDE habrías perdido, que
 		# es justo el dato que se busca cuando se está mirando un bioma.
 		_diag.evento("SIN MORIR: aquí habrías perdido por %s" % motivo)
-		_flash(Textos.t("aviso_sin_morir", [motivo]))
+		_flash(Textos.t("aviso_sin_morir", [texto]))
 		_time_left = time_max
 		return
 	_diag.evento("DERROTA %s  pts=%d esc=%d cadena=%d" % [motivo, _score, _stage(), _best_cascade])
 	_sonar(SND_FIN)
 	_vibrar(160)
 	_shake = shake_max
-	_over_title.text = motivo
+	_over_title.text = texto
 	_terminar(State.DEAD)
 
 
@@ -3046,8 +3052,8 @@ func _ir_a(s: State) -> void:
 	_pause_screen.visible = s == State.PAUSA
 	_brief_screen.visible = s == State.BRIEFING
 	if s == State.BRIEFING:
-		_brief_bioma.text = str(Niveles.nivel(_nivel)["bioma"])
-		_brief_num.text = "Nivel %d" % (_nivel + 1)
+		_brief_bioma.text = Niveles.nombre_bioma(str(Niveles.nivel(_nivel)["bioma"]))
+		_brief_num.text = Textos.t("select_nivel", [_nivel + 1])
 		_brief_meta.text = Niveles.capitalizar(Niveles.describir(_nivel))
 		_brief_pista.text = Niveles.capitalizar(Textos.t(str(Niveles.nivel(_nivel)["pista"])))
 	if _hud_nuevo != null:
@@ -3070,32 +3076,32 @@ func _ir_a(s: State) -> void:
 
 	if s == State.WIN:
 		# El número manda: es el logro. El título queda de apoyo encima.
-		_win_title.text = "Nivel %d superado" % (_nivel + 1)
+		_win_title.text = Textos.t("win_nivel_superado", [_nivel + 1])
 		_win_puntos.text = str(_score)
-		_win_caption.text = "Puntos"
+		_win_caption.text = Textos.t("win_puntos")
 		_win_puntos.visible = true
 		_win_caption.visible = true
-		_win_detail.text = "Mejor cadena  ×%d" % _best_cascade
-		_win_seguir_text.text = "Sigue"
+		_win_detail.text = Textos.t("win_mejor_cadena", [_best_cascade])
+		_win_seguir_text.text = Textos.t("win_sigue")
 	elif s == State.FINAL:
-		_win_title.text = "Campaña completa"
+		_win_title.text = Textos.t("win_campana_completa")
 		_win_puntos.text = str(Niveles.total())
-		_win_caption.text = "Niveles superados"
+		_win_caption.text = Textos.t("win_niveles")
 		_win_puntos.visible = true
 		_win_caption.visible = true
-		_win_detail.text = "El modo sin fin te espera."
-		_win_seguir_text.text = "Fin"
+		_win_detail.text = Textos.t("win_sin_fin_espera")
+		_win_seguir_text.text = Textos.t("win_fin")
 	elif s == State.DEAD:
 		_over_score.text = str(_score)
 		var m := int(_elapsed) / 60
 		var seg := int(_elapsed) % 60
 		if _mode == Mode.CAMPANA:
-			_over_detail.text = "%s\nNivel %d  ·  toca para reintentar" % [
-				Niveles.capitalizar(Niveles.describir(_nivel)), _nivel + 1]
+			_over_detail.text = Textos.t("over_reintentar", [
+				Niveles.capitalizar(Niveles.describir(_nivel)), _nivel + 1])
 		elif _record_nuevo:
-			_over_detail.text = "¡NUEVO RÉCORD!\ncadena ×%d  ·  %d:%02d" % [_best_cascade, m, seg]
+			_over_detail.text = Textos.t("over_nuevo_record", [_best_cascade, m, seg])
 		else:
-			_over_detail.text = "mejor  %d\ncadena ×%d  ·  %d:%02d" % [_best, _best_cascade, m, seg]
+			_over_detail.text = Textos.t("over_resumen", [_best, _best_cascade, m, seg])
 
 
 ## Le pasa al HUD nuevo la pantalla en la que está el juego y sus textos.
@@ -3398,12 +3404,36 @@ func _guardar() -> void:
 
 ## Las etiquetas de la escena guardan su texto ya escrito, así que hay que
 ## reescribirlas: no se traducen solas al cambiar de idioma.
+## Reescribe TODA etiqueta de la escena que lleve texto fijo.
+##
+## Estan aqui juntas y no repartidas por donde se usan porque cambiar de idioma
+## tiene que repintarlas de una vez: una etiqueta que solo se escribe al entrar
+## en su pantalla se queda en el idioma viejo hasta que se vuelve a entrar.
+##
+## Las de las pantallas de fin y pausa siguen en la lista aunque hoy las dibuje
+## el HUD: son el respaldo, y un respaldo a medias sale en dos idiomas a la vez.
 func _rotular() -> void:
+	$UI/BarCaption.text = Textos.t("barra_tiempo")
 	$UI/MenuScreen/Campana/Text.text = Textos.t("menu_campana")
 	$UI/MenuScreen/SinFin/Text.text = Textos.t("menu_sin_fin")
 	$UI/MenuScreen/Log/Text.text = Textos.t("menu_log")
+	$UI/MenuScreen/Debug/Text.text = Textos.t("menu_sin_morir")
 	$UI/SelectScreen/Play/Text.text = Textos.t("select_jugar")
+	$UI/SelectScreen/Volver/Text.text = Textos.t("select_volver")
 	$UI/LogScreen/Title.text = Textos.t("log_titulo")
+	$UI/LogScreen/Volver/Text.text = Textos.t("log_volver")
+	$UI/PauseScreen/Title.text = Textos.t("pausa_titulo")
+	$UI/PauseScreen/OptSonido/Text.text = Textos.t("pausa_sonido")
+	$UI/PauseScreen/OptMusica/Text.text = Textos.t("pausa_musica")
+	$UI/PauseScreen/OptVibra/Text.text = Textos.t("pausa_vibrar")
+	$UI/PauseScreen/OptShake/Text.text = Textos.t("pausa_sacudida")
+	$UI/PauseScreen/Seguir/Text.text = Textos.t("hud_seguir")
+	$UI/PauseScreen/Menu/Text.text = Textos.t("pausa_menu")
+	$UI/OverScreen/Retry/Text.text = Textos.t("over_otra")
+	$UI/OverScreen/Foot.text = Textos.t("fin_o_toca")
+	$UI/WinScreen/PuntosCaption.text = Textos.t("win_puntos")
+	$UI/WinScreen/Foot.text = Textos.t("fin_o_toca")
+	$UI/BriefingScreen/Toca.text = Textos.t("brief_toca")
 
 
 func _update_ui() -> void:
@@ -3457,7 +3487,7 @@ func _update_ui() -> void:
 			Niveles.capitalizar(Niveles.describir(_nivel)),
 			Niveles.progreso(_nivel, _score, _best_cascade, _limpias, _elapsed)]
 	else:
-		_best_label.text = "Mejor  %d" % _best
+		_best_label.text = Textos.t("hud_mejor", [_best])
 		_objetivo_label.text = ""
 
 	var s := _stage()
