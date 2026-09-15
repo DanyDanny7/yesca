@@ -374,6 +374,8 @@ func _cargar_ancladas() -> void:
 	if typeof(datos) != TYPE_DICTIONARY:
 		return
 	_anclada_lado = float(datos.get("ancho_pieza", 0.0))
+	_anclada_boca = float(datos.get("diametro_boca", 0.0))
+	_anclada_factor = float(datos.get("boca_relativa_al_target", 0.0))
 	for a in datos.get("piezas", []):
 		if typeof(a) != TYPE_DICTIONARY:
 			continue
@@ -387,6 +389,29 @@ func _cargar_ancladas() -> void:
 		})
 
 
+## Cuánto mide de lado una pieza anclada, en píxeles.
+##
+## El manifiesto puede dar el tamaño de dos maneras. La normal es en units y se
+## acabó. La otra es RELATIVA AL TARGET: una tronera tiene que ser más ancha que
+## la bola que se cuela por ella, así que su medida no es una cifra suelta sino
+## una proporción, y el dibujo no hay que rehacerlo si cambia el tamaño del
+## objetivo.
+##
+## Hacía falta de verdad y no era un adorno del formato: la entrega calculó los
+## 22 units suponiendo una bola de 10, tomando el `radius` de la paleta —que es
+## el de contagio— por el tamaño dibujado. A la resolución base la bola mide 14,8
+## units, así que la boca entregada y la bola salían IGUALES cuando la regla pide
+## que la boca sea un 50% mayor. Con la proporción aplicada, la cifra se corrige
+## sola y seguirá corrigiéndose si mañana cambia el dibujo del target.
+func _lado_anclada(esc: float) -> float:
+	if _anclada_factor <= 0.0 or _anclada_boca <= 0.0 or diametro_target <= 0.0:
+		return _anclada_lado * esc
+	# La boca que toca, en units, y de ahí la pieza entera guardando la
+	# proporción con la que se dibujó.
+	var boca := _anclada_factor * (diametro_target / esc)
+	return _anclada_lado * (boca / _anclada_boca) * esc
+
+
 ## Las piezas ancladas, entre los astros y el azulejo.
 ##
 ## Debajo del azulejo por el mismo motivo que los astros: si algún día Billar
@@ -396,7 +421,7 @@ func _dibujar_ancladas(r: Vector2) -> void:
 	if _ancladas.is_empty() or _anclada_lado <= 0.0:
 		return
 	var esc := _escala_arte(r)
-	var lado := _anclada_lado * esc
+	var lado := _lado_anclada(esc)
 	for a in _ancladas:
 		var tex := Arte.anclada(bioma, str(a["pieza"]))
 		if tex == null:
@@ -702,6 +727,12 @@ var _astros: Array[Dictionary] = []
 ## Las piezas ancladas del bioma y el lado que mide cada una, en units.
 var _ancladas: Array[Dictionary] = []
 var _anclada_lado := 0.0
+## Con qué se mide la boca de la pieza contra el target, si el manifiesto lo dice.
+var _anclada_boca := 0.0
+var _anclada_factor := 0.0
+## Cuánto mide de ancho el objetivo de este bioma, en píxeles. Lo pone Main, que
+## es quien sabe de qué tamaño dibuja los targets.
+var diametro_target := 0.0
 
 ## El aviso de amenaza: cuánto pulsa la línea de contacto, de 0 a 1, y de qué
 ## color. Lo pone Main, que es quien sabe si hay un target cerca.

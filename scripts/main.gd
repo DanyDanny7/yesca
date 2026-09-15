@@ -1349,6 +1349,11 @@ func _aplicar_paleta() -> void:
 	_paleta = Niveles.paleta(_nivel) if _mode == Mode.CAMPANA \
 			else Niveles.paleta_de(_bioma_actual_sinfin())
 	RenderingServer.set_default_clear_color(Color(str(_paleta.get("fondo", "0d0d12"))))
+	# El tamano DIBUJADO del objetivo, para las piezas de fondo cuya medida es
+	# relativa a el: la boca de una tronera tiene que dejar pasar la bola. No se
+	# puede deducir del `radio` de la paleta, que es el de contagio y es mucho
+	# menor que el dibujo.
+	_fondo.diametro_target = tap_tolerance * dibujo_del_toque 			* Arte.LIENZO_EN_RADIOS * Dot.BOLA_RADIO * 2.0
 	# El telón se tiñe con el color de los círculos, no con el de la onda: así
 	# pertenece al mismo sitio sin llegar a parecer un círculo apagado.
 	_fondo.configurar(
