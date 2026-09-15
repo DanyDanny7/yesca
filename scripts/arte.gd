@@ -50,6 +50,9 @@ const DIR_ELASTICAS := "res://arte/elasticas/"
 ## por todas partes. El nombre de la carpeta obliga a decidir cuál se está
 ## entregando.
 const DIR_TELONES := "res://arte/telones/"
+## Las piezas sueltas de la capa de astros. Una por fichero, centrada en su
+## lienzo cuadrado: colocarla es poner un punto.
+const DIR_ASTROS := "res://arte/astros/"
 ## Tiras ancladas ARRIBA que se repiten solo en horizontal.
 ##
 ## La aurora de Invierno es el caso que las trajo: dos capas superpuestas que se
@@ -161,6 +164,11 @@ static func telon(tipo: int) -> Texture2D:
 ## estrellas— pero nadie dibuja «un campo de estrellas», dibuja «el cielo de
 ## Cielo abierto». El bioma es la unidad de identidad visual; el telón solo era
 ## la unidad del generador.
+## Una pieza suelta de la capa de astros, por su nombre de fichero.
+static func astro(pieza: String) -> Texture2D:
+	return _buscar(DIR_ASTROS + pieza)
+
+
 static func fondo_bioma(nombre: String) -> Texture2D:
 	return _buscar(DIR_FONDOS + slug(nombre))
 

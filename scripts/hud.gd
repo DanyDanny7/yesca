@@ -41,6 +41,11 @@ const ARCO_CENTRO := Vector2(540.0, 456.0)
 ## Hormigas ni Río, que tienen la mitad de arriba clara.
 @export var VELO_ALTO: float = 384.0
 const VELO_DE := 0.9
+## La del bioma en curso. El velo protege el MARCADOR, no el arco, así que se
+## queda aunque no haya arco: Asedio baja al 70% porque su mitad de arriba es
+## noche pura, y Lluvia sube al 94% porque el sol de la capa de astros cae justo
+## debajo de la banda del marcador.
+var _velo_de: float = VELO_DE
 const VELO_MEDIO := 0.62
 const VELO_A := 0.0
 ## El velo se pinta con una textura de degradado estirada, no a bandas.
@@ -63,6 +68,21 @@ const MARCADOR_INTER := -4.0
 const RECORD_TAM := 30.0
 const RECORD_Y := 336.0
 const RECORD_INTER := 4.5
+## Los avisos de partida —«Fallo», «¡Impacto!», «Pantalla limpia»—.
+##
+## Se dibujan aquí y no en una etiqueta suelta porque son del HUD: llevaban
+## tipografía propia, un verde fijo igual en los diecisiete biomas y una posición
+## en píxeles de dispositivo. Tres maneras distintas de no pertenecer a la
+## pantalla en la que salen.
+##
+## Van bajo el bloque de arriba, ya en el campo de juego: más arriba se pelean
+## con el marcador, y en el centro tapan la jugada que acaban de comentar.
+const AVISO_TAM := 42.0
+const AVISO_Y := 552.0
+## Cuánto dura y qué parte final se pasa apagándose.
+const AVISO_VIDA := 1.4
+const AVISO_APAGA := 0.35
+
 ## La cuenta atrás de los niveles que piden aguantar. Va bajo el récord.
 const CUENTA_TAM := 42.0
 const CUENTA_Y := 378.0
@@ -147,6 +167,8 @@ const ICONO_CAJA := 0.62
 const FONDO_INICIO := 0.62
 const FONDO_FIN := 0.74
 const TITULO_TAM := 171.0
+## Lo que separa el pie del título de «toca para empezar».
+const TITULO_HUECO := 66.0
 const TOCA_TAM := 63.0
 const TOCA_INTER := 4.5
 const OBJETIVO_TAM := 108.0
@@ -221,6 +243,10 @@ var multiplicador: int = 0
 ## Segundos que faltan para cumplir el objetivo. En negativo, no hay cuenta.
 var cuenta_atras: float = -1.0
 
+## El aviso en pantalla y lo que le queda de vida.
+var _aviso := ""
+var _aviso_t: float = 0.0
+
 ## Los flotantes vivos. Cada uno es {texto, origen, t}.
 var _flotantes: Array[Dictionary] = []
 var _golpe: float = 0.0
@@ -230,6 +256,12 @@ var _iconos := {}
 var _velo: GradientTexture2D = null
 var _fuentes := {}
 var _tabla := {}
+## Biomas donde no se pierde por tiempo y por tanto NO hay arco.
+var _sin_arco := []
+## Opacidad de salida del velo por bioma, si la tiene declarada.
+var _velo_por_bioma := {}
+## Si el bioma en curso es de los que no llevan arco.
+var sin_arco := false
 var _pulso: float = 0.0
 
 
@@ -288,6 +320,8 @@ func _cargar_tabla() -> void:
 	var datos = JSON.parse_string(FileAccess.get_file_as_string(RUTA_COLORES))
 	if typeof(datos) == TYPE_DICTIONARY:
 		_tabla = datos.get("biomas", {})
+		_sin_arco = datos.get("sin_arco", [])
+		_velo_por_bioma = datos.get("velo", {}).get("por_bioma", {})
 
 
 func fuente(peso: int) -> Font:
@@ -348,6 +382,11 @@ func configurar(bioma: String, pal: Dictionary) -> void:
 		# Sin entrada propia, el claro sale de aclarar la onda hasta casi blanco:
 		# es lo que hace la tabla en los cinco que sí están.
 		claro = onda.lerp(Color.WHITE, 0.82)
+	# Aquí no se pierde por tiempo, así que el arco NO EXISTE: no es que no se
+	# vacíe. Un arco en pantalla promete una mecánica —si está y no baja, el
+	# jugador espera que baje; si está y baja, muere por algo que no es el arco.
+	sin_arco = _sin_arco.has(clave)
+	_velo_de = float(_velo_por_bioma.get(clave, VELO_DE))
 	_rehacer_velo()
 	queue_redraw()
 
@@ -376,6 +415,9 @@ func actualizar(delta: float, fraccion: float, reloj_corriendo: bool,
 	for i in opciones.size():
 		var meta := 1.0 if bool(opciones[i]["encendida"]) else 0.0
 		_opcion_t[i] = move_toward(_opcion_t[i], meta, delta / OPCION_TRANSICION)
+
+	if not congelado and _aviso_t > 0.0:
+		_aviso_t = maxf(0.0, _aviso_t - delta)
 
 	if not congelado:
 		var vivos: Array[Dictionary] = []
@@ -408,6 +450,13 @@ func cambiar_opcion(i: int, encendida: bool) -> void:
 	queue_redraw()
 
 
+## Un aviso de partida. Sustituye al que hubiera: son noticias, y la última es
+## la que importa.
+func avisar(texto: String) -> void:
+	_aviso = texto
+	_aviso_t = AVISO_VIDA
+
+
 ## Un punto de premio, que nace donde se tocó.
 func flotante(texto: String, donde: Vector2) -> void:
 	_flotantes.append({"texto": texto, "origen": donde, "t": 0.0})
@@ -422,7 +471,9 @@ func _draw() -> void:
 	if estado == Estado.OCULTO:
 		return
 	_dibujar_velo()
-	if corriendo:
+	if sin_arco:
+		pass
+	elif corriendo:
 		_dibujar_arco()
 	elif estado == Estado.INICIO:
 		# En inicio se ve la pista del arco sin relleno: enseña dónde va a estar
@@ -441,6 +492,7 @@ func _draw() -> void:
 	_dibujar_record()
 	_dibujar_cuenta()
 	_dibujar_pildora()
+	_dibujar_aviso()
 	_dibujar_flotantes()
 	_dibujar_boton_pausa()
 
@@ -488,12 +540,20 @@ func _dibujar_inicio() -> void:
 	_apagar(FONDO_INICIO)
 	var alto_titulo := medida(TITULO_TAM)
 	var alto_toca := medida(TOCA_TAM)
-	var hueco := alto_toca * 0.9
-	var bloque := alto_titulo + hueco + alto_toca
+	var hueco := medida(TITULO_HUECO)
+	# El título se ancla por su borde INFERIOR, a un hueco fijo por encima de
+	# «toca para empezar». Con una línea queda donde siempre; con dos, CRECE
+	# HACIA ARRIBA. Si creciera hacia abajo se comería la invitación y la banda
+	# del objetivo, y «Lluvia de meteoros» es el primer bioma que no cabe en una
+	# línea —«Caza de robots» y «Ciudad de papel» darán el mismo caso—.
+	var lineas := _partir_titulo(titulo)
+	var alto_total := alto_titulo * float(lineas.size())
+	var bloque := alto_total + hueco + alto_toca
 	var arriba := pantalla().y * 0.5 - bloque * 0.5
-	_texto_centrado_px(titulo, arriba, TITULO_TAM, PESO_SEMI,
-			Color(claro, OP_PRINCIPAL))
-	var y_toca := arriba + alto_titulo + hueco
+	for i in lineas.size():
+		_texto_centrado_px(lineas[i], arriba + alto_titulo * float(i),
+				TITULO_TAM, PESO_SEMI, Color(claro, OP_PRINCIPAL))
+	var y_toca := arriba + alto_total + hueco
 	_texto_centrado_px("TOCA PARA EMPEZAR", y_toca, TOCA_TAM, PESO_MEDIO,
 			Color(onda, OP_SECUNDARIO), TOCA_INTER, true)
 
@@ -685,6 +745,35 @@ func _enlace(txt: String, y_px: float) -> Rect2:
 			Vector2(ancho + medida(BOTON_AIRE.x) * 2.0, float(tam) + medida(BOTON_AIRE.y) * 2.0))
 
 
+## Parte el título en dos líneas si no cabe en una.
+##
+## Se parte por la palabra más cercana a la mitad y no por la primera que cabe:
+## «Lluvia de / meteoros» se lee mejor que «Lluvia / de meteoros». Encoger no
+## vale aquí —el título es lo más grande de la pantalla y reducirlo un tercio se
+## nota como un fallo de maqueta, no como una decisión.
+func _partir_titulo(txt: String) -> Array:
+	var f: Font = fuente(PESO_SEMI)
+	if f == null or txt.is_empty():
+		return [txt]
+	var tam := int(round(medida(TITULO_TAM)))
+	var ancho_max := pantalla().x - medida(MARGEN_TEXTO) * 2.0
+	if f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, tam).x <= ancho_max:
+		return [txt]
+	var palabras := txt.split(" ", false)
+	if palabras.size() < 2:
+		return [txt]
+	var mejor := 1
+	var mejor_dif := 1.0e9
+	for corte in range(1, palabras.size()):
+		var a := " ".join(palabras.slice(0, corte))
+		var b := " ".join(palabras.slice(corte))
+		var dif := absf(float(a.length()) - float(b.length()))
+		if dif < mejor_dif:
+			mejor_dif = dif
+			mejor = corte
+	return [" ".join(palabras.slice(0, mejor)), " ".join(palabras.slice(mejor))]
+
+
 ## La pantalla de fin: la cifra es la noticia, y el récord batido la remata.
 func _dibujar_fin() -> void:
 	_apagar(FONDO_FIN)
@@ -874,6 +963,18 @@ func _dibujar_cuenta() -> void:
 			Color(onda, alfa), CUENTA_INTER)
 
 
+## El aviso, que se apaga en su último tercio.
+func _dibujar_aviso() -> void:
+	if _aviso_t <= 0.0 or _aviso.is_empty():
+		return
+	var t := 1.0 - _aviso_t / AVISO_VIDA
+	var a := OP_SECUNDARIO
+	if t > 1.0 - AVISO_APAGA:
+		a *= (1.0 - t) / AVISO_APAGA
+	_texto_centrado(_aviso, AVISO_Y, AVISO_TAM, PESO_MEDIO,
+			Color(onda, clampf(a, 0.0, 1.0)), TOCA_INTER)
+
+
 ## El multiplicador solo existe mientras la cascada está viva.
 func _dibujar_pildora() -> void:
 	if multiplicador < 2:
@@ -941,7 +1042,8 @@ func _rehacer_velo() -> void:
 	var g := Gradient.new()
 	g.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
 	g.colors = PackedColorArray([
-		Color(paleta, VELO_DE), Color(paleta, VELO_MEDIO), Color(paleta, VELO_A)])
+		Color(paleta, _velo_de), Color(paleta, _velo_de * VELO_MEDIO / VELO_DE),
+		Color(paleta, VELO_A)])
 	_velo = GradientTexture2D.new()
 	_velo.gradient = g
 	_velo.width = 1

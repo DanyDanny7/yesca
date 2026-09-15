@@ -1,0 +1,905 @@
+{
+ "bioma": "lluvia_de_meteoros",
+ "capa": "astros",
+ "lienzo": [
+  208,
+  500
+ ],
+ "ancla": "centro de la pieza",
+ "x": "units desde el borde izquierdo",
+ "alto": "units sobre el borde inferior",
+ "ancho": "units; la pieza se escala por el ancho y NUNCA se deforma",
+ "escala": "ancho_pieza_px = ancho * (ancho_viewport / 208)",
+ "orden_de_dibujo": "elastica -> astros -> azulejo -> telon -> targets",
+ "astros": [
+  {
+   "pieza": "lluvia_sol",
+   "x": 8,
+   "alto": 272,
+   "ancho": 336,
+   "alfa": 1
+  },
+  {
+   "pieza": "lluvia_planeta_anillo",
+   "x": 163,
+   "alto": 182,
+   "ancho": 96,
+   "alfa": 1
+  },
+  {
+   "pieza": "lluvia_planeta_lejano",
+   "x": 52,
+   "alto": 418,
+   "ancho": 16,
+   "alfa": 0.9
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 9.3,
+   "alto": 165.2,
+   "ancho": 1.13,
+   "alfa": 0.071
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 58.3,
+   "alto": 160.1,
+   "ancho": 2.24,
+   "alfa": 0.09
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 135.9,
+   "alto": 288.9,
+   "ancho": 0.91,
+   "alfa": 0.196
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 115,
+   "alto": 230.6,
+   "ancho": 2.27,
+   "alfa": 0.092
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 169.9,
+   "alto": 322.4,
+   "ancho": 2,
+   "alfa": 0.152
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 207.4,
+   "alto": 495.9,
+   "ancho": 1.34,
+   "alfa": 0.197
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 10.8,
+   "alto": 66.5,
+   "ancho": 1.05,
+   "alfa": 0.171
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 33.2,
+   "alto": 15.4,
+   "ancho": 1.84,
+   "alfa": 0.192
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 45.1,
+   "alto": 160.6,
+   "ancho": 1.35,
+   "alfa": 0.133
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 57.7,
+   "alto": 134,
+   "ancho": 0.91,
+   "alfa": 0.115
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 13.8,
+   "alto": 135.5,
+   "ancho": 3.33,
+   "alfa": 0.124
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 90.5,
+   "alto": 356.3,
+   "ancho": 2.08,
+   "alfa": 0.176
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 15.7,
+   "alto": 346.7,
+   "ancho": 1.13,
+   "alfa": 0.178
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 97.8,
+   "alto": 481.1,
+   "ancho": 1.18,
+   "alfa": 0.088
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 143,
+   "alto": 394.2,
+   "ancho": 1.41,
+   "alfa": 0.12
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 46.3,
+   "alto": 484.6,
+   "ancho": 2.84,
+   "alfa": 0.142
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 103.3,
+   "alto": 5.7,
+   "ancho": 2.27,
+   "alfa": 0.205
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 99.9,
+   "alto": 430.9,
+   "ancho": 1.09,
+   "alfa": 0.13
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 129.8,
+   "alto": 105.1,
+   "ancho": 0.92,
+   "alfa": 0.091
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 56.1,
+   "alto": 480.6,
+   "ancho": 1.25,
+   "alfa": 0.09
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 73.4,
+   "alto": 316.8,
+   "ancho": 2.82,
+   "alfa": 0.212
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 140.5,
+   "alto": 43.9,
+   "ancho": 1.21,
+   "alfa": 0.126
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 103.1,
+   "alto": 225,
+   "ancho": 1.47,
+   "alfa": 0.071
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 175.8,
+   "alto": 441.2,
+   "ancho": 3.14,
+   "alfa": 0.115
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 40.2,
+   "alto": 440.3,
+   "ancho": 0.94,
+   "alfa": 0.071
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 48.9,
+   "alto": 422.6,
+   "ancho": 1.03,
+   "alfa": 0.108
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 142.4,
+   "alto": 375.9,
+   "ancho": 1,
+   "alfa": 0.223
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 183.9,
+   "alto": 318.1,
+   "ancho": 1.38,
+   "alfa": 0.096
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 101,
+   "alto": 109.7,
+   "ancho": 1.89,
+   "alfa": 0.087
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 120.7,
+   "alto": 52.3,
+   "ancho": 0.95,
+   "alfa": 0.179
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 104.8,
+   "alto": 418.8,
+   "ancho": 1.14,
+   "alfa": 0.105
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 34,
+   "alto": 299.9,
+   "ancho": 2.43,
+   "alfa": 0.073
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 47.9,
+   "alto": 36.3,
+   "ancho": 2,
+   "alfa": 0.139
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 139.7,
+   "alto": 415.6,
+   "ancho": 2.24,
+   "alfa": 0.12
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 95.3,
+   "alto": 15.8,
+   "ancho": 1.25,
+   "alfa": 0.078
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 47.5,
+   "alto": 73.1,
+   "ancho": 0.9,
+   "alfa": 0.179
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 20.8,
+   "alto": 463.1,
+   "ancho": 0.91,
+   "alfa": 0.099
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 4.1,
+   "alto": 94.5,
+   "ancho": 2.39,
+   "alfa": 0.241
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 5.9,
+   "alto": 53.6,
+   "ancho": 1.68,
+   "alfa": 0.075
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 57.8,
+   "alto": 428,
+   "ancho": 2.18,
+   "alfa": 0.14
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 154.6,
+   "alto": 148.5,
+   "ancho": 1.25,
+   "alfa": 0.115
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 129.7,
+   "alto": 301,
+   "ancho": 2.02,
+   "alfa": 0.174
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 90.9,
+   "alto": 324.4,
+   "ancho": 2.69,
+   "alfa": 0.135
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 176.7,
+   "alto": 65,
+   "ancho": 2.78,
+   "alfa": 0.253
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 32.7,
+   "alto": 267.1,
+   "ancho": 1.21,
+   "alfa": 0.075
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 202.5,
+   "alto": 253.8,
+   "ancho": 1.41,
+   "alfa": 0.204
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 36.3,
+   "alto": 24.1,
+   "ancho": 3.29,
+   "alfa": 0.073
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 39.5,
+   "alto": 267.6,
+   "ancho": 1.52,
+   "alfa": 0.07
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 72.6,
+   "alto": 37.7,
+   "ancho": 2.48,
+   "alfa": 0.241
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 148.4,
+   "alto": 330.8,
+   "ancho": 3.56,
+   "alfa": 0.071
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 137.2,
+   "alto": 1.3,
+   "ancho": 1.29,
+   "alfa": 0.145
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 98.2,
+   "alto": 273.9,
+   "ancho": 2.32,
+   "alfa": 0.091
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 201,
+   "alto": 51.4,
+   "ancho": 1.93,
+   "alfa": 0.127
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 5.6,
+   "alto": 31,
+   "ancho": 1.28,
+   "alfa": 0.123
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 78.6,
+   "alto": 182,
+   "ancho": 2.81,
+   "alfa": 0.152
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 120.8,
+   "alto": 266.1,
+   "ancho": 2.01,
+   "alfa": 0.142
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 158.2,
+   "alto": 184.7,
+   "ancho": 0.96,
+   "alfa": 0.243
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 81.7,
+   "alto": 445.8,
+   "ancho": 1.97,
+   "alfa": 0.14
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 120,
+   "alto": 324.9,
+   "ancho": 1.15,
+   "alfa": 0.082
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 123.9,
+   "alto": 239.8,
+   "ancho": 0.98,
+   "alfa": 0.25
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 108.2,
+   "alto": 451.3,
+   "ancho": 0.9,
+   "alfa": 0.148
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 196.2,
+   "alto": 220.3,
+   "ancho": 2.37,
+   "alfa": 0.232
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 194.2,
+   "alto": 482.8,
+   "ancho": 3.22,
+   "alfa": 0.187
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 140.9,
+   "alto": 470,
+   "ancho": 1.04,
+   "alfa": 0.242
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 155.7,
+   "alto": 66.3,
+   "ancho": 1.14,
+   "alfa": 0.126
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 111.6,
+   "alto": 31.2,
+   "ancho": 2.05,
+   "alfa": 0.092
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 38.1,
+   "alto": 128.3,
+   "ancho": 1.71,
+   "alfa": 0.135
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 94.3,
+   "alto": 61.6,
+   "ancho": 2.17,
+   "alfa": 0.22
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 13.9,
+   "alto": 474.9,
+   "ancho": 0.93,
+   "alfa": 0.175
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 46.1,
+   "alto": 14.7,
+   "ancho": 1.15,
+   "alfa": 0.121
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 69.2,
+   "alto": 65.8,
+   "ancho": 1.12,
+   "alfa": 0.097
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 181,
+   "alto": 203.4,
+   "ancho": 2.2,
+   "alfa": 0.243
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 46.7,
+   "alto": 258.9,
+   "ancho": 3.47,
+   "alfa": 0.106
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 47.9,
+   "alto": 114.7,
+   "ancho": 2.13,
+   "alfa": 0.074
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 48.9,
+   "alto": 372.5,
+   "ancho": 1.03,
+   "alfa": 0.151
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 164,
+   "alto": 67.7,
+   "ancho": 3.14,
+   "alfa": 0.116
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 73.9,
+   "alto": 66.6,
+   "ancho": 1.73,
+   "alfa": 0.121
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 67.8,
+   "alto": 187.1,
+   "ancho": 0.9,
+   "alfa": 0.247
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 69,
+   "alto": 472.7,
+   "ancho": 2.79,
+   "alfa": 0.154
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 130.3,
+   "alto": 100.3,
+   "ancho": 0.9,
+   "alfa": 0.144
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 15.2,
+   "alto": 388.8,
+   "ancho": 2.05,
+   "alfa": 0.169
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 144.1,
+   "alto": 408,
+   "ancho": 2.3,
+   "alfa": 0.146
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 122.5,
+   "alto": 489.4,
+   "ancho": 1.15,
+   "alfa": 0.096
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 155.3,
+   "alto": 36.5,
+   "ancho": 2.92,
+   "alfa": 0.176
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 105.8,
+   "alto": 30.1,
+   "ancho": 1.34,
+   "alfa": 0.19
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 68.1,
+   "alto": 440.6,
+   "ancho": 0.91,
+   "alfa": 0.079
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 51.6,
+   "alto": 395.7,
+   "ancho": 0.92,
+   "alfa": 0.135
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 207.7,
+   "alto": 164.3,
+   "ancho": 1.08,
+   "alfa": 0.159
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 158.9,
+   "alto": 261.3,
+   "ancho": 1.44,
+   "alfa": 0.156
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 54.4,
+   "alto": 73.1,
+   "ancho": 2.32,
+   "alfa": 0.117
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 49.3,
+   "alto": 495.8,
+   "ancho": 1.16,
+   "alfa": 0.177
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 161.1,
+   "alto": 121,
+   "ancho": 0.98,
+   "alfa": 0.246
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 166.1,
+   "alto": 387.4,
+   "ancho": 3.53,
+   "alfa": 0.172
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 195.9,
+   "alto": 322.4,
+   "ancho": 2.48,
+   "alfa": 0.188
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 196.7,
+   "alto": 212.8,
+   "ancho": 1.38,
+   "alfa": 0.161
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 57,
+   "alto": 318.8,
+   "ancho": 2.21,
+   "alfa": 0.198
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 160.1,
+   "alto": 330.2,
+   "ancho": 1.01,
+   "alfa": 0.12
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 119.8,
+   "alto": 118.8,
+   "ancho": 3.32,
+   "alfa": 0.074
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 206.9,
+   "alto": 276,
+   "ancho": 1.12,
+   "alfa": 0.073
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 1.6,
+   "alto": 287.8,
+   "ancho": 1.87,
+   "alfa": 0.212
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 116.3,
+   "alto": 371.9,
+   "ancho": 1.27,
+   "alfa": 0.078
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 0.3,
+   "alto": 62.2,
+   "ancho": 3.18,
+   "alfa": 0.154
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 196.7,
+   "alto": 408.8,
+   "ancho": 1.9,
+   "alfa": 0.089
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 44,
+   "alto": 155.7,
+   "ancho": 1,
+   "alfa": 0.162
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 57.2,
+   "alto": 147.8,
+   "ancho": 2.24,
+   "alfa": 0.14
+  },
+  {
+   "pieza": "lluvia_estrella_fria",
+   "x": 25.5,
+   "alto": 481.7,
+   "ancho": 2.1,
+   "alfa": 0.215
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 85.2,
+   "alto": 474.3,
+   "ancho": 1.28,
+   "alfa": 0.07
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 74.9,
+   "alto": 255.8,
+   "ancho": 1.57,
+   "alfa": 0.153
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 125,
+   "alto": 284.9,
+   "ancho": 1.86,
+   "alfa": 0.236
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 102.9,
+   "alto": 410.4,
+   "ancho": 2.95,
+   "alfa": 0.251
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 44,
+   "alto": 237.5,
+   "ancho": 2.09,
+   "alfa": 0.213
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 100.6,
+   "alto": 297.8,
+   "ancho": 1.12,
+   "alfa": 0.197
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 113.7,
+   "alto": 355.8,
+   "ancho": 1.88,
+   "alfa": 0.158
+  },
+  {
+   "pieza": "lluvia_estrella_calida",
+   "x": 177,
+   "alto": 76.3,
+   "ancho": 1.62,
+   "alfa": 0.077
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 115.6,
+   "alto": 19.5,
+   "ancho": 1.07,
+   "alfa": 0.158
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 174.4,
+   "alto": 103.4,
+   "ancho": 1.26,
+   "alfa": 0.071
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 55.1,
+   "alto": 189.1,
+   "ancho": 2.04,
+   "alfa": 0.105
+  },
+  {
+   "pieza": "lluvia_estrella",
+   "x": 136.1,
+   "alto": 193.5,
+   "ancho": 2.01,
+   "alfa": 0.093
+  },
+  {
+   "pieza": "lluvia_estrella_brillante",
+   "x": 46,
+   "alto": 382,
+   "ancho": 6.8,
+   "alfa": 0.3
+  },
+  {
+   "pieza": "lluvia_estrella_brillante",
+   "x": 171,
+   "alto": 304,
+   "ancho": 7.5,
+   "alfa": 0.312
+  },
+  {
+   "pieza": "lluvia_estrella_brillante",
+   "x": 88,
+   "alto": 232,
+   "ancho": 8.2,
+   "alfa": 0.324
+  },
+  {
+   "pieza": "lluvia_estrella_brillante",
+   "x": 27,
+   "alto": 148,
+   "ancho": 8.9,
+   "alfa": 0.336
+  },
+  {
+   "pieza": "lluvia_estrella_brillante",
+   "x": 146,
+   "alto": 96,
+   "ancho": 9.6,
+   "alfa": 0.348
+  },
+  {
+   "pieza": "lluvia_estrella_brillante",
+   "x": 192,
+   "alto": 412,
+   "ancho": 10.3,
+   "alfa": 0.36
+  }
+ ]
+}

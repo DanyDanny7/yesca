@@ -135,6 +135,7 @@ func configurar(nuevo_tipo: Tipo, nuevo_color: Color,
 	_fugaz_espera = randf_range(3.0, 7.0)
 	_scroll = Vector2.ZERO
 	_scroll_banda = 0.0
+	_cargar_astros()
 	_deriva = _deriva_del_bioma(bioma, tipo)
 	_tex = _mosaico(tipo)
 	_tipo_banda = banda
@@ -324,6 +325,86 @@ func _cubrir(tex: Texture2D, r: Vector2) -> void:
 	draw_texture_rect(tex, Rect2((r - tam) * 0.5, tam), false)
 
 
+## Lee el manifiesto de astros del bioma. Sin manifiesto, la capa no existe.
+##
+## Es la cuarta capa del fondo y la única cuyas piezas NO se deforman: van
+## centradas en una coordenada y escaladas por el ancho con la MISMA escala en
+## los dos ejes. Un sol dentro de la elástica se achata con ella —un 10% en un
+## móvil 1:2,17 y mucho más en tableta— y un sol achatado deja de ser un sol.
+## Tampoco podían ir en el azulejo, porque el azulejo se repite y un sol no.
+func _cargar_astros() -> void:
+	_astros.clear()
+	if bioma.is_empty():
+		return
+	var ruta := RUTA_ASTROS % Arte.slug(bioma)
+	if not FileAccess.file_exists(ruta):
+		return
+	var datos = JSON.parse_string(FileAccess.get_file_as_string(ruta))
+	if typeof(datos) != TYPE_DICTIONARY:
+		return
+	for a in datos.get("astros", []):
+		if typeof(a) != TYPE_DICTIONARY:
+			continue
+		_astros.append({
+			"pieza": str(a.get("pieza", "")),
+			"x": float(a.get("x", 0.0)),
+			"alto": float(a.get("alto", 0.0)),
+			"ancho": float(a.get("ancho", 0.0)),
+			"alfa": float(a.get("alfa", 1.0)),
+		})
+
+
+## Los astros, entre la elástica y el azulejo.
+##
+## Van DEBAJO del azulejo a propósito: las estelas de los meteoros tienen que
+## pasar por delante de un planeta lejano, no por detrás.
+##
+## Y no se excluyen con el telón. La regla de «si existe el telón se dibuja y se
+## retorna» es entre telón y banda; los astros son una lista aparte y se pintan
+## siempre.
+func _dibujar_astros(r: Vector2) -> void:
+	if _astros.is_empty():
+		return
+	var esc := _escala_arte(r)
+	for a in _astros:
+		var tex := Arte.astro(str(a["pieza"]))
+		if tex == null:
+			continue
+		# Una sola escala para los dos ejes: redondo en móvil y redondo en
+		# tableta. El alto se mide sobre el borde INFERIOR, la misma convención
+		# que ARTE_TEJADO y ARTE_PLANETA.
+		var lado := float(a["ancho"]) * esc
+		var centro := Vector2(float(a["x"]) * esc, r.y - float(a["alto"]) * esc)
+		draw_texture_rect(tex,
+				Rect2(centro - Vector2(lado, lado) * 0.5, Vector2(lado, lado)),
+				false, Color(1.0, 1.0, 1.0, float(a["alfa"])))
+
+
+## La línea de contacto, pulsando.
+##
+## En Asedio es la silueta de los 22 tramos; en Lluvia, la circunferencia del
+## planeta. No hay una tercera forma porque no hay un tercer bioma donde se
+## pierda por tocar el escenario.
+func _dibujar_amenaza(r: Vector2) -> void:
+	var col := Color(amenaza_color, amenaza)
+	var grosor := AMENAZA_TRAZO * _escala_arte(r)
+	if _es_planeta():
+		draw_arc(planeta_centro(r), planeta_radio(r), 0.0, TAU, 64, col, grosor, true)
+		return
+	var tramos := _tramos_silueta()
+	if tramos.is_empty():
+		return
+	var esc := _escala_arte(r)
+	for t in tramos:
+		var y := r.y - t.z * esc
+		draw_line(Vector2(t.x * esc, y), Vector2(t.y * esc, y), col, grosor, true)
+
+
+## Si lo que se defiende en este bioma es el planeta y no una franja.
+func _es_planeta() -> bool:
+	return marco == Marco.PLANETA
+
+
 ## Cada cuántos píxeles se repite el mosaico en curso.
 ##
 ## El azulejo entregado manda sobre el generado, y si no hay ninguno vale LADO,
@@ -370,6 +451,11 @@ func _draw() -> void:
 	if elastica != null:
 		draw_texture_rect(elastica, Rect2(Vector2.ZERO, r), false)
 
+	# Y encima, los astros: la cuarta capa. Sol, planetas y estrellas no pueden
+	# ir dentro de la elástica porque se achatarían con ella, ni en el azulejo
+	# porque el azulejo se repite y un sol no se repite.
+	_dibujar_astros(r)
+
 	# Las bandas van entre la elástica y el azulejo. El orden importa y no es
 	# arbitrario: la aurora está a cien kilómetros y la nieve a diez metros, así
 	# que los copos tienen que caer POR DELANTE de la aurora.
@@ -413,6 +499,11 @@ func _draw() -> void:
 	# se repite en horizontal y no en vertical.
 	# La composición del bioma ya trae su banda y su marco dibujados, así que
 	# los procedurales se callan: pintarlos encima dejaría dos ciudades.
+	# El aviso de amenaza va encima del telón y debajo de los targets, que es
+	# donde está la línea que marca.
+	if amenaza > 0.0:
+		_dibujar_amenaza(r)
+
 	if capa != null:
 		# Las algas van DEBAJO del telón: el montículo de limo les tapa la base
 		# y parece que salen del fondo.
@@ -510,6 +601,25 @@ const ARTE_TEJADO := 104.0
 ## ARTE_TEJADO no desaparece: sigue siendo el máximo del perfil y vale para
 ## encuadrar y descartar rápido. Lo que deja de ser es el contacto.
 const RUTA_SILUETA := "res://datos/asedio_silueta.json"
+## Manifiesto de la capa de astros de cada bioma, si lo tiene.
+const RUTA_ASTROS := "res://datos/%s_astros.json"
+
+## Las colocaciones del bioma en curso: pieza, x, alto, ancho y alfa.
+var _astros: Array[Dictionary] = []
+
+## El aviso de amenaza: cuánto pulsa la línea de contacto, de 0 a 1, y de qué
+## color. Lo pone Main, que es quien sabe si hay un target cerca.
+##
+## Sin arco no hay crítico: hay AMENAZA. En estos dos biomas no se pierde por
+## tiempo, así que lo que avisa no puede ser un arco que se vacía; lo que avisa
+## es la propia cosa que te va a matar. Se dibuja en el mundo y no en el HUD
+## porque es geometría del escenario, y usa la que ya está en el contrato: la
+## silueta de la ciudad y el radio del planeta. Si el dibujo cambia, el aviso se
+## mueve con él sin tocar nada.
+var amenaza: float = 0.0
+var amenaza_color := Color.WHITE
+## Grosor del trazo del aviso, en units del lienzo.
+const AMENAZA_TRAZO := 3.0
 
 ## Los tramos, cargados una vez. Vacío mientras no se pidan.
 static var _silueta: Array[Vector3] = []

@@ -68,6 +68,18 @@ enum Giro {
 const INCLINACION_MAX := 0.55
 ## Vueltas por segundo de una forma con NORIA.
 const NORIA_VUELTAS := 0.9
+## Muestras del anillo de la estela del meteoro.
+##
+## Veinticuatro y no las cuarenta de la fugaz: la fugaz es un acontecimiento y
+## hay una; aquí hay un campo entero de rocas, así que la estela tiene que ser
+## más corta y más barata. Son tres polígonos de cincuenta vértices por meteoro.
+const MUESTRAS_ESTELA := 24
+## Semiancho máximo de la estela, en radios de dibujo.
+const ANCHO_ESTELA := 0.22
+## A partir de cuántos radios de separación entre dos muestras se considera que
+## el meteoro se ha teletransportado y hay que vaciar el anillo.
+const SALTO_ESTELA := 4.0
+
 ## Entre qué velocidades gira una forma con DERIVA, en radianes por segundo.
 ##
 ## Lento y desigual a propósito. Un copo no cae recto: la inercia y el roce del
@@ -101,7 +113,7 @@ const GIRO_DE_FORMA := [
 	Giro.FIJO,     ## llama: el fuego sube, dé igual hacia dónde vaya
 	Giro.FIJO,     ## burbuja
 	Giro.FIJO,     ## globo: el cordel cuelga hacia abajo
-	Giro.RUMBO,    ## meteoro: la estela tiene que quedar detrás
+	Giro.FIJO,     ## meteoro: una roca no tiene morro; la dirección la da su estela
 	Giro.FIJO,     ## robot: uno ladeado se lee como averiado
 	Giro.RUMBO,    ## hormiga: vista desde arriba
 	Giro.FIJO,     ## fugaz: un destello no tiene "delante"
@@ -255,6 +267,17 @@ var _misil_y: float = 0.0
 var _semilla: float = 0.0
 ## Lo que gira por segundo una forma con DERIVA. Propio de cada instancia.
 var _deriva: float = 0.0
+
+## El anillo de la estela del meteoro, muestreado POR DISTANCIA.
+##
+## Por distancia y no por tiempo: por tiempo la estela cambiaría de largo con la
+## rapidez del meteoro, y dos rocas a distinta velocidad llevarían colas
+## distintas sin motivo. Por distancia mide siempre lo mismo.
+var _anillo: PackedVector2Array = PackedVector2Array()
+## Cuánto mide la estela, en radios de dibujo. Se sortea al nacer.
+##
+## Con un largo único, un campo de ocho meteoros se lee como un peine.
+var _estela_largo: float = 3.5
 var _giro: float = 0.0
 ## Cuánto vira por segundo el planeo, hasta el próximo cambio de rumbo.
 var _vira: float = 0.0
@@ -531,6 +554,7 @@ func mover(delta: float, area: Rect2) -> void:
 			_mover_bombardeo(delta, area)
 		Movimiento.METEORO:
 			_mover_meteoro(delta, area)
+			_muestrear_estela()
 		Movimiento.PATRULLA:
 			_mover_patrulla(delta, area)
 		Movimiento.HORMIGA:
@@ -1233,6 +1257,68 @@ func _dx_ese(t: float) -> float:
 	var d := misil_amplitud * sin(TAU * t / misil_periodo + _semilla)
 	return d + misil_amplitud * 0.34 * sin(
 			TAU * t / (misil_periodo * 0.41) + _semilla * 1.7)
+
+
+## Cuánto mide la estela del meteoro y cada cuánto se muestrea.
+##
+## Se llama estela_meteoro_largo y no largo_estela porque ese nombre ya es de la
+## fugaz, que cuenta su estela en FOTOGRAMAS y no en píxeles: son dos estelas con
+## dos maneras de medirse y conviene que no se confundan.
+func estela_meteoro_largo() -> float:
+	return radio_dibujo * _estela_largo
+
+
+func paso_estela() -> float:
+	return estela_meteoro_largo() / float(MUESTRAS_ESTELA)
+
+
+func ancho_estela() -> float:
+	return radio_dibujo * ANCHO_ESTELA
+
+
+func anillo_estela() -> PackedVector2Array:
+	return _anillo
+
+
+func entrada() -> float:
+	return _entrada
+
+
+## Sortea el largo propio de esta roca. La llama Main al darla de alta.
+func preparar_estela(largo: Vector2) -> void:
+	_estela_largo = randf_range(largo.x, largo.y)
+	_anillo = PackedVector2Array()
+
+
+## Añade una muestra al anillo cuando el meteoro ha recorrido un paso.
+##
+## Y lo VACÍA si ha dado un salto: en cuanto el meteoro se teletransporta
+## —reaparecer arriba, envolver por un lado— la cinta uniría la posición vieja
+## con la nueva y cruzaría la pantalla de lado a lado.
+## Las muestras se guardan en el espacio del PADRE, no en el global.
+##
+## La capa de estelas cuelga del mismo padre que los targets y se desplaza con
+## la sacudida igual que ellos. Guardando globales, el desplazamiento se contaría
+## dos veces y la estela se despegaría de su roca en cuanto el campo temblara.
+func _muestrear_estela() -> void:
+	var p := position
+	if _anillo.is_empty():
+		_anillo.append(p)
+		return
+	var ultimo := _anillo[0]
+	var d := p.distance_to(ultimo)
+	if d > radius * SALTO_ESTELA:
+		_anillo = PackedVector2Array([p])
+		return
+	if d < paso_estela():
+		# Sin muestra nueva, pero la cabeza sigue donde está el meteoro: si no,
+		# la cinta se quedaría un paso por detrás de la roca.
+		_anillo[0] = p
+		return
+	_anillo.insert(0, p)
+	var tope := MUESTRAS_ESTELA + 1
+	while _anillo.size() > tope:
+		_anillo.remove_at(_anillo.size() - 1)
 
 
 ## Refleja un valor dentro de un rango, las veces que haga falta.

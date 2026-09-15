@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bj806atglkfiy"
-path="res://.godot/imported/lluvia_de_meteoros.png-bd7bfb7499bef61bf6c8e2996f1724ac.ctex"
+uid="uid://brviqgv5tfgb3"
+path="res://.godot/imported/lluvia_sol.png-74ffc4301eb25e188ee3c5265ad31750.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://arte/fondos/lluvia_de_meteoros.png"
-dest_files=["res://.godot/imported/lluvia_de_meteoros.png-bd7bfb7499bef61bf6c8e2996f1724ac.ctex"]
+source_file="res://arte/astros/lluvia_sol.png"
+dest_files=["res://.godot/imported/lluvia_sol.png-74ffc4301eb25e188ee3c5265ad31750.ctex"]
 
 [params]
 

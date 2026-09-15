@@ -129,6 +129,12 @@ extends Node2D
 ## dónde ha venido, que es lo que hace mirar hacia ella.
 @export var fugaz_estela: int = 34
 
+@export_subgroup("Meteoros")
+## Cuánto mide la estela de un meteoro, en radios de dibujo. Se sortea al nacer.
+##
+## Con un largo único, un campo de ocho meteoros se lee como un peine.
+@export var meteoro_estela_largo := Vector2(2.8, 4.2)
+
 @export_subgroup("Misiles")
 ## Caída de un misil, en píxeles por segundo. El doble que la nieve: Asedio es
 ## el bioma donde se pierde por dejar pasar algo, así que la caída tiene que ser
@@ -666,10 +672,20 @@ var _destello: float = 0.0
 ## El nido, cuando el bioma en curso es Hormigas. En cualquier otro es null y
 ## los objetivos se mueven como siempre.
 var _hormiguero: Hormiguero = null
+## La capa de estelas de los meteoros. Va por debajo de los targets para que
+## ninguna estela pueda tapar una roca.
+var _estelas: Estelas = null
+
 ## El HUD nuevo. Se crea por código y no en la escena porque piensa en units de
 ## un lienzo de 1080 x 1920: colocarlo a mano en el editor sería volver a poner
 ## medidas en píxeles de un dispositivo concreto.
 var _hud_nuevo: Hud = null
+
+## A cuántos radios de contagio de la línea de contacto empieza el aviso.
+const AMENAZA_RADIOS := 1.5
+## Solo se usa si el HUD aún no existe. El valor bueno es el suyo.
+const AMENAZA_PULSO := 0.5
+var _amenaza_t: float = 0.0
 
 var _ventana_pos := Vector2i.ZERO
 var _ventana_pendiente: float = -1.0
@@ -689,6 +705,13 @@ func _ready() -> void:
 	_hud = [_bar_bg, $UI/BarCaption, _score_label,
 			_best_label, _flash_label, _combos_root,
 			_btn_pausa]
+	# Se cuelga del mismo padre que los targets y justo antes que ellos: comparte
+	# el desplazamiento de la sacudida, así que la estela no se despega de su
+	# roca cuando el campo tiembla.
+	_estelas = Estelas.new()
+	_dots_root.add_sibling(_estelas)
+	_dots_root.get_parent().move_child(_estelas, _dots_root.get_index())
+
 	_hud_nuevo = Hud.new()
 	$UI.add_child(_hud_nuevo)
 	$UI.move_child(_hud_nuevo, 0)
@@ -890,6 +913,10 @@ func _process(delta: float) -> void:
 	if _final_pendiente >= 0 and Time.get_ticks_msec() >= _slowmo_hasta:
 		_rematar()
 
+	_tick_amenaza(delta)
+	if _estelas != null:
+		_estelas.position = _dots_root.position
+		_estelas.actualizar(_dots)
 	_actualizar_anticipacion()
 	_suavizar_time_scale(delta)
 
@@ -958,6 +985,7 @@ func _tick_hud(delta: float) -> void:
 	# juega estorba justo en la banda donde caen los targets, y el jugador ya
 	# sabe lo que le piden porque acaba de leerlo.
 	_objetivo_label.visible = false
+	_flash_label.visible = false
 	# El botón de pausa lo dibuja ahora el HUD, a su medida y con su área de
 	# toque, que es más grande que el dibujo.
 	_btn_pausa.visible = false
@@ -985,6 +1013,50 @@ func _cuenta_atras() -> float:
 	if int(n["meta"]) != Niveles.Meta.SEGUNDOS:
 		return -1.0
 	return maxf(0.0, float(n["valor"]) - _elapsed)
+
+
+## El aviso de amenaza de los biomas donde se pierde por tocar el escenario.
+##
+## Pulsa con el MISMO periodo que tenía el arco en tiempo crítico, y a propósito:
+## el pulso sigue siendo único en pantalla, solo se ha mudado lo que pulsa. Si
+## además latiera el marcador, el jugador no sabría qué corre peligro.
+func _tick_amenaza(delta: float) -> void:
+	if _fondo == null:
+		return
+	if not _es_defensa() or _state != State.PLAYING:
+		_fondo.amenaza = 0.0
+		return
+	# El periodo se le pregunta al HUD para que sea literalmente el mismo del
+	# arco crítico y no una copia que se desincroniza al primer ajuste.
+	var periodo := _hud_nuevo.CRITICO_PULSO if _hud_nuevo != null else AMENAZA_PULSO
+	_amenaza_t = fposmod(_amenaza_t + delta, maxf(0.05, periodo))
+	var cerca := _hay_amenaza()
+	if not cerca:
+		_fondo.amenaza = 0.0
+		return
+	var f := 0.5 - 0.5 * cos(TAU * _amenaza_t / maxf(0.05, periodo))
+	_fondo.amenaza = lerpf(0.25, 1.0, f)
+	_fondo.amenaza_color = _hud_nuevo.onda if _hud_nuevo != null else Color.WHITE
+
+
+## Si algún target está a menos de metro y medio de radio de la línea que mata.
+func _hay_amenaza() -> bool:
+	var pantalla := get_viewport_rect().size
+	var margen := _chain_radius() * AMENAZA_RADIOS
+	var contra_planeta := str(_paleta.get("defensa", "suelo")) == "planeta"
+	if contra_planeta:
+		var centro := _fondo.planeta_centro(pantalla)
+		var radio := _fondo.planeta_radio(pantalla)
+		for d in _dots:
+			if d.position.distance_to(centro) - radio <= margen:
+				return true
+		return false
+	for d in _dots:
+		var suelo := pantalla.y - _fondo.altura_contacto(pantalla,
+				d.position.x - d.radius, d.position.x + d.radius, ALTURA_CIUDAD)
+		if d.position.y >= suelo - margen:
+			return true
+	return false
 
 
 ## Qué pantalla del HUD toca para el estado del juego.
@@ -1934,6 +2006,8 @@ func _alta_dot() -> void:
 	_preparar_dot(d, modo, rumbo)
 	if modo == Dot.Movimiento.BOMBARDEO:
 		_preparar_misil(d)
+	elif modo == Dot.Movimiento.METEORO:
+		d.preparar_estela(meteoro_estela_largo)
 	# Los que llegan durante la partida entran creciendo: se leen como que venían
 	# de lejos, y de paso el campo parece repoblarse antes de estar lleno.
 	#
@@ -2552,6 +2626,11 @@ func _tick_celebracion(delta: float) -> void:
 
 
 func _flash(texto: String) -> void:
+	# El HUD se hace cargo del aviso. La etiqueta vieja sigue recibiendo el texto
+	# mientras exista el camino sin HUD —el arranque antes de crearlo— pero se
+	# mantiene oculta cuando el HUD está.
+	if _hud_nuevo != null:
+		_hud_nuevo.avisar(texto)
 	_flash_label.text = texto
 	_flash_left = FLASH_TIME
 
@@ -2824,6 +2903,8 @@ func _poblar_campo() -> void:
 		_preparar_dot(d, modo, rumbo)
 		if modo == Dot.Movimiento.BOMBARDEO:
 			_preparar_misil(d)
+		elif modo == Dot.Movimiento.METEORO:
+			d.preparar_estela(meteoro_estela_largo)
 		_dots_root.add_child(d)
 		_dots.append(d)
 

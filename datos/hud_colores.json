@@ -1,5 +1,5 @@
 {
- "nota": "onda = todo el HUD · paleta = fondos y contorno del xN · claro = solo el titulo del bioma en inicio",
+ "nota": "onda = todo el HUD · paleta = fondos y contorno del xN · claro = solo el titulo del bioma en inicio · sin_arco: biomas donde no se pierde por tiempo",
  "biomas": {
   "cielo_abierto": {
    "onda": "#ffd694",
@@ -25,6 +25,16 @@
    "onda": "#b45cff",
    "paleta": "#150f1a",
    "claro": "#f6efff"
+  },
+  "asedio": {
+   "onda": "#ff7a62",
+   "paleta": "#0b0405",
+   "claro": "#ffece8"
+  },
+  "lluvia_de_meteoros": {
+   "onda": "#9db4ff",
+   "paleta": "#04060f",
+   "claro": "#f0f4ff"
   }
  },
  "opacidades": {
@@ -37,6 +47,19 @@
  "velo": {
   "de": 0.9,
   "a": 0,
-  "alto_units": 384
- }
+  "alto_units": 384,
+  "por_bioma": {
+   "cielo_abierto": 0.9,
+   "invierno": 0.9,
+   "rio": 0.9,
+   "hormigas": 0.9,
+   "basico": 0.9,
+   "asedio": 0.7,
+   "lluvia_de_meteoros": 0.94
+  }
+ },
+ "sin_arco": [
+  "asedio",
+  "lluvia_de_meteoros"
+ ]
 }
