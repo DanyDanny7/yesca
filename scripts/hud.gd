@@ -137,6 +137,15 @@ const HUECO_SALIR := 78.0
 ## en una pantalla de pausa: se entra a ella para salir cuanto antes. Y el
 ## círculo es la forma que ya usa todo el juego —los targets, el botón de
 ## pausa—, así que la pausa no introduce un vocabulario nuevo.
+## Cuánto sube la fila de idiomas sobre el pie, en units.
+##
+## Va a la banda libre que hay entre el botón de abajo del menú y el mensaje del
+## pie, y no pegada al pie: el HUD se dibuja por DEBAJO de las pantallas viejas
+## —está en el índice 0 de la interfaz— así que cualquier cosa que comparta sitio
+## con una etiqueta del menú queda tapada por ella.
+const IDIOMA_SUBE := 312.0
+const FICHA_AIRE_X := 24.0
+const FICHA_AIRE_Y := 9.0
 const FICHA_DIAMETRO := 96.0
 const FICHA_SEPARACION := 36.0
 ## Lo que tarda una ficha en pasar de apagada a encendida, en segundos.
@@ -223,6 +232,15 @@ var pie := ""
 var fin_destacado := ""
 var fin_titulo := ""
 var fin_noticia := ""
+## Los idiomas que se pueden elegir: [{codigo, nombre, activo}]. Los pone Main.
+##
+## Se dibuja desde el HUD, y no como botones de la escena, por lo mismo que la
+## pausa: quien pinta un botón es quien sabe dónde está, y así el selector hereda
+## la tipografía, la escala y el color del bioma sin repetirlos.
+var idiomas: Array[Dictionary] = []
+var mostrar_idioma := false
+var _r_idiomas: Array[Rect2] = []
+
 ## Las opciones de la pausa: [{icono, encendida}]. Las pone Main.
 var opciones: Array[Dictionary] = []
 ## Cuánto lleva encendida cada ficha, de 0 a 1. Es lo que se interpola.
@@ -469,6 +487,9 @@ func golpe() -> void:
 
 func _draw() -> void:
 	if estado == Estado.OCULTO:
+		# En el menú el HUD no pinta nada del juego, pero sí el selector de
+		# idioma: es de la interfaz, no de la partida.
+		_dibujar_idiomas()
 		return
 	_dibujar_velo()
 	if sin_arco:
@@ -554,7 +575,7 @@ func _dibujar_inicio() -> void:
 		_texto_centrado_px(lineas[i], arriba + alto_titulo * float(i),
 				TITULO_TAM, PESO_SEMI, Color(claro, OP_PRINCIPAL))
 	var y_toca := arriba + alto_total + hueco
-	_texto_centrado_px("TOCA PARA EMPEZAR", y_toca, TOCA_TAM, PESO_MEDIO,
+	_texto_centrado_px(Textos.t("hud_toca_para_empezar"), y_toca, TOCA_TAM, PESO_MEDIO,
 			Color(onda, OP_SECUNDARIO), TOCA_INTER, true)
 
 	# El objetivo se centra en SU BANDA, no a una altura fija: con una altura
@@ -569,6 +590,55 @@ func _dibujar_inicio() -> void:
 	if not pie.is_empty():
 		_texto_centrado_px(pie, pantalla().y - medida(PIE_MARGEN) - medida(PIE_TAM),
 				PIE_TAM, PESO_MEDIO, Color(onda, OP_TENUE))
+
+
+## Dónde cae el toque de cada idioma. Vacío si el selector no está.
+func rect_idioma(i: int) -> Rect2:
+	if i < 0 or i >= _r_idiomas.size():
+		return Rect2()
+	return _r_idiomas[i]
+
+
+## La fila de idiomas, al pie del menú.
+##
+## Temporal y a la vista a propósito: mientras se traduce, cambiar de idioma
+## tiene que costar un toque. Cuando haya idiomas de verdad, esto se mueve a
+## donde vayan los ajustes.
+func _dibujar_idiomas() -> void:
+	_r_idiomas.clear()
+	if not mostrar_idioma or idiomas.is_empty():
+		return
+	var f: Font = fuente(PESO_MEDIO)
+	if f == null:
+		return
+	var tam := int(round(medida(BOTON_TAM) * 0.62))
+	var aire := Vector2(medida(FICHA_AIRE_X), medida(FICHA_AIRE_Y))
+	var alto := float(tam) + aire.y * 2.0
+	var sep := medida(FICHA_SEPARACION) * 0.5
+	var anchos: Array[float] = []
+	var total := 0.0
+	for o in idiomas:
+		var w: float = f.get_string_size(str(o["nombre"]), HORIZONTAL_ALIGNMENT_LEFT,
+				-1, tam).x + aire.x * 2.0
+		anchos.append(w)
+		total += w
+	total += sep * float(maxi(0, idiomas.size() - 1))
+	var x := pantalla().x * 0.5 - total * 0.5
+	# Por encima del mensaje del menú, no a su altura: si comparten banda, el
+	# aviso de cierre brusco ocupa dos líneas y las fichas caen encima.
+	var y := pantalla().y - medida(PIE_MARGEN + IDIOMA_SUBE) - alto
+	for i in idiomas.size():
+		var caja := Rect2(Vector2(x, y), Vector2(anchos[i], alto))
+		var activo: bool = bool(idiomas[i]["activo"])
+		# Mismo reparto que las fichas de la pausa: la elegida va rellena y el
+		# texto en el color del fondo; la otra, solo insinuada.
+		_caja_redonda(caja, alto * 0.5,
+				Color(onda, OP_PRINCIPAL if activo else OP_PILDORA))
+		_texto_en(f, str(idiomas[i]["nombre"]),
+				Vector2(x + aire.x, y + alto * 0.5 + float(tam) * 0.36), tam,
+				paleta if activo else Color(onda, OP_TENUE))
+		_r_idiomas.append(caja)
+		x += anchos[i] + sep
 
 
 ## Dónde cae cada toque de la pausa. Vacíos fuera de ella.
@@ -608,16 +678,16 @@ func _dibujar_pausa() -> void:
 	var bloque := alto_t + hueco + alto_m + hueco + alto_b + hueco_salir + alto_s
 	var arriba := pantalla().y * 0.5 - bloque * 0.5
 
-	_texto_centrado_px("PAUSA", arriba, TOCA_TAM, PESO_MEDIO,
+	_texto_centrado_px(Textos.t("hud_pausa"), arriba, TOCA_TAM, PESO_MEDIO,
 			Color(onda, OP_SECUNDARIO), TOCA_INTER)
 	var y := arriba + alto_t + hueco
 	_texto_centrado_px(str(puntos), y, MARCADOR_TAM, PESO_SEMI,
 			Color(onda, OP_PRINCIPAL), MARCADOR_INTER)
 
 	y += alto_m + hueco
-	_r_seguir = _boton("SEGUIR", y)
+	_r_seguir = _boton(Textos.t("hud_seguir"), y)
 	y += alto_b + hueco_salir
-	_r_salir = _enlace("SALIR", y)
+	_r_salir = _enlace(Textos.t("hud_salir"), y)
 
 	# Las fichas van al pie, lejos del botón: son ajustes, no la salida.
 	_r_opciones.clear()
@@ -942,7 +1012,7 @@ func _dibujar_record() -> void:
 		return
 	# El récord es secundario, así que lleva suelo: antes de perderlo de vista en
 	# una pantalla pequeña, preferimos que ocupe algo más de lo previsto.
-	_texto_centrado("RÉCORD %d" % record, RECORD_Y, RECORD_TAM, PESO_MEDIO,
+	_texto_centrado(Textos.t("hud_record", [record]), RECORD_Y, RECORD_TAM, PESO_MEDIO,
 			Color(onda, OP_SECUNDARIO), RECORD_INTER, k_secundario() / maxf(k(), 0.01))
 
 
@@ -959,7 +1029,7 @@ func _dibujar_cuenta() -> void:
 	# En el apuro pasa a tono pleno. No pulsa: de eso ya se encarga el arco, y
 	# dos cosas parpadeando a la vez no dicen cuál corre peligro.
 	var alfa := OP_PRINCIPAL if cuenta_atras <= CUENTA_APURO else OP_SECUNDARIO
-	_texto_centrado("%d s" % maxi(0, quedan), CUENTA_Y, CUENTA_TAM, PESO_SEMI,
+	_texto_centrado(Textos.t("hud_segundos", [maxi(0, quedan)]), CUENTA_Y, CUENTA_TAM, PESO_SEMI,
 			Color(onda, alfa), CUENTA_INTER)
 
 

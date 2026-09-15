@@ -43,13 +43,13 @@ const LISTA: Array[Dictionary] = [
 	# bioma, asi que se mueve con el.
 	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
 		"meta": Meta.CADENA, "valor": 10, "escalon": 0,
-		"pista": "se agrupan solos; aquí lo difícil no es encontrarlos sino el instante"},
+		"pista": "pista_01"},
 	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
 		"meta": Meta.PUNTOS, "valor": 600, "escalon": 0,
-		"pista": "el grumo se deshace tras cada onda: hay que dejarlo rehacerse"},
+		"pista": "pista_02"},
 	{"bioma": "Básico", "mov": Dot.Movimiento.ENJAMBRE,
 		"meta": Meta.SEGUNDOS, "valor": 60, "escalon": 1,
-		"pista": "con el grupo tan junto, la tentación de tocar todo el rato te mata"},
+		"pista": "pista_03"},
 
 	# --- Cielo abierto: rebote. Aqui se aprende a apuntar -------------------
 	#
@@ -57,181 +57,181 @@ const LISTA: Array[Dictionary] = [
 	# se ve, asi que puede pedir algo mas.
 	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
 		"meta": Meta.PUNTOS, "valor": 60, "escalon": 1,
-		"pista": "toca un círculo y deja que la onda haga el resto"},
+		"pista": "pista_04"},
 	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
 		"meta": Meta.CADENA, "valor": 4, "escalon": 1,
-		"pista": "busca cuatro juntos, no toques el primero que veas"},
+		"pista": "pista_05"},
 	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
 		"meta": Meta.PUNTOS, "valor": 250, "escalon": 2,
-		"pista": "cada eslabón vale más que el anterior"},
+		"pista": "pista_06"},
 	{"bioma": "Cielo abierto", "mov": Dot.Movimiento.REBOTE,
 		"meta": Meta.CADENA, "valor": 6, "escalon": 2,
-		"pista": "puedes tener varias cadenas a la vez, cada una con su cuenta"},
+		"pista": "pista_07"},
 
 	# --- Invierno: nieve. Lento, para respirar antes de apretar -------------
 	{"bioma": "Invierno", "mov": Dot.Movimiento.NIEVE,
 		"meta": Meta.PUNTOS, "valor": 300, "escalon": 1,
-		"pista": "caen despacio y en vaivén; el campo se renueva por arriba"},
+		"pista": "pista_08"},
 	{"bioma": "Invierno", "mov": Dot.Movimiento.NIEVE,
 		"meta": Meta.CADENA, "valor": 7, "escalon": 2,
-		"pista": "la caída los alinea sola: espera a que la columna se junte"},
+		"pista": "pista_09"},
 	{"bioma": "Invierno", "mov": Dot.Movimiento.NIEVE,
 		"meta": Meta.SEGUNDOS, "valor": 50, "escalon": 2,
-		"pista": "aquí no puntúas, sobrevives"},
+		"pista": "pista_10"},
 
 	# --- Rio: corriente. Los grupos se forman solos rio abajo ---------------
 	{"bioma": "Río", "mov": Dot.Movimiento.CORRIENTE,
 		"meta": Meta.PUNTOS, "valor": 400, "escalon": 2,
-		"pista": "todos van en la misma dirección: deja que la corriente los junte"},
+		"pista": "pista_11"},
 	{"bioma": "Río", "mov": Dot.Movimiento.CORRIENTE,
 		"meta": Meta.CADENA, "valor": 8, "escalon": 2,
-		"pista": "el mejor momento es justo antes de que salgan por el borde"},
+		"pista": "pista_12"},
 	{"bioma": "Río", "mov": Dot.Movimiento.CORRIENTE,
 		"meta": Meta.PUNTOS_LIMPIOS, "valor": 250, "escalon": 2,
-		"pista": "un solo fallo y se acabó; van todos al mismo sitio, no hay excusa"},
+		"pista": "pista_13"},
 
 	# --- Hormigas: muchas, lentas y pegadas. Aqui se aprende a encadenar ---
 	{"bioma": "Hormigas", "mov": Dot.Movimiento.HORMIGA,
 		"meta": Meta.PUNTOS, "valor": 380, "escalon": 2,
-		"pista": "son muchas y van despacio: deja que se junten"},
+		"pista": "pista_14"},
 	{"bioma": "Hormigas", "mov": Dot.Movimiento.HORMIGA,
 		"meta": Meta.CADENA, "valor": 12, "escalon": 2,
-		"pista": "con este gentío, doce seguidas es cuestión de elegir bien"},
+		"pista": "pista_15"},
 	{"bioma": "Hormigas", "mov": Dot.Movimiento.HORMIGA,
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
-		"pista": "no dejan de venir: aquí el problema nunca es a quién tocar"},
+		"pista": "pista_16"},
 
 	# --- Billar: chocan entre ellos. Nada se queda quieto -------------------
 	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
 		"meta": Meta.PUNTOS, "valor": 400, "escalon": 2,
-		"pista": "chocan entre ellos, así que los grupos se deshacen solos"},
+		"pista": "pista_17"},
 	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
 		"meta": Meta.CADENA, "valor": 7, "escalon": 3,
-		"pista": "apunta a donde van a estar, no a donde están"},
+		"pista": "pista_18"},
 	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
-		"pista": "un choque puede regalarte la cadena o arruinártela"},
+		"pista": "pista_19"},
 
 	# --- Panal: abeja. Tirones y giros bruscos, dificil de leer ------------
 	{"bioma": "Panal", "mov": Dot.Movimiento.ABEJA,
 		"meta": Meta.PUNTOS, "valor": 450, "escalon": 3,
-		"pista": "van a tirones: mira hacia dónde salen, no dónde están"},
+		"pista": "pista_20"},
 	{"bioma": "Panal", "mov": Dot.Movimiento.ABEJA,
 		"meta": Meta.CADENA, "valor": 7, "escalon": 3,
-		"pista": "los grupos duran un instante; hay que tocar en cuanto se forman"},
+		"pista": "pista_21"},
 	{"bioma": "Panal", "mov": Dot.Movimiento.ABEJA,
 		"meta": Meta.PUNTOS_LIMPIOS, "valor": 300, "escalon": 4,
-		"pista": "un fallo y se acabó, y encima no se están quietos"},
+		"pista": "pista_22"},
 
 	# --- Estampida: huyen de tus ondas. El bioma que se defiende -----------
 	{"bioma": "Estampida", "mov": Dot.Movimiento.HUIDA,
 		"meta": Meta.CADENA, "valor": 6, "escalon": 2,
-		"pista": "huyen de tus explosiones: atrapa a los vecinos antes de que escapen"},
+		"pista": "pista_23"},
 	{"bioma": "Estampida", "mov": Dot.Movimiento.HUIDA,
 		"meta": Meta.PUNTOS, "valor": 420, "escalon": 2,
-		"pista": "cada onda dispersa lo que estabas cazando; encadena corto y seguido"},
+		"pista": "pista_24"},
 	{"bioma": "Estampida", "mov": Dot.Movimiento.HUIDA,
 		"meta": Meta.CADENA, "valor": 9, "escalon": 3,
-		"pista": "solo cae si los pillas antes de que reaccionen"},
+		"pista": "pista_25"},
 
 	# --- Otoño: la caída de la nieve, pero en hojas y en calido -------------
 	{"bioma": "Otoño", "mov": Dot.Movimiento.NIEVE,
 		"meta": Meta.PUNTOS, "valor": 350, "escalon": 2,
-		"pista": "caen girando; son grandes y lentas, aprovecha"},
+		"pista": "pista_26"},
 	{"bioma": "Otoño", "mov": Dot.Movimiento.NIEVE,
 		"meta": Meta.CADENA, "valor": 8, "escalon": 3,
-		"pista": "la caída las alinea en columnas: espera a la más poblada"},
+		"pista": "pista_27"},
 	{"bioma": "Otoño", "mov": Dot.Movimiento.NIEVE,
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
-		"pista": "el bioma más amable del juego, aprovéchalo para respirar"},
+		"pista": "pista_28"},
 
 	# --- Brasas: la nieve del reves. Se caza hacia arriba -------------------
 	{"bioma": "Brasas", "mov": Dot.Movimiento.BRASA,
 		"meta": Meta.PUNTOS, "valor": 400, "escalon": 3,
-		"pista": "suben en vez de caer; el ojo tarda en acostumbrarse"},
+		"pista": "pista_29"},
 	{"bioma": "Brasas", "mov": Dot.Movimiento.BRASA,
 		"meta": Meta.CADENA, "valor": 8, "escalon": 3,
-		"pista": "se apiñan al subir: el mejor momento es a media altura"},
+		"pista": "pista_30"},
 	{"bioma": "Brasas", "mov": Dot.Movimiento.BRASA,
 		"meta": Meta.PUNTOS_LIMPIOS, "valor": 350, "escalon": 4,
-		"pista": "un fallo y se acabó, y aquí todo va hacia arriba"},
+		"pista": "pista_31"},
 
 	# --- Caza de robots: pocos, esquivos y con un tiron antes de cada giro -
 	{"bioma": "Caza de robots", "mov": Dot.Movimiento.PATRULLA,
 		"meta": Meta.PUNTOS, "valor": 420, "escalon": 3,
-		"pista": "se paran un instante antes de virar: ese es tu momento"},
+		"pista": "pista_32"},
 	{"bioma": "Caza de robots", "mov": Dot.Movimiento.PATRULLA,
 		"meta": Meta.CADENA, "valor": 7, "escalon": 4,
-		"pista": "cuesta juntarlos; cuando coincidan tres, no lo pienses"},
+		"pista": "pista_33"},
 	{"bioma": "Caza de robots", "mov": Dot.Movimiento.PATRULLA,
 		"meta": Meta.SEGUNDOS, "valor": 50, "escalon": 4,
-		"pista": "entran por los cuatro lados: no te quedes mirando a uno"},
+		"pista": "pista_34"},
 
 	# --- Circuito: angulos rectos. Predecible pero exigente ----------------
 	{"bioma": "Circuito", "mov": Dot.Movimiento.CIRCUITO,
 		"meta": Meta.PUNTOS, "valor": 450, "escalon": 3,
-		"pista": "solo giran noventa grados: por una vez puedes predecirlos"},
+		"pista": "pista_35"},
 	{"bioma": "Circuito", "mov": Dot.Movimiento.CIRCUITO,
 		"meta": Meta.CADENA, "valor": 9, "escalon": 4,
-		"pista": "los cruces son donde se juntan; espera al cruce"},
+		"pista": "pista_36"},
 	{"bioma": "Circuito", "mov": Dot.Movimiento.CIRCUITO,
 		"meta": Meta.CADENA, "valor": 11, "escalon": 5,
-		"pista": "los cruces son tuyos si sabes esperarlos"},
+		"pista": "pista_37"},
 
 	# --- Ciudad de papel: planean sobre una ciudad encendida ---------------
 	{"bioma": "Ciudad de papel", "mov": Dot.Movimiento.PLANEO,
 		"meta": Meta.PUNTOS, "valor": 380, "escalon": 2,
-		"pista": "planean y viran despacio; ningún tramo es recto del todo"},
+		"pista": "pista_38"},
 	{"bioma": "Ciudad de papel", "mov": Dot.Movimiento.PLANEO,
 		"meta": Meta.CADENA, "valor": 8, "escalon": 3,
-		"pista": "míralos un segundo entero antes de decidir a cuál tocas"},
+		"pista": "pista_39"},
 	{"bioma": "Ciudad de papel", "mov": Dot.Movimiento.PLANEO,
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
-		"pista": "abajo la ciudad sigue encendida; aquí solo hay que aguantar"},
+		"pista": "pista_40"},
 
 	# --- Ducha: burbujas que suben. El bioma mas amable de todos -----------
 	{"bioma": "Ducha", "mov": Dot.Movimiento.BRASA,
 		"meta": Meta.PUNTOS, "valor": 320, "escalon": 1,
-		"pista": "suben despacio desde el agua; tómate tu tiempo"},
+		"pista": "pista_41"},
 	{"bioma": "Ducha", "mov": Dot.Movimiento.BRASA,
 		"meta": Meta.CADENA, "valor": 8, "escalon": 2,
-		"pista": "se apiñan al subir: espera a que la columna se junte"},
+		"pista": "pista_42"},
 	{"bioma": "Ducha", "mov": Dot.Movimiento.BRASA,
 		"meta": Meta.SEGUNDOS, "valor": 50, "escalon": 2,
-		"pista": "aquí no hay prisa, solo hay que aguantar"},
+		"pista": "pista_43"},
 
 	# --- Fiesta: globos que chocan entre si --------------------------------
 	{"bioma": "Fiesta", "mov": Dot.Movimiento.CHOQUE,
 		"meta": Meta.PUNTOS, "valor": 420, "escalon": 2,
-		"pista": "rebotan entre ellos: los grupos se hacen y se deshacen solos"},
+		"pista": "pista_44"},
 	{"bioma": "Fiesta", "mov": Dot.Movimiento.CHOQUE,
 		"meta": Meta.CADENA, "valor": 9, "escalon": 3,
-		"pista": "un choque puede regalarte la cadena o arruinártela"},
+		"pista": "pista_45"},
 	{"bioma": "Fiesta", "mov": Dot.Movimiento.CHOQUE,
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
-		"pista": "el racimo cambia de forma cada segundo; no te enamores de uno"},
+		"pista": "pista_46"},
 
 	# --- Asedio: caen sobre la ciudad --------------------------------------
 	{"bioma": "Asedio", "mov": Dot.Movimiento.BOMBARDEO,
 		"meta": Meta.SEGUNDOS, "valor": 40, "escalon": 1,
-		"pista": "caen sobre la ciudad: si uno toca el suelo, se acabó"},
+		"pista": "pista_47"},
 	{"bioma": "Asedio", "mov": Dot.Movimiento.BOMBARDEO,
 		"meta": Meta.PUNTOS, "valor": 400, "escalon": 2,
-		"pista": "zigzaguean, así que no basta con mirar dónde están ahora"},
+		"pista": "pista_48"},
 	{"bioma": "Asedio", "mov": Dot.Movimiento.BOMBARDEO,
 		"meta": Meta.SEGUNDOS, "valor": 65, "escalon": 3,
-		"pista": "aguanta el bombardeo entero"},
+		"pista": "pista_49"},
 
 	# --- Lluvia de meteoros: todos caen hacia el planeta --------------------
 	{"bioma": "Lluvia de meteoros", "mov": Dot.Movimiento.METEORO,
 		"meta": Meta.SEGUNDOS, "valor": 40, "escalon": 1,
-		"pista": "van todos a la Tierra: si uno llega, se acabó"},
+		"pista": "pista_50"},
 	{"bioma": "Lluvia de meteoros", "mov": Dot.Movimiento.METEORO,
 		"meta": Meta.PUNTOS, "valor": 420, "escalon": 2,
-		"pista": "aceleran al caer, así que el que ignoras ahora vuelve peor"},
+		"pista": "pista_51"},
 	{"bioma": "Lluvia de meteoros", "mov": Dot.Movimiento.METEORO,
 		"meta": Meta.SEGUNDOS, "valor": 70, "escalon": 3,
-		"pista": "el último de todos. Aguanta la lluvia entera"},
+		"pista": "pista_52"},
 ]
 
 
@@ -421,18 +421,32 @@ static func capitalizar(t: String) -> String:
 ## El objetivo en una línea, para la tarjeta de inicio y el HUD.
 static func describir(i: int) -> String:
 	var n := nivel(i)
+	var v: int = n["valor"]
 	match int(n["meta"]):
 		Meta.PUNTOS:
-			return "llega a %d puntos" % n["valor"]
+			return Textos.t("meta_puntos", [v])
 		Meta.CADENA:
-			return "haz una cadena de ×%d" % n["valor"]
+			return Textos.t("meta_cadena", [v])
 		Meta.LIMPIAS:
-			return "vacía la pantalla %d %s" % [n["valor"], "vez" if n["valor"] == 1 else "veces"]
+			# El singular y el plural salen de dos claves y no de un "vez/veces"
+			# cosido aquí: hay idiomas que parten el plural por otro sitio, y
+			# alguno que no lo parte.
+			return Textos.plural("meta_limpias", v, [v])
 		Meta.SEGUNDOS:
-			return "aguanta %d segundos" % n["valor"]
+			return Textos.t("meta_segundos", [v])
 		Meta.PUNTOS_LIMPIOS:
-			return "llega a %d puntos sin fallar" % n["valor"]
+			return Textos.t("meta_puntos_limpios", [v])
 	return ""
+
+
+## El nombre del bioma tal como se enseña, que NO es su clave.
+##
+## En `LISTA` y en `PALETAS` el bioma se llama «Río», y esa cadena es una CLAVE:
+## con ella se busca `rio.png`, su trío de colores del HUD y su manifiesto de
+## astros. Traducirla rompería los assets. Así que la clave se queda en español
+## y lo que lee el jugador sale de la tabla de idiomas.
+static func nombre_bioma(clave: String) -> String:
+	return Textos.t("bioma_" + Arte.slug(clave))
 
 
 ## Progreso actual como "23 / 60", para el HUD.
@@ -441,13 +455,13 @@ static func progreso(i: int, puntos: int, cadena: int, limpias: int, segundos: f
 	var v: int = n["valor"]
 	match int(n["meta"]):
 		Meta.PUNTOS, Meta.PUNTOS_LIMPIOS:
-			return "%d / %d" % [puntos, v]
+			return Textos.t("progreso_simple", [puntos, v])
 		Meta.CADENA:
-			return "×%d / ×%d" % [cadena, v]
+			return Textos.t("progreso_cadena", [cadena, v])
 		Meta.LIMPIAS:
-			return "%d / %d" % [limpias, v]
+			return Textos.t("progreso_simple", [limpias, v])
 		Meta.SEGUNDOS:
-			return "%d / %d s" % [int(segundos), v]
+			return Textos.t("progreso_segundos", [int(segundos), v])
 	return ""
 
 

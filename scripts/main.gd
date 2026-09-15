@@ -565,6 +565,9 @@ var _flash_left: float = 0.0
 var _record_nuevo: bool = false
 ## El récord que había antes de batirlo, para poder decir por cuánto.
 var _best_previo: int = 0
+## El idioma elegido. Se guarda con las opciones, no con el progreso: cambiarlo
+## no debería poder tocar la partida.
+var idioma := Textos.POR_DEFECTO
 var _stage_shown: int = 1
 var _shake: float = 0.0
 ## Congelación pendiente, en segundos.
@@ -680,6 +683,8 @@ var _estelas: Estelas = null
 ## un lienzo de 1080 x 1920: colocarlo a mano en el editor sería volver a poner
 ## medidas en píxeles de un dispositivo concreto.
 var _hud_nuevo: Hud = null
+## Solo pinta el selector de idioma, y solo en el menu. Ver la creacion.
+var _hud_idioma: Hud = null
 
 ## A cuántos radios de contagio de la línea de contacto empieza el aviso.
 const AMENAZA_RADIOS := 1.5
@@ -702,6 +707,7 @@ var _antes_de_pausar: State = State.PLAYING
 
 func _ready() -> void:
 	_restaurar_ventana()
+	Textos.cargar(_idioma_guardado())
 	_hud = [_bar_bg, $UI/BarCaption, _score_label,
 			_best_label, _flash_label, _combos_root,
 			_btn_pausa]
@@ -715,6 +721,15 @@ func _ready() -> void:
 	_hud_nuevo = Hud.new()
 	$UI.add_child(_hud_nuevo)
 	$UI.move_child(_hud_nuevo, 0)
+	# La fila de idiomas va en su propio nodo y DENTRO del menu, no en el HUD:
+	# el HUD esta en el indice 0 y el fondo del menu es opaco al 90 %, asi que
+	# desde ahi abajo la fila se leia gris sobre gris.
+	_hud_idioma = Hud.new()
+	_hud_idioma.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# OCULTO es lo que apaga todo lo demas: sin esto el nodo pinta ademas el
+	# marcador y el boton de pausa de una partida que no existe.
+	_hud_idioma.estado = Hud.Estado.OCULTO
+	_menu_screen.add_child(_hud_idioma)
 	_paleta = Niveles.paleta_neutra()
 	_fondo.configurar(
 		int(_paleta.get("telon", Fondo.Tipo.LISO)),
@@ -991,6 +1006,14 @@ func _tick_hud(delta: float) -> void:
 	_btn_pausa.visible = false
 
 	_hud_nuevo.estado = _estado_hud()
+	# El selector solo en el menú: en partida estorbaría y en la pausa compite
+	# con SEGUIR, que es lo único que importa allí.
+	if _hud_idioma != null:
+		_hud_idioma.visible = _state == State.MENU
+		if _hud_idioma.visible:
+			_hud_idioma.mostrar_idioma = true
+			_hud_idioma.idiomas = _idiomas_hud()
+			_hud_idioma.queue_redraw()
 	_hud_nuevo.puntos = _score
 	_hud_nuevo.record = _best
 	_hud_nuevo.multiplicador = _multiplicador_vivo()
@@ -1087,6 +1110,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	match _state:
 		State.MENU:
+			if _toque_idioma(p):
+				return
 			if _btn_campana.contiene(p):
 				# El selector se abre SIEMPRE por el nivel 1, no por donde se
 				# quedó el jugador. Abrirlo por el último alcanzado deja la
@@ -1582,9 +1607,9 @@ func _tap(pos: Vector2) -> void:
 		# no fallar no es una vida, es el objetivo del nivel.
 		if _mode == Mode.CAMPANA and Niveles.exige_limpieza(_nivel):
 			_marcar_muerte(mundo)
-			_perder("Fallaste el toque")
+			_perder(Textos.t("perder_fallaste"))
 		else:
-			_flash("Fallo")
+			_flash(Textos.t("aviso_fallo"))
 		return
 
 	_time_left -= tap_cost
@@ -1807,7 +1832,7 @@ func _impacto_ciudad(pos: Vector2, contra_planeta: bool = false) -> void:
 	# defensa traen pocos objetivos, así que el que sabe esperar no encontraba
 	# grupo, no tocaba, y moría de reloj. El juego premiaba jugar mal.
 	if _mode == Mode.SIN_FIN:
-		_flash("¡Impacto!   -%d s" % int(coste_impacto))
+		_flash(Textos.t("aviso_impacto", [int(coste_impacto)]))
 		_time_left = maxf(0.0, _time_left - coste_impacto)
 		return
 	_perder("Impactó la Tierra" if contra_planeta else "Impactó la ciudad")
@@ -1819,7 +1844,7 @@ func _check_cleared() -> void:
 	if vacio and not _field_was_empty and _state == State.PLAYING:
 		_limpias += 1
 		_time_left = minf(time_max, _time_left + clear_bonus)
-		_flash("Pantalla limpia   +%d s" % int(clear_bonus))
+		_flash(Textos.t("aviso_pantalla_limpia", [int(clear_bonus)]))
 	_field_was_empty = vacio
 
 
@@ -2650,7 +2675,7 @@ func _perder(motivo: String) -> void:
 		# Se anota igual: el registro tiene que decir DÓNDE habrías perdido, que
 		# es justo el dato que se busca cuando se está mirando un bioma.
 		_diag.evento("SIN MORIR: aquí habrías perdido por %s" % motivo)
-		_flash("Sin morir  ·  %s" % motivo)
+		_flash(Textos.t("aviso_sin_morir", [motivo]))
 		_time_left = time_max
 		return
 	_diag.evento("DERROTA %s  pts=%d esc=%d cadena=%d" % [motivo, _score, _stage(), _best_cascade])
@@ -3024,20 +3049,21 @@ func _ir_a(s: State) -> void:
 		_brief_bioma.text = str(Niveles.nivel(_nivel)["bioma"])
 		_brief_num.text = "Nivel %d" % (_nivel + 1)
 		_brief_meta.text = Niveles.capitalizar(Niveles.describir(_nivel))
-		_brief_pista.text = Niveles.capitalizar(str(Niveles.nivel(_nivel)["pista"]))
+		_brief_pista.text = Niveles.capitalizar(Textos.t(str(Niveles.nivel(_nivel)["pista"])))
 	if _hud_nuevo != null:
 		_sincronizar_hud(s)
 	_log_screen.visible = s == State.LOG
 	if s == State.LOG:
-		_log_estado.text = "La sesión anterior se cerró sola" if _diag.hubo_cierre_brusco 			else "La sesión anterior cerró con normalidad"
+		_log_estado.text = Textos.t("log_cerro_sola") if _diag.hubo_cierre_brusco 			else Textos.t("log_cerro_bien")
 		var motor := _diag.errores_del_motor(10)
 		if motor.is_empty():
 			_log_texto.text = _diag.ultimas_lineas(LOG_LINEAS)
 		else:
 			# Si el motor registró errores, van ARRIBA: pesan más que cualquier
 			# instantánea del juego para saber qué tumbó el proceso.
-			_log_texto.text = "-- Errores del motor --\n%s\n\n-- Estado --\n%s" % [
-				motor, _diag.ultimas_lineas(LOG_LINEAS - 12)]
+			_log_texto.text = "%s\n%s\n\n%s\n%s" % [
+				Textos.t("log_errores_motor"), motor,
+				Textos.t("log_estado"), _diag.ultimas_lineas(LOG_LINEAS - 12)]
 	var jugando := s == State.READY or s == State.PLAYING
 	for nodo in _hud:
 		nodo.visible = jugando
@@ -3094,11 +3120,11 @@ func _sincronizar_hud(s: State) -> void:
 		_hud_nuevo.poner_opciones(_opciones_hud())
 		_pause_screen.visible = false
 	elif inicio:
-		_hud_nuevo.titulo = _bioma_actual()
+		_hud_nuevo.titulo = Niveles.nombre_bioma(_bioma_actual())
 		# El pie solo lleva el récord. La dificultad se quitó de la pantalla: es
 		# un número interno con el que el jugador no puede hacer nada, y encima
 		# se llamaba «cadena», que en este juego ya significa otra cosa.
-		_hud_nuevo.pie = "récord %d" % _best if _best > 0 else ""
+		_hud_nuevo.pie = Textos.t("hud_pie_record", [_best]) if _best > 0 else ""
 	elif fin:
 		var partes := _titulo_de_fin(s)
 		_hud_nuevo.fin_destacado = partes[0]
@@ -3112,6 +3138,31 @@ func _sincronizar_hud(s: State) -> void:
 		_hud_nuevo.poner_opciones([])
 	_over_screen.visible = _over_screen.visible and not fin
 	_win_screen.visible = _win_screen.visible and not fin
+
+
+## Los idiomas disponibles, en el orden en que se dibujan y se tocan.
+func _idiomas_hud() -> Array[Dictionary]:
+	var lista: Array[Dictionary] = []
+	for codigo in Textos.IDIOMAS:
+		lista.append({
+			"codigo": codigo,
+			"nombre": str(Textos.IDIOMAS[codigo]),
+			"activo": codigo == idioma,
+		})
+	return lista
+
+
+## Resuelve un toque en el selector de idioma. Devuelve si lo consumió.
+func _toque_idioma(p: Vector2) -> bool:
+	if _hud_idioma == null or not _hud_idioma.visible:
+		return false
+	var lista := _idiomas_hud()
+	for i in lista.size():
+		if _hud_idioma.rect_idioma(i).has_point(p):
+			cambiar_idioma(str(lista[i]["codigo"]))
+			_sonar(SND_POP)
+			return true
+	return false
 
 
 ## Las cuatro opciones, en el orden en que se dibujan y se tocan.
@@ -3176,10 +3227,10 @@ func _toque_pausa(p: Vector2) -> bool:
 ## superó, no la palabra «superado», que es la misma todas las veces.
 func _titulo_de_fin(s: State) -> Array:
 	if s == State.FINAL:
-		return ["CAMPAÑA", "COMPLETA"]
+		return [Textos.t("fin_campana"), Textos.t("fin_completa")]
 	if s == State.WIN:
-		return ["NIVEL %d" % (_nivel + 1), "SUPERADO"]
-	return ["", "SE ACABÓ"]
+		return [Textos.t("fin_nivel", [_nivel + 1]), Textos.t("fin_superado")]
+	return ["", Textos.t("fin_se_acabo")]
 
 
 ## La noticia del final: lo que el jugador no sabía hasta ahora.
@@ -3188,9 +3239,9 @@ func _titulo_de_fin(s: State) -> Array:
 ## cifra grande ya lo cuenta todo y una línea de consuelo solo estorba.
 func _noticia_de_fin() -> String:
 	if _mode == Mode.CAMPANA:
-		return "MEJOR CADENA ×%d" % _best_cascade
+		return Textos.t("fin_mejor_cadena", [_best_cascade])
 	if _record_nuevo:
-		return "+%d SOBRE TU RÉCORD" % maxi(0, _score - _best_previo)
+		return Textos.t("fin_sobre_record", [maxi(0, _score - _best_previo)])
 	return ""
 
 
@@ -3219,9 +3270,40 @@ func _cargar() -> void:
 	else:
 		vibracion = bool(cfg.get_value("opciones", "vibracion", true))
 	sacudida = bool(cfg.get_value("opciones", "sacudida", true))
+	idioma = str(cfg.get_value("opciones", "idioma", Textos.POR_DEFECTO))
 	# Ojo: todos_los_niveles NO toca _nivel_max, que sigue siendo el progreso
 	# real. Solo levanta el tope del selector, así se puede curiosear la campaña
 	# entera sin perder por dónde se iba.
+
+
+## El idioma que quedó guardado, leído ANTES de que se cargue el resto.
+##
+## Se lee aparte y no en _cargar() porque el texto hace falta desde el primer
+## fotograma —el menú ya está en pantalla— y _cargar() corre más tarde.
+func _idioma_guardado() -> String:
+	var cfg := ConfigFile.new()
+	if cfg.load(SAVE_PATH) != OK:
+		return Textos.POR_DEFECTO
+	return str(cfg.get_value("opciones", "idioma", Textos.POR_DEFECTO))
+
+
+## Cambia de idioma y repinta lo que ya estaba escrito.
+func cambiar_idioma(nuevo: String) -> void:
+	if nuevo == idioma:
+		return
+	idioma = nuevo
+	Textos.cargar(nuevo)
+	_guardar()
+	# Las etiquetas de la escena guardan el texto ya traducido, así que hay que
+	# volver a pedírselo: cambiar de idioma no las repinta solas.
+	_update_ui()
+	if _hud_nuevo != null:
+		_sincronizar_hud(_state)
+		_hud_nuevo.queue_redraw()
+	if _hud_idioma != null:
+		_hud_idioma.idiomas = _idiomas_hud()
+		_hud_idioma.queue_redraw()
+	_diag.evento("idioma=%s" % nuevo)
 
 
 ## Devuelve la ventana a donde estaba la última vez.
@@ -3309,15 +3391,27 @@ func _guardar() -> void:
 	cfg.set_value("opciones", "musica", musica)
 	cfg.set_value("opciones", "vibracion", vibracion)
 	cfg.set_value("opciones", "sacudida", sacudida)
+	cfg.set_value("opciones", "idioma", idioma)
 	cfg.set_value("opciones", "version", 3)
 	cfg.save(SAVE_PATH)
 
 
+## Las etiquetas de la escena guardan su texto ya escrito, así que hay que
+## reescribirlas: no se traducen solas al cambiar de idioma.
+func _rotular() -> void:
+	$UI/MenuScreen/Campana/Text.text = Textos.t("menu_campana")
+	$UI/MenuScreen/SinFin/Text.text = Textos.t("menu_sin_fin")
+	$UI/MenuScreen/Log/Text.text = Textos.t("menu_log")
+	$UI/SelectScreen/Play/Text.text = Textos.t("select_jugar")
+	$UI/LogScreen/Title.text = Textos.t("log_titulo")
+
+
 func _update_ui() -> void:
+	_rotular()
 	if _diag != null and _diag.hubo_cierre_brusco:
-		_menu_best.text = "La sesión anterior se cerró sola\nToca Log para ver qué pasaba"
+		_menu_best.text = Textos.t("menu_cierre_brusco")
 	else:
-		_menu_best.text = "Mejor sin fin  %d" % _best
+		_menu_best.text = Textos.t("menu_mejor_sin_fin", [_best])
 	# El botón se pone en rojo si la sesión anterior murió sin avisar: si no, el
 	# registro estaría ahí y nadie lo miraría nunca.
 	# Solo en depuración. En una compilación de publicación no existe.
@@ -3336,10 +3430,10 @@ func _update_ui() -> void:
 		return
 
 	if _state == State.SELECT:
-		_sel_bioma.text = str(Niveles.nivel(_nivel)["bioma"])
-		_sel_num.text = "Nivel %d" % (_nivel + 1)
+		_sel_bioma.text = Niveles.nombre_bioma(str(Niveles.nivel(_nivel)["bioma"]))
+		_sel_num.text = Textos.t("select_nivel", [_nivel + 1])
 		_sel_meta.text = Niveles.capitalizar(Niveles.describir(_nivel))
-		_sel_pista.text = Niveles.capitalizar(str(Niveles.nivel(_nivel)["pista"]))
+		_sel_pista.text = Niveles.capitalizar(Textos.t(str(Niveles.nivel(_nivel)["pista"])))
 		_btn_prev.modulate.a = 1.0 if _nivel > 0 else 0.25
 		_btn_next.modulate.a = 1.0 if _nivel < _tope_selector() else 0.25
 		return
@@ -3358,7 +3452,7 @@ func _update_ui() -> void:
 	_score_label.scale = Vector2(punch, punch)
 
 	if _mode == Mode.CAMPANA:
-		_best_label.text = "Nivel %d" % (_nivel + 1)
+		_best_label.text = Textos.t("select_nivel", [_nivel + 1])
 		_objetivo_label.text = "%s   —   %s" % [
 			Niveles.capitalizar(Niveles.describir(_nivel)),
 			Niveles.progreso(_nivel, _score, _best_cascade, _limpias, _elapsed)]
