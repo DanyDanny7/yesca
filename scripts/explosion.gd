@@ -36,6 +36,11 @@ const ESQUIRLAS := 7
 @export var tipo: Tipo = Tipo.CADENA
 ## Bioma en curso, para poder dar a un bioma su propia detonación.
 var bioma: String = ""
+## Con qué color se tiñe la capa teñible, si el bioma trae detonación partida.
+##
+## Lo pone quien la crea, con el color del target que revienta. En blanco no
+## tiñe nada, que es lo correcto cuando la detonación es de una sola capa.
+var tinte: Color = Color.WHITE
 
 ## A qué cadena pertenece esta detonación.
 ##
@@ -110,8 +115,26 @@ func _draw() -> void:
 		var dur := grow_time + hold_time + decay_time
 		var i := clampi(int(_t / maxf(0.001, dur) * float(n)), 0, n - 1)
 		var ancho := tex.get_width() / n
+		# Si el bioma trae la detonación partida en dos, esta tira es la teñible
+		# —el látex del globo— y se multiplica por el color del que revienta. La
+		# capa va dibujada en grises a propósito: el gris es el matiz, así que
+		# multiplicado da volumen dentro de un solo color. Si estuviera ya en
+		# rosa, teñirla de cian daría rosa por cian.
+		var segunda := Arte.explosion_tinta(tipo, bioma)
+		var teñir: Color = tinte if segunda["tex"] != null else Color.WHITE
 		draw_texture_rect_region(tex, destino,
-				Rect2(float(i * ancho), 0.0, float(ancho), float(tex.get_height())))
+				Rect2(float(i * ancho), 0.0, float(ancho), float(tex.get_height())),
+				teñir)
+		# Y encima la que NO se tiñe: contornos, el nudo con su cordel y el
+		# confeti. Comparten fotograma y sitio porque son la misma tira dos
+		# veces; sin ella el reventón pierde los bordes y se vuelve una mancha.
+		var tex2: Texture2D = segunda["tex"]
+		if tex2 != null:
+			var n2: int = segunda["fotogramas"]
+			var i2 := clampi(i, 0, n2 - 1)
+			var ancho2 := tex2.get_width() / n2
+			draw_texture_rect_region(tex2, destino,
+					Rect2(float(i2 * ancho2), 0.0, float(ancho2), float(tex2.get_height())))
 		return
 
 	draw_circle(Vector2.ZERO, radius, Color(color, 0.16 * fade))

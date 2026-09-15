@@ -30,6 +30,7 @@ enum Movimiento {
 	PATRULLA,   ## tramos rectos, se para en seco y sale en otra dirección
 	HORMIGA,    ## avanza sin parar con el rumbo girando poco a poco
 	FUGAZ,      ## cruza la pantalla en recta con una curvatura leve y se va
+	GLOBO,      ## sube con una ese suave y se va por arriba; no rebota ni choca
 }
 
 ## Qué se dibuja. Un bioma con copos de nieve o abejas se explica solo; con
@@ -59,6 +60,7 @@ enum Giro {
 	CABECEO,  ## se refleja Y se inclina un poco hacia donde va. Perfiles vivos
 	NORIA,    ## gira por su cuenta, sin relación con el rumbo. Hojas cayendo
 	DERIVA,   ## gira despacio y cada uno a su ritmo. Copos en el aire
+	BALANCEO, ## se mece poco y acotado, sobre un eje que no es el centro
 }
 
 ## Cuánto se inclina como mucho una forma con CABECEO, en radianes.
@@ -92,6 +94,31 @@ const SALTO_ESTELA := 4.0
 const DERIVA_MIN := 0.15
 const DERIVA_MAX := 0.55
 
+## Cuánto se mece como mucho una forma con BALANCEO, en radianes.
+##
+## Cinco grados. Más y el globo deja de mecerse y empieza a cabecear, que es lo
+## que hace algo empujado y no algo que flota.
+const BALANCEO_MAX := 0.0873
+## Dónde está el eje del balanceo, en fracción del alto del sprite desde el
+## centro y hacia abajo.
+##
+## No es el centro: un globo pende del nudo, así que es el nudo el que se queda
+## quieto y el cuerpo el que se inclina. Girando por el centro, el nudo describe
+## un arco y el globo se lee como si lo llevara alguien de la mano.
+const BALANCEO_PIVOTE := 0.34
+
+## A qué fracción de su rapidez sube un globo.
+##
+## La entrega pide 54 px/s. Sale de la rapidez del círculo y no de un número
+## fijo para que el escalón de dificultad siga contando: con 60-140 de rapidez
+## base, la mitad son 30-70 y el centro cae justo en los 54 pedidos. Un bioma
+## que ignorase la dificultad sería el único del juego que no se endurece.
+const GLOBO_SUBE := 0.54
+## Amplitud de la ese, en píxeles. Sutil: se nota, no marea.
+const GLOBO_AMPLITUD := Vector2(7.0, 15.0)
+## Cada cuánto completa un vaivén, en segundos.
+const GLOBO_PERIODO := Vector2(2.7, 4.1)
+
 ## La política de giro de cada forma, EN EL ORDEN DEL ENUM Forma.
 ##
 ## Si se añade una forma y no se añade aquí, el juego revienta al entrar a su
@@ -112,7 +139,7 @@ const GIRO_DE_FORMA := [
 	Giro.FIJO,     ## estrella
 	Giro.FIJO,     ## llama: el fuego sube, dé igual hacia dónde vaya
 	Giro.FIJO,     ## burbuja
-	Giro.FIJO,     ## globo: el cordel cuelga hacia abajo
+	Giro.BALANCEO, ## globo: se mece sobre el nudo y el cordel barre una ese
 	Giro.FIJO,     ## meteoro: una roca no tiene morro; la dirección la da su estela
 	Giro.FIJO,     ## robot: uno ladeado se lee como averiado
 	Giro.RUMBO,    ## hormiga: vista desde arriba
@@ -224,6 +251,20 @@ const ENTRADA_DUR := 0.55
 const ENTRADA_MIN := 0.28
 
 var _fase: float = 0.0
+## La ese del globo: columna sobre la que oscila, rapidez, amplitud y periodo.
+##
+## Se sortean en el PRIMER movimiento y no al nacer porque quien prepara el
+## círculo corre antes que _ready, y entonces la semilla todavía no existe. Ya
+## pasó con los misiles: el primer fotograma los teletransportaba.
+var _globo_listo := false
+var _globo_x := 0.0
+var _globo_sube := 0.0
+var _globo_amplitud := 0.0
+var _globo_periodo := 1.0
+var _globo_fase := 0.0
+## Cuánto está inclinado ahora mismo un globo. Lo pone _orientar y lo usa _draw
+## para girar el dibujo sobre el nudo.
+var _balanceo := 0.0
 ## Desfase propio, para que dos círculos con el mismo modo no se muevan
 ## sincronizados como un coro.
 ## Las cuatro maneras de caer de un misil de Asedio. Se sortea UNA al nacer y se
@@ -322,6 +363,16 @@ func _draw() -> void:
 	if tex != null:
 		var lado := r * Arte.LIENZO_EN_RADIOS
 		var destino := Rect2(Vector2(-lado, -lado) * 0.5, Vector2(lado, lado))
+		# El balanceo no puede ir en `rotation` del nodo: eso gira sobre la
+		# posición, que es el centro del sprite. Aquí se pone el eje donde está
+		# el nudo y se dibuja descontándolo, que es girar alrededor de un punto
+		# cualquiera. No hace falta deshacerlo: Godot reinicia la transformación
+		# del lienzo en cada _draw, y las dos ramas de abajo devuelven el control
+		# inmediatamente después de dibujar.
+		if _balanceo != 0.0:
+			var pivote := Vector2(0.0, lado * BALANCEO_PIVOTE)
+			draw_set_transform(pivote, _balanceo, Vector2.ONE)
+			destino.position -= pivote
 		var n: int = asset["fotogramas"]
 		# Sin tinte: el color de la paleta manda sobre las formas de
 		# código, pero un asset lo pinta quien lo dibuja.
@@ -561,6 +612,8 @@ func mover(delta: float, area: Rect2) -> void:
 			_mover_hormiga(delta, area)
 		Movimiento.FUGAZ:
 			_mover_fugaz(delta, area)
+		Movimiento.GLOBO:
+			_mover_globo(delta)
 		_:
 			# REBOTE, CHOQUE, ENJAMBRE y HUIDA comparten integración recta; lo
 			# que los distingue lo aplica Main antes de llamar aquí.
@@ -640,6 +693,13 @@ func _orientar(delta: float) -> void:
 		# Antes del corte por velocidad: un copo casi parado sigue volteando, y
 		# es justo ahí donde más se nota que el aire lo mueve.
 		rotation += delta * _deriva
+		queue_redraw()
+		return
+	if politica == Giro.BALANCEO:
+		# Acoplado a la MISMA fase de la ese, no a un reloj propio. Es lo que
+		# hace que el globo se incline hacia dentro de la curva en vez de
+		# mecerse por su cuenta, y lo que el cordel acaba dibujando por debajo.
+		_balanceo = -BALANCEO_MAX * sin(_globo_fase)
 		queue_redraw()
 		return
 	if politica == Giro.FIJO or velocity.length_squared() < 1.0:
@@ -1150,6 +1210,41 @@ func _mover_brasa(delta: float, area: Rect2) -> void:
 		position.x = area.end.x + radius
 	elif position.x > area.end.x + radius:
 		position.x = area.position.x - radius
+
+
+## Globo: sube recto con una ese sutil, y se va por arriba.
+##
+## La deriva lateral NO acumula: la `x` oscila alrededor de una columna que no se
+## mueve, así que un globo entra por una columna y sale por la misma. Sumando el
+## seno a la posición en vez de calcularla, el globo se iría de lado poco a poco
+## y acabaría pegado a un borde.
+##
+## Quien lo saca por arriba y lo devuelve por abajo es Main: la regla de entrada
+## mira dónde están los demás globos, y un globo no conoce a sus vecinos.
+func _mover_globo(delta: float) -> void:
+	if not _globo_listo:
+		_preparar_globo()
+	_globo_fase += TAU / _globo_periodo * delta
+	position.y -= _globo_sube * delta
+	position.x = _globo_x + _globo_amplitud * sin(_globo_fase)
+
+
+## Sortea la ese de este globo. La fase entra al azar: sin ella todos suben en
+## paralelo y el campo entero se mece a la vez, que es lo contrario de una fiesta.
+func _preparar_globo() -> void:
+	_globo_listo = true
+	_globo_x = position.x
+	_globo_sube = base_speed * GLOBO_SUBE
+	_globo_amplitud = randf_range(GLOBO_AMPLITUD.x, GLOBO_AMPLITUD.y)
+	_globo_periodo = randf_range(GLOBO_PERIODO.x, GLOBO_PERIODO.y)
+	_globo_fase = randf() * TAU
+
+
+## Vuelve a entrar por abajo, en la columna que le diga Main.
+func renacer_globo(donde: Vector2) -> void:
+	position = donde
+	_globo_listo = false
+	_preparar_globo()
 
 
 ## Planeo: vira despacio y cabecea. Ningún tramo es recto del todo, así que

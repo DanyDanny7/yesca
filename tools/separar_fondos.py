@@ -63,6 +63,16 @@ EXCLUIDOS = {
     "hormigas": "viene ya partido en la tanda por bioma",
 }
 
+## A que capa va cada pieza rigida con nombre.
+##
+## La guirnalda es el unico caso del juego que cuelga de arriba en vez de
+## apoyarse abajo, y por eso necesita capa propia: la rigida se ancla al borde
+## inferior por definicion.
+SUFIJO_PIEZA = {
+    "suelo": "rigida",
+    "guirnalda": "dosel",
+}
+
 CABECERA = ('<svg xmlns="http://www.w3.org/2000/svg" '
             'width="%d" height="%d" viewBox="%s">')
 ## Ancho al que se rasteriza la elastica.
@@ -86,6 +96,32 @@ def atributo(etiqueta, nombre):
     return m.group(1) if m else None
 
 
+def contenido_patron(svg, pid):
+    """Las figuras de dentro de un <pattern>, para copiarlas al lienzo.
+
+    Citar el patron con `fill="url(#id)"` es lo correcto en SVG y lo que hace el
+    fichero entregado, pero el rasterizador de Godot no lo resuelve y devuelve un
+    PNG transparente sin quejarse. Copiando las figuras se rasteriza una celda,
+    que es justo lo que el juego repite luego.
+    """
+    m = re.search(r'<pattern id="%s"[^>]*>(.*?)</pattern>' % re.escape(pid), svg, re.S)
+    if m is None or not m.group(1).strip():
+        return None
+    return m.group(1)
+
+
+def azulejo_por_patron(svg):
+    """El azulejo es el rect relleno con un <pattern>, lleve id o no lo lleve.
+
+    Reconocerlo por lo que es y no por como se llama deja pasar entregas que no
+    usan el id sin tener que negociar el formato cada vez.
+    """
+    for m in re.finditer(r'<rect[^>]*fill="url\(#([^)]+)\)"[^>]*></rect>', svg):
+        if re.search(r'<pattern id="%s"' % re.escape(m.group(1)), svg):
+            return m
+    return None
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     print("%-20s %-11s %-11s %s" % ("bioma", "elastica", "azulejo", "capa rigida"))
@@ -106,17 +142,26 @@ def main():
         if m:
             defs = m.group(0)
 
-        el = re.search(r'<rect id="elastica"[^>]*></rect>', svg)
-        az = re.search(r'<rect id="azulejo"[^>]*></rect>', svg)
-        if el is None or az is None:
-            print("%-20s -- SIN id=elastica o id=azulejo, no se puede trocear" % bioma)
+        az = re.search(r'<rect id="azulejo"[^>]*></rect>', svg) or azulejo_por_patron(svg)
+        if az is None:
+            print("%-20s -- no encuentro el azulejo (ni id ni <pattern>)" % bioma)
             fuera += 1
             continue
+        el = re.search(r'<rect id="elastica"[^>]*></rect>', svg)
 
-        # 1 · elastica: el degradado solo, en una tira estrecha.
-        alto_el = int(round(ANCHO_ELASTICA * alto / ancho)) * 4
+        # 1 · elastica: lo que va ANTES del azulejo.
+        #
+        # Con `id="elastica"` es un solo rect y basta una tira estrecha: un
+        # degradado vertical cabe entero en 24 px de ancho. Fiesta mete ademas
+        # dos focos, que tienen sitio a lo ancho, y en una tira de 24 px se
+        # convertirian en dos manchas del ancho de la pantalla. Cuando hay mas
+        # de una figura se rasteriza al ancho del lienzo.
+        cuerpo = svg[svg.index("</defs>") + len("</defs>"):] if defs else svg[svg.index(">") + 1:]
+        antes = cuerpo[:cuerpo.index(az.group(0))].strip() if el is None else el.group(0)
+        ancho_el = ANCHO_ELASTICA if antes.count("<") <= 1 else int(ancho)
+        alto_el = int(round(ancho_el * alto / ancho)) * (4 if ancho_el == ANCHO_ELASTICA else 1)
         io.open(os.path.join(OUT, bioma + "__elastica.svg"), "w", encoding="utf-8").write(
-            (CABECERA % (ANCHO_ELASTICA, alto_el, caja)) + defs + el.group(0) + "</svg>")
+            (CABECERA % (ancho_el, alto_el, caja)) + defs + antes + "</svg>")
 
         # 2 · azulejo: UNA repeticion del patron, sin color de fondo debajo.
         #     Sin color porque va encima de la elastica: si lo llevara, la
@@ -133,21 +178,42 @@ def main():
             continue
         pw = float(atributo(etiqueta, "width"))
         ph = float(atributo(etiqueta, "height"))
+        dentro = contenido_patron(svg, pid.group(1))
+        if dentro is None:
+            print("%-20s -- el <pattern> esta vacio" % bioma)
+            fuera += 1
+            continue
         io.open(os.path.join(OUT, bioma + "__azulejo.svg"), "w", encoding="utf-8").write(
             (CABECERA % (pw * ESCALA_AZULEJO, ph * ESCALA_AZULEJO, "0 0 %g %g" % (pw, ph)))
-            + defs
-            + '<rect width="%g" height="%g" fill="url(#%s)"></rect></svg>' % (pw, ph, pid.group(1)))
+            + defs + dentro + "</svg>")
 
-        # 3 · rigida: lo que va tras el azulejo, sobre fondo transparente.
+        # 3 · rigidas: lo que va tras el azulejo, sobre fondo transparente.
+        #
+        # Si vienen con nombre, cada una a su capa: el suelo se ancla abajo como
+        # siempre y la guirnalda arriba. Sin nombre, todo junto es la de abajo,
+        # que es como se entrego hasta ahora.
         resto = svg[az.end():-len("</svg>")].strip()
-        if resto:
-            io.open(os.path.join(OUT, bioma + "__rigida.svg"), "w", encoding="utf-8").write(
-                (CABECERA % (ancho * 3, alto * 3, caja)) + defs + resto + "</svg>")
+        piezas = dict(re.findall(
+            r'<g id="pieza_(\w+)">(.*?)</g>', resto, re.S)) if resto else {}
+        salidas = []
+        if piezas:
+            for nombre, dentro in sorted(piezas.items()):
+                sufijo = SUFIJO_PIEZA.get(nombre)
+                if sufijo is None:
+                    print("%-20s -- pieza_%s sin capa asignada, se salta" % (bioma, nombre))
+                    continue
+                salidas.append((sufijo, dentro))
+        elif resto:
+            salidas.append(("rigida", resto))
+        for sufijo, dentro in salidas:
+            io.open(os.path.join(OUT, "%s__%s.svg" % (bioma, sufijo)), "w",
+                    encoding="utf-8").write(
+                (CABECERA % (ancho * 3, alto * 3, caja)) + defs + dentro + "</svg>")
 
         print("%-20s %-11s %-11s %s" % (
-            bioma, "%dx%d" % (ANCHO_ELASTICA, alto_el),
+            bioma, "%dx%d" % (ancho_el, alto_el),
             "%gx%g" % (pw * ESCALA_AZULEJO, ph * ESCALA_AZULEJO),
-            "no tiene" if not resto else "%d bytes" % len(resto)))
+            "no tiene" if not salidas else "+".join(x[0] for x in salidas)))
         hechos += 1
 
     print("")

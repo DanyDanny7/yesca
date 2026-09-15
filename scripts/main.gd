@@ -359,7 +359,7 @@ const VENTANA_REPOSO := 0.4
 ## valor del enum y el array se queda corto.
 const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
 		"enjambre", "huida", "brasa", "circuito", "planeo", "misil", "bombardeo",
-		"meteoro", "patrulla", "hormiga", "fugaz"]
+		"meteoro", "patrulla", "hormiga", "fugaz", "globo"]
 ## Guarda en los lados y abajo.
 ##
 ## Lo que garantiza NO es que la onda entera quepa en pantalla —para eso harían
@@ -375,6 +375,21 @@ const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
 const MARGEN_LATERAL := 1.0
 ## Cuánto puede alejarse de la pantalla algo antes de darlo por ido.
 const FUERA_DE_JUEGO := 140.0
+## Cuánto sobresale de la pantalla un globo al entrar y al irse.
+const GLOBO_FUERA := 60.0
+## Respeto a cada lado al sortear la columna de un globo.
+##
+## La ese tiene 15 px de amplitud como mucho, así que con este margen el globo
+## nunca llega a tocar un borde: la oscilación cabe entera dentro del campo.
+const GLOBO_MARGEN := 15.0
+## Cuánto tiene que apartarse un globo que entra del último que entró.
+##
+## No es física de evitación, es reparto: sin esto salen parejas pegadas que
+## suben juntas y el campo se lee como un generador, no como una fiesta. Tres
+## intentos y se acepta lo que haya, porque repartir bien importa menos que no
+## dejar el campo corto mientras se busca sitio.
+const GLOBO_HUECO := Vector2(70.0, 120.0)
+const GLOBO_INTENTOS := 3
 ## Franja de abajo que cuenta como ciudad en los biomas de defensa.
 const ALTURA_CIUDAD := 150.0
 ## Franja de arriba reservada al HUD.
@@ -1622,6 +1637,9 @@ func _tap(pos: Vector2) -> void:
 	var donde := objetivo.position
 	var valor := objetivo.valor_mult
 	var onda := objetivo.onda_mult
+	# El color se mide AHORA, antes de soltar el objetivo: un fotograma después
+	# ya no existe y el reventón saldría del color de nadie.
+	var tinte := Arte.color_target(objetivo.forma, objetivo.numero)
 	_dots.erase(objetivo)
 	if _hormiguero != null:
 		_hormiguero.baja(objetivo)
@@ -1631,7 +1649,7 @@ func _tap(pos: Vector2) -> void:
 	_next_chain += 1
 	_cadenas[_next_chain] = {"len": 0, "pos": donde, "pop": 0.0, "edad": 0.0}
 	_cobrar_punto(_next_chain, donde, valor)
-	_spawn_explosion(donde, tap_radius * onda, _next_chain)
+	_spawn_explosion(donde, tap_radius * onda, _next_chain, tinte)
 
 
 ## El círculo más cercano al dedo dentro de la tolerancia, o null si no hay.
@@ -1734,7 +1752,8 @@ func _check_catches() -> void:
 				mejor = e
 		if mejor != null:
 			atrapados.append({"pos": d.position, "cadena": mejor.chain_id,
-					"valor": d.valor_mult, "onda": d.onda_mult})
+					"valor": d.valor_mult, "onda": d.onda_mult,
+					"tinte": Arte.color_target(d.forma, d.numero)})
 			d.queue_free()
 		else:
 			survivors.append(d)
@@ -1746,7 +1765,8 @@ func _check_catches() -> void:
 	# detonación en el mismo frame.
 	for a in atrapados:
 		_cobrar_punto(int(a["cadena"]), a["pos"], float(a["valor"]))
-		_spawn_explosion(a["pos"], _chain_radius() * float(a["onda"]), int(a["cadena"]))
+		_spawn_explosion(a["pos"], _chain_radius() * float(a["onda"]), int(a["cadena"]),
+				a["tinte"])
 
 
 ## En los biomas de defensa, un proyectil que llega abajo revienta en la ciudad
@@ -1967,6 +1987,10 @@ func _alta_dot() -> void:
 		# Las pavesas nacen abajo, como es debido.
 		d.position = Vector2(randf_range(area.position.x, area.end.x), pantalla.y + fuera)
 		rumbo = Vector2.UP
+	elif modo == Dot.Movimiento.GLOBO:
+		# Los globos también, pero repartidos: ver _hueco_de_globo().
+		d.position = Vector2(_columna_de_globo(area, null), pantalla.y + GLOBO_FUERA)
+		rumbo = Vector2.UP
 	elif modo == Dot.Movimiento.BOMBARDEO:
 		# Nacen arriba y repartidos a lo ancho: el jugador tiene que vigilar toda
 		# la anchura de la pantalla, no un punto de entrada.
@@ -2127,6 +2151,8 @@ func _mover_dots(delta: float) -> void:
 			_aplicar_enjambre(delta)
 		Dot.Movimiento.HUIDA:
 			_aplicar_huida(delta)
+		Dot.Movimiento.GLOBO:
+			_reciclar_globos(_area_juego())
 
 	var area := _area_juego()
 	for d in _dots:
@@ -2145,6 +2171,46 @@ func _mover_dots(delta: float) -> void:
 			continue
 		vivos.append(d)
 	_dots = vivos
+
+
+## Los globos que se han ido por arriba vuelven a entrar por abajo.
+##
+## Lo hace Main y no el propio globo porque la regla de entrada es de reparto: al
+## sortear la columna hay que mirar dónde están los demás, y un globo no conoce a
+## sus vecinos. Un objetivo que sale de pantalla y no vuelve deja el campo corto,
+## y el cupo de objetivos es lo que sostiene el ritmo del bioma.
+func _reciclar_globos(area: Rect2) -> void:
+	for d in _dots:
+		if d.position.y > area.position.y - GLOBO_FUERA:
+			continue
+		d.renacer_globo(Vector2(_columna_de_globo(area, d), area.end.y + GLOBO_FUERA))
+
+
+## Una columna libre por donde soltar un globo.
+##
+## Se sortea y se comprueba, tres veces; a la tercera se acepta lo que salga. No
+## es una búsqueda del mejor sitio: lo que hay que evitar son las parejas
+## pegadas, no conseguir un reparto perfecto.
+func _columna_de_globo(area: Rect2, quien: Dot) -> float:
+	var x := 0.0
+	for intento in GLOBO_INTENTOS:
+		x = randf_range(area.position.x + GLOBO_MARGEN, area.end.x - GLOBO_MARGEN)
+		if _hueco_de_globo(x, area.end.y, quien):
+			break
+	return x
+
+
+## Si la boca de entrada está libre. Mira los dos ejes: dos globos en la misma
+## columna no estorban si uno ya subió, y eso es lo que separa el reparto de una
+## rejilla.
+func _hueco_de_globo(x: float, y: float, quien: Dot) -> bool:
+	for otro in _dots:
+		if otro == quien:
+			continue
+		if absf(otro.position.x - x) < GLOBO_HUECO.x \
+				and absf(otro.position.y - y) < GLOBO_HUECO.y:
+			return false
+	return true
 
 
 ## Choque elástico entre iguales: se intercambia la componente de la velocidad
@@ -2220,7 +2286,8 @@ func _aplicar_huida(delta: float) -> void:
 		d.velocity = d.velocity.normalized() * d.base_speed
 
 
-func _spawn_explosion(pos: Vector2, radius: float, chain_id: int) -> void:
+func _spawn_explosion(pos: Vector2, radius: float, chain_id: int,
+		tinte: Color = Color.WHITE) -> void:
 	if bool(_paleta.get("burbujas", false)):
 		_burbujas.emitir(pos, radius)
 	var e := Explosion.new()
@@ -2230,6 +2297,7 @@ func _spawn_explosion(pos: Vector2, radius: float, chain_id: int) -> void:
 	e.chain_id = chain_id
 	e.color = _stage_color()
 	e.bioma = _bioma_actual()
+	e.tinte = tinte
 	_explosions_root.add_child(e)
 	_explosions.append(e)
 
@@ -2919,6 +2987,8 @@ func _poblar_campo() -> void:
 		if modo == Dot.Movimiento.CORRIENTE:
 			rumbo = Vector2.RIGHT
 		elif modo == Dot.Movimiento.BRASA:
+			rumbo = Vector2.UP
+		elif modo == Dot.Movimiento.GLOBO:
 			rumbo = Vector2.UP
 		elif modo == Dot.Movimiento.CIRCUITO:
 			rumbo = [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT][randi() % 4]

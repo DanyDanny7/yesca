@@ -504,6 +504,10 @@ func _draw() -> void:
 	if amenaza > 0.0:
 		_dibujar_amenaza(r)
 
+	# El dosel va entre el azulejo y el telón: cuelga del techo, así que tapa lo
+	# que se repite al fondo pero nunca lo que se apoya en el suelo.
+	_dibujar_dosel(r, forma_pantalla)
+
 	if capa != null:
 		# Las algas van DEBAJO del telón: el montículo de limo les tapa la base
 		# y parece que salen del fondo.
@@ -542,6 +546,24 @@ func _draw() -> void:
 		_dibujar_planeta(r)
 	if _fugaces and _fugaz_avance < 1.0:
 		_dibujar_fugaz()
+
+
+## La pieza que cuelga de arriba, anclada al borde superior.
+##
+## Se escala SOLO por el ancho, como el telón: es rígida, y estirarla en vertical
+## para llenar la pantalla convertiría una guirnalda en una cortina. Lo que sobra
+## por abajo no se dibuja porque el fichero ya viene recortado a su contenido.
+##
+## Que se pierda en pantallas cortas es del diseño, no un descuido: la guirnalda
+## vive en el sangrado y entra y sale por fuera de los bordes laterales, así que
+## nunca se le ve ni el principio ni el final.
+func _dibujar_dosel(r: Vector2, forma_pantalla: String) -> void:
+	var dosel := Arte.dosel_bioma(bioma, forma_pantalla)
+	if dosel == null:
+		return
+	var esc := r.x / float(dosel.get_width())
+	draw_texture_rect(dosel,
+			Rect2(Vector2.ZERO, Vector2(r.x, float(dosel.get_height()) * esc)), false)
 
 
 # --- adornos que no se repiten ---------------------------------------------

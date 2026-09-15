@@ -200,14 +200,14 @@ const LISTA: Array[Dictionary] = [
 		"meta": Meta.SEGUNDOS, "valor": 50, "escalon": 2,
 		"pista": "pista_43"},
 
-	# --- Fiesta: globos que chocan entre si --------------------------------
-	{"bioma": "Fiesta", "mov": Dot.Movimiento.CHOQUE,
+	# --- Fiesta: globos que suben y se van ---------------------------------
+	{"bioma": "Fiesta", "mov": Dot.Movimiento.GLOBO,
 		"meta": Meta.PUNTOS, "valor": 420, "escalon": 2,
 		"pista": "pista_44"},
-	{"bioma": "Fiesta", "mov": Dot.Movimiento.CHOQUE,
+	{"bioma": "Fiesta", "mov": Dot.Movimiento.GLOBO,
 		"meta": Meta.CADENA, "valor": 9, "escalon": 3,
 		"pista": "pista_45"},
-	{"bioma": "Fiesta", "mov": Dot.Movimiento.CHOQUE,
+	{"bioma": "Fiesta", "mov": Dot.Movimiento.GLOBO,
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
 		"pista": "pista_46"},
 
@@ -321,7 +321,10 @@ const PALETAS := {
 		"telon": Fondo.Tipo.CONFETI,
 		"banda": Fondo.Tipo.BANDERINES, "banda_color": "ffd66b",
 		"forma": Dot.Forma.GLOBO,
-		"fondo": "180f26", "punto": "ff8ad0", "onda": "ff5fd0", "radio": 11.0},
+		# Azul noche y no morado: el confeti del bioma tiene seis colores y sobre
+		# morado el rosa y el lila se hundían, así que dos de los seis dejaban de
+		# contar. Es el color de la sala del fondo entregado.
+		"fondo": "101a2b", "punto": "ff8ad0", "onda": "ff5fd0", "radio": 11.0},
 	"Asedio": {
 		"telon": Fondo.Tipo.ESTELAS,
 		"banda": Fondo.Tipo.HORIZONTE_ROTO, "banda_color": "ff7a3c",

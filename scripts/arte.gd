@@ -104,6 +104,10 @@ const NOMBRE_FONDO := [
 ## Se cachea también la AUSENCIA de textura: sin esto, cada frame de cada target
 ## sin asset intentaría abrir un fichero que no está.
 static var _cache: Dictionary = {}
+## El color dominante de cada target ya medido. Medirlo cuesta una vez.
+static var _color_target: Dictionary = {}
+## A cuánto se reduce una imagen para medirle el color. Ver _dominante().
+const MUESTRA_COLOR := 64
 
 
 ## El asset de una forma, o null si no lo hay.
@@ -180,6 +184,16 @@ static func fondo_bioma(nombre: String) -> Texture2D:
 ## bañera al doble de ancho deja de ser una bañera.
 static func telon_bioma(nombre: String, variante: String = "") -> Texture2D:
 	return _con_variante(DIR_TELONES + slug(nombre), variante)
+
+
+## La pieza rígida que cuelga de ARRIBA, si el bioma la trae.
+##
+## La capa rígida se ancla abajo por definición —bañera, ciudad, planeta— y eso
+## cubre todo el juego menos la guirnalda de Fiesta, que pende del techo. En vez
+## de doblar el significado de la rígida, que ya lo dice su nombre, va en su
+## propia pieza con su propio anclaje.
+static func dosel_bioma(nombre: String, variante: String = "") -> Texture2D:
+	return _con_variante(DIR_TELONES + slug(nombre) + "_dosel", variante)
 
 
 ## Las algas del bioma: una tira de fotogramas que se mece.
@@ -288,6 +302,76 @@ static func explosion(tipo: int, bioma: String = "") -> Dictionary:
 	return _tira(base)
 
 
+## La segunda capa de una detonación que viene partida en dos.
+##
+## Fiesta tiene ocho colores de globo, así que su reventón se tiñe con el del
+## globo que revienta: uno rosa saliendo de un globo cian se lee como un fallo.
+## Pero no todo el dibujo puede teñirse —los contornos y el confeti son del
+## bioma, no del globo, y el cordel del nudo es blanco— así que esa parte viene
+## en un fichero aparte que se dibuja encima sin tocarle el color.
+##
+## Devuelve la tira vacía si el bioma no la trae, que es el caso de todos los
+## demás: sin segunda capa, la detonación se dibuja como siempre.
+static func explosion_tinta(tipo: int, bioma: String) -> Dictionary:
+	if tipo < 0 or tipo >= NOMBRE_EXPLOSION.size() or bioma == "":
+		return {"tex": null, "fotogramas": 1}
+	return _tira(DIR_EXPLOSIONES + NOMBRE_EXPLOSION[tipo] + "_" + slug(bioma) + "_tinta")
+
+
+## El color del cuerpo de un target, para teñir lo que sale de él.
+##
+## Se saca del PNG y no de una tabla en el código a propósito: una tabla es una
+## copia de la paleta del arte, y una copia se queda vieja el día que se
+## redibujan los globos. Así, cambiar el color de un globo cambia el de su
+## reventón sin tocar una línea.
+##
+## Se mide el color que más superficie ocupa, no la media: la media de un globo
+## rosa con cordel blanco y nudo oscuro no es rosa, es un gris sucio. El cuerpo
+## es lo más grande con diferencia, así que el más repetido es el suyo.
+static func color_target(forma: int, numero: int) -> Color:
+	var clave := "%d/%d" % [forma, numero]
+	if _color_target.has(clave):
+		return _color_target[clave]
+	var col := Color.WHITE
+	var tex: Texture2D = target_tira(forma, numero)["tex"]
+	if tex != null:
+		col = _dominante(tex.get_image())
+	_color_target[clave] = col
+	return col
+
+
+## El color opaco más repetido de una imagen.
+##
+## Se muestrea a 64x64 en vez de recorrer el lienzo entero: son 4096 lecturas en
+## vez de 262144, y sobre los nueve globos entregados da exactamente el mismo
+## color con mayoría amplia. Un lienzo de target son 512 px de los que el cuerpo
+## ocupa 190: no hace falta mirarlo pixel a pixel para saber de qué color es.
+##
+## Los tonos se agrupan de ocho en ocho antes de contar. Sin agrupar, un
+## degradado suave reparte sus píxeles entre cientos de tonos casi iguales y
+## gana cualquier plano pequeño.
+static func _dominante(img: Image) -> Color:
+	if img == null or img.get_width() == 0:
+		return Color.WHITE
+	var chico := img.duplicate()
+	chico.resize(MUESTRA_COLOR, MUESTRA_COLOR, Image.INTERPOLATE_NEAREST)
+	var cuenta := {}
+	var mejor := Color.WHITE
+	var tope := 0
+	for y in MUESTRA_COLOR:
+		for x in MUESTRA_COLOR:
+			var c: Color = chico.get_pixel(x, y)
+			if c.a < 0.8:
+				continue
+			var clave: Color = Color8(int(c.r8 / 8) * 8, int(c.g8 / 8) * 8, int(c.b8 / 8) * 8)
+			var n: int = int(cuenta.get(clave, 0)) + 1
+			cuenta[clave] = n
+			if n > tope:
+				tope = n
+				mejor = clave
+	return mejor
+
+
 ## Busca una tira `nombre@N` o, si no la hay, la imagen suelta.
 ##
 ## La TIRA MANDA sobre el fichero suelto, y ese orden importa: al entregar un
@@ -330,3 +414,4 @@ static func _buscar(base: String) -> Texture2D:
 ## Olvida lo cacheado. Solo hace falta al editar assets con el juego abierto.
 static func recargar() -> void:
 	_cache.clear()
+	_color_target.clear()
