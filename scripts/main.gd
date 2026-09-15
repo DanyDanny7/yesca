@@ -359,7 +359,7 @@ const VENTANA_REPOSO := 0.4
 ## valor del enum y el array se queda corto.
 const NOMBRES_MOV := ["rebote", "abeja", "nieve", "choque", "corriente",
 		"enjambre", "huida", "brasa", "circuito", "planeo", "misil", "bombardeo",
-		"meteoro", "patrulla", "hormiga", "fugaz", "globo"]
+		"meteoro", "patrulla", "hormiga", "fugaz", "globo", "billar"]
 ## Guarda en los lados y abajo.
 ##
 ## Lo que garantiza NO es que la onda entera quepa en pantalla —para eso harían
@@ -390,6 +390,12 @@ const GLOBO_MARGEN := 15.0
 ## dejar el campo corto mientras se busca sitio.
 const GLOBO_HUECO := Vector2(70.0, 120.0)
 const GLOBO_INTENTOS := 3
+## Cuánto se separan al nacer dos bolas de Billar, en radios dibujados. Dos y
+## cuatro décimas: tocándose son dos, así que deja un hueco visible entre ellas.
+const BOLA_ENTRE_BOLAS := 2.4
+## Y cuánto se apartan de la banda al nacer, también en radios dibujados.
+const BOLA_DEL_BORDE := 1.5
+const BOLA_INTENTOS := 3
 ## Franja de abajo que cuenta como ciudad en los biomas de defensa.
 const ALTURA_CIUDAD := 150.0
 ## Franja de arriba reservada al HUD.
@@ -1991,6 +1997,19 @@ func _alta_dot() -> void:
 		# Los globos también, pero repartidos: ver _hueco_de_globo().
 		d.position = Vector2(_columna_de_globo(area, null), pantalla.y + GLOBO_FUERA)
 		rumbo = Vector2.UP
+	elif modo == Dot.Movimiento.BILLAR:
+		# La bola de repuesto tampoco entra desde fuera: aparece dentro de la
+		# mesa como las del saque. Naciendo en el borde de la pantalla se veía
+		# atravesar la madera antes de que la banda la devolviera, y llegaba a
+		# solaparse con otra.
+		var sitio := _hueco_de_bola(d, area)
+		if sitio == Vector2.INF:
+			# Sin hueco, la bola espera al siguiente ciclo. Nunca se acepta un
+			# nacimiento con solape.
+			d.queue_free()
+			return
+		d.position = sitio
+		rumbo = Vector2.from_angle(randf() * TAU)
 	elif modo == Dot.Movimiento.BOMBARDEO:
 		# Nacen arriba y repartidos a lo ancho: el jugador tiene que vigilar toda
 		# la anchura de la pantalla, no un punto de entrada.
@@ -2145,7 +2164,7 @@ func _mover_dots(delta: float) -> void:
 	if _hormiguero != null:
 		_hormiguero.actualizar(delta, get_viewport_rect().size, _crear_hormiga)
 	match _movimiento_actual():
-		Dot.Movimiento.CHOQUE:
+		Dot.Movimiento.CHOQUE, Dot.Movimiento.BILLAR:
 			_resolver_choques()
 		Dot.Movimiento.ENJAMBRE:
 			_aplicar_enjambre(delta)
@@ -2171,6 +2190,33 @@ func _mover_dots(delta: float) -> void:
 			continue
 		vivos.append(d)
 	_dots = vivos
+
+
+## Un sitio libre dentro de la mesa para una bola que nace, o INF si no lo hay.
+##
+## Nunca se acepta un nacimiento con solape: dos bolas que nacen tocándose se
+## empujan la una a la otra en el primer fotograma y salen disparadas, lo que se
+## lee como un fallo y no como una tacada. Tres intentos y la bola espera al
+## siguiente ciclo, que es preferible a colocarla mal.
+func _hueco_de_bola(quien: Dot, area: Rect2) -> Vector2:
+	var pant := get_viewport_rect().size
+	# El radio se calcula aqui y no se le pide a la bola: al colocarla todavia no
+	# ha pasado por _preparar_dot, asi que su radio dibujado aun es el de fabrica.
+	var rad := tap_tolerance * dibujo_del_toque * Arte.LIENZO_EN_RADIOS * Dot.BOLA_RADIO
+	var margen := Dot.BILLAR_MARCO * (pant.x / Fondo.ARTE_ANCHO) + rad * BOLA_DEL_BORDE
+	var arriba := maxf(margen, area.position.y + rad)
+	for intento in BOLA_INTENTOS:
+		var p := Vector2(
+			randf_range(margen, maxf(margen + 1.0, pant.x - margen)),
+			randf_range(arriba, maxf(arriba + 1.0, pant.y - margen)))
+		var libre := true
+		for otro in _dots:
+			if otro != quien and otro.position.distance_to(p) < rad * BOLA_ENTRE_BOLAS:
+				libre = false
+				break
+		if libre:
+			return p
+	return Vector2.INF
 
 
 ## Los globos que se han ido por arriba vuelven a entrar por abajo.
@@ -2222,7 +2268,7 @@ func _resolver_choques() -> void:
 			var b := _dots[j]
 			var dif := b.position - a.position
 			var dist := dif.length()
-			var minima := a.radius + b.radius
+			var minima := a.radio_contacto() + b.radio_contacto()
 			if dist < 0.001 or dist >= minima:
 				continue
 
@@ -2988,6 +3034,14 @@ func _poblar_campo() -> void:
 			rumbo = Vector2.RIGHT
 		elif modo == Dot.Movimiento.BRASA:
 			rumbo = Vector2.UP
+		elif modo == Dot.Movimiento.BILLAR:
+			# Las bolas no entran desde fuera: aparecen dentro de la mesa, ya
+			# rodando y sin solaparse con nadie.
+			var sitio := _hueco_de_bola(d, area)
+			if sitio == Vector2.INF:
+				d.queue_free()
+				continue
+			d.position = sitio
 		elif modo == Dot.Movimiento.GLOBO:
 			rumbo = Vector2.UP
 		elif modo == Dot.Movimiento.CIRCUITO:

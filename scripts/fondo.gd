@@ -136,6 +136,7 @@ func configurar(nuevo_tipo: Tipo, nuevo_color: Color,
 	_scroll = Vector2.ZERO
 	_scroll_banda = 0.0
 	_cargar_astros()
+	_cargar_ancladas()
 	_deriva = _deriva_del_bioma(bioma, tipo)
 	_tex = _mosaico(tipo)
 	_tipo_banda = banda
@@ -354,6 +355,61 @@ func _cargar_astros() -> void:
 		})
 
 
+## Las piezas que van fijas en un punto de la PANTALLA, no del lienzo.
+##
+## El ancla es una fracción de la pantalla y el desplazamiento son units que
+## escalan con el dibujo. Ninguna capa de las que había hace las dos cosas: la
+## elástica estira —una tronera redonda saldría oval—, el azulejo repite, el
+## telón se ancla abajo y los astros van en coordenada absoluta, así que en una
+## pantalla ancha los de arriba caerían fuera de lo que se ve.
+func _cargar_ancladas() -> void:
+	_ancladas.clear()
+	_anclada_lado = 0.0
+	if bioma.is_empty():
+		return
+	var ruta := RUTA_ANCLADAS % Arte.slug(bioma)
+	if not FileAccess.file_exists(ruta):
+		return
+	var datos = JSON.parse_string(FileAccess.get_file_as_string(ruta))
+	if typeof(datos) != TYPE_DICTIONARY:
+		return
+	_anclada_lado = float(datos.get("ancho_pieza", 0.0))
+	for a in datos.get("piezas", []):
+		if typeof(a) != TYPE_DICTIONARY:
+			continue
+		var ancla: Array = a.get("ancla", [0.0, 0.0])
+		if ancla.size() < 2:
+			continue
+		_ancladas.append({
+			"pieza": str(a.get("pieza", "")),
+			"ancla": Vector2(float(ancla[0]), float(ancla[1])),
+			"desplazamiento": Vector2(float(a.get("dx", 0.0)), float(a.get("dy", 0.0))),
+		})
+
+
+## Las piezas ancladas, entre los astros y el azulejo.
+##
+## Debajo del azulejo por el mismo motivo que los astros: si algún día Billar
+## lleva azulejo —tiza, polvo, un reflejo— tiene que pasar por delante de la
+## tronera y no por detrás.
+func _dibujar_ancladas(r: Vector2) -> void:
+	if _ancladas.is_empty() or _anclada_lado <= 0.0:
+		return
+	var esc := _escala_arte(r)
+	var lado := _anclada_lado * esc
+	for a in _ancladas:
+		var tex := Arte.anclada(bioma, str(a["pieza"]))
+		if tex == null:
+			continue
+		# UNA sola escala para los dos ejes, igual que en los astros: por eso la
+		# tronera sigue siendo redonda en tableta. El alto de la pantalla solo
+		# entra en el ancla, para elegir el punto, nunca para deformar.
+		var ancla: Vector2 = a["ancla"]
+		var centro := ancla * r + Vector2(a["desplazamiento"]) * esc
+		draw_texture_rect(tex,
+				Rect2(centro - Vector2(lado, lado) * 0.5, Vector2(lado, lado)), false)
+
+
 ## Los astros, entre la elástica y el azulejo.
 ##
 ## Van DEBAJO del azulejo a propósito: las estelas de los meteoros tienen que
@@ -455,6 +511,7 @@ func _draw() -> void:
 	# ir dentro de la elástica porque se achatarían con ella, ni en el azulejo
 	# porque el azulejo se repite y un sol no se repite.
 	_dibujar_astros(r)
+	_dibujar_ancladas(r)
 
 	# Las bandas van entre la elástica y el azulejo. El orden importa y no es
 	# arbitrario: la aurora está a cien kilómetros y la nieve a diez metros, así
@@ -488,7 +545,13 @@ func _draw() -> void:
 
 	# Una sola llamada para todo el telón. Se dibuja un mosaico de más en cada
 	# lado para que el desplazamiento no descubra el borde.
-	if _tex != null and azulejo == null:
+	# El mosaico procedural solo cuando el bioma NO trae fondo de fichero.
+	#
+	# Antes bastaba con que faltase el azulejo, porque todos los biomas con
+	# elástica traían también azulejo. Billar decide no llevarlo —un tapete no
+	# tiene nada que se desplace— y entonces el tapete generado se pintaba
+	# encima del tapete dibujado.
+	if _tex != null and azulejo == null and elastica == null:
 		draw_texture_rect(
 			_tex,
 			Rect2(_scroll - Vector2(LADO, LADO), r + Vector2(LADO, LADO) * 2.0),
@@ -537,6 +600,13 @@ func _draw() -> void:
 			Rect2(Vector2(x, y), Vector2(r.x + float(LADO), alto)),
 			true,
 			_color_banda if not _es_asset.get(_tipo_banda, false) else Color.WHITE)
+
+	# Y lo mismo con el marco: si el bioma trae su fondo dibujado, las troneras
+	# y la banda de madera vienen en el arte, no de aquí.
+	if elastica != null:
+		if _fugaces and _fugaz_avance < 1.0:
+			_dibujar_fugaz()
+		return
 
 	if marco == Marco.MESA:
 		_dibujar_mesa(r)
@@ -625,9 +695,13 @@ const ARTE_TEJADO := 104.0
 const RUTA_SILUETA := "res://datos/asedio_silueta.json"
 ## Manifiesto de la capa de astros de cada bioma, si lo tiene.
 const RUTA_ASTROS := "res://datos/%s_astros.json"
+const RUTA_ANCLADAS := "res://datos/%s_ancladas.json"
 
 ## Las colocaciones del bioma en curso: pieza, x, alto, ancho y alfa.
 var _astros: Array[Dictionary] = []
+## Las piezas ancladas del bioma y el lado que mide cada una, en units.
+var _ancladas: Array[Dictionary] = []
+var _anclada_lado := 0.0
 
 ## El aviso de amenaza: cuánto pulsa la línea de contacto, de 0 a 1, y de qué
 ## color. Lo pone Main, que es quien sabe si hay un target cerca.

@@ -31,6 +31,7 @@ enum Movimiento {
 	HORMIGA,    ## avanza sin parar con el rumbo girando poco a poco
 	FUGAZ,      ## cruza la pantalla en recta con una curvatura leve y se va
 	GLOBO,      ## sube con una ese suave y se va por arriba; no rebota ni choca
+	BILLAR,     ## vive dentro de la mesa: rueda, roza, rebota en las bandas
 }
 
 ## Qué se dibuja. Un bioma con copos de nieve o abejas se explica solo; con
@@ -114,6 +115,55 @@ const BALANCEO_PIVOTE := 0.34
 ## base, la mitad son 30-70 y el centro cae justo en los 54 pedidos. Un bioma
 ## que ignorase la dificultad sería el único del juego que no se endurece.
 const GLOBO_SUBE := 0.54
+## Radio del disco de la bola, en fracción del lado del lienzo del target.
+##
+## Medido sobre el PNG: el disco ocupa 202 px de 512. Sale de ahí y no de la
+## escala interna del SVG porque esa ignora el grosor del contorno, y con el
+## valor teórico —18,5%— el recorte se come un poco de borde en toda la vuelta.
+##
+## El mismo radio manda en dos sitios: es el círculo al que se recorta la marca y
+## es la `r` de `d = r · sin(phi)`. Tienen que ser el mismo o el número se sale.
+const BOLA_RADIO := 0.197
+## Vértices del círculo de recorte de la marca.
+##
+## Veinticuatro: a tamaño de juego una bola mide unos 25 px de ancho, así que
+## cada lado del polígono mide tres píxeles y el borde ya no se distingue de una
+## circunferencia. Más vértices es más trabajo por bola y por fotograma.
+const BOLA_LADOS := 24
+## Por debajo de este achatamiento la marca no se dibuja.
+##
+## Es el canto del disco visto de perfil: no se ve nada, y la matriz que lo
+## deforma se vuelve singular —su determinante ES el achatamiento—, así que
+## invertirla para calcular las UV daría infinitos.
+const BOLA_MARCA_MINIMA := 0.02
+
+## Cuánto frena el tapete, por segundo.
+##
+## La entrega lo da por fotograma a 60 fps (×0,985); elevado a 60 son los 0,4 que
+## van aquí. Por fotograma, el bioma frenaría distinto en un móvil a 30 fps que
+## en uno a 120, y sería el único del juego que depende de la tasa de refresco.
+const BILLAR_ROZAMIENTO := 0.4
+## Por debajo de qué rapidez deja de frenar una bola, en units/s.
+##
+## Es lo que mantiene el bioma vivo: con solo rozamiento las bolas acabarían
+## quietas y esto sería un cuadro. Una bola que frena hasta pararse es más real y
+## peor de jugar.
+##
+## En units y no como fracción de la rapidez del círculo, que es lo que se probó
+## primero: la fracción dejaba el suelo por debajo de lo pedido —medido, 28 px/s
+## donde tocaban 36— porque la rapidez base del juego es menor que la que supone
+## la entrega. Esto no es dificultad, es el mínimo para que la mesa no se congele,
+## así que va atado al tamaño del dibujo y no al escalón.
+const BILLAR_MINIMA := 14.0
+## Cuánto se queda la banda en cada rebote. Uno perfecto se lee como goma.
+const BILLAR_REBOTE := 0.88
+## Grosor del marco de madera, en units del lienzo de arte.
+##
+## Sale del SVG entregado, donde las cuatro bandas miden 14. Ojo: la entrega lo
+## describe como 8 en dos sitios, pero el dibujo dice 14 y es el dibujo el que
+## manda —la regla es que la bola no pise la madera, y la madera está donde está.
+const BILLAR_MARCO := 14.0
+
 ## Amplitud de la ese, en píxeles. Sutil: se nota, no marea.
 const GLOBO_AMPLITUD := Vector2(7.0, 15.0)
 ## Cada cuánto completa un vaivén, en segundos.
@@ -256,6 +306,15 @@ var _fase: float = 0.0
 ## Se sortean en el PRIMER movimiento y no al nacer porque quien prepara el
 ## círculo corre antes que _ready, y entonces la semilla todavía no existe. Ya
 ## pasó con los misiles: el primer fotograma los teletransportaba.
+## Ángulo rodado por la bola, en radianes, y dónde estaba en el fotograma
+## anterior para poder medir cuánto ha rodado.
+##
+## Se acopla a la DISTANCIA y no al tiempo: es lo que hace que se lea como rodar.
+## Si la bola frena, el giro frena con ella; si se para, el número se queda
+## quieto donde estaba. Con un giro por tiempo la bola parece un motor.
+var _bola_phi := 0.0
+var _bola_antes := Vector2.ZERO
+var _bola_listo := false
 var _globo_listo := false
 var _globo_x := 0.0
 var _globo_sube := 0.0
@@ -354,6 +413,11 @@ func _draw() -> void:
 	# cabeza; el rastro lo pone siempre el juego.
 	if not _estela.is_empty():
 		_dibujar_estela(r)
+
+	# Una bola de billar se dibuja en tres capas para poder rodar. Manda sobre
+	# el sprite entero, que sigue existiendo para donde la bola esté quieta.
+	if forma == Forma.BOLA and _dibujar_bola(r):
+		return
 
 	# Si hay un asset para esta forma, manda el asset. El dibujo de
 	# abajo pasa a ser el respaldo: cubre las formas sin fichero y
@@ -614,6 +678,8 @@ func mover(delta: float, area: Rect2) -> void:
 			_mover_fugaz(delta, area)
 		Movimiento.GLOBO:
 			_mover_globo(delta)
+		Movimiento.BILLAR:
+			_mover_billar(delta, area)
 		_:
 			# REBOTE, CHOQUE, ENJAMBRE y HUIDA comparten integración recta; lo
 			# que los distingue lo aplica Main antes de llamar aquí.
@@ -1212,6 +1278,100 @@ func _mover_brasa(delta: float, area: Rect2) -> void:
 		position.x = area.position.x - radius
 
 
+## Billar: rueda por el tapete, roza y rebota en las bandas.
+##
+## No cruza la pantalla: vive dentro de la mesa. Lo único que le cambia el rumbo
+## son los choques, que resuelve Main, y las bandas, que resuelve esto.
+##
+## El límite NO es el borde de la pantalla sino el interior de la banda, y el
+## rebote se calcula contra el centro más el radio dibujado, así que la bola
+## nunca pisa la madera.
+func _mover_billar(delta: float, area: Rect2) -> void:
+	# La minima es un SUELO, no solo un tope al frenado. Frenando unicamente por
+	# encima de ella, una bola que se para en seco al recibir un golpe frontal
+	# -que es lo que hace un golpe frontal: transfiere toda la velocidad- se
+	# quedaba quieta para siempre, y el bioma se iba apagando bola a bola.
+	var minima := BILLAR_MINIMA * _unidad_de_arte()
+	var v := velocity.length()
+	if v > minima:
+		velocity = velocity.normalized() * maxf(minima, v * pow(BILLAR_ROZAMIENTO, delta))
+	elif v > 0.01:
+		velocity = velocity.normalized() * minima
+	else:
+		# Parada del todo y sin rumbo que conservar: sale por donde sea.
+		velocity = Vector2.from_angle(randf() * TAU) * minima
+	position += velocity * delta
+
+	# El limite es el borde interior de la banda de madera, no el de la pantalla,
+	# y se mide contra el centro MAS el radio dibujado: asi la bola nunca pisa la
+	# madera. Arriba manda ademas el area de juego si es mas baja, que es la
+	# franja que el HUD tiene reservada.
+	var pant := get_viewport_rect().size
+	var margen := BILLAR_MARCO * _unidad_de_arte() + radio_bola()
+	var izq := margen
+	var der := pant.x - margen
+	var arr := maxf(margen, area.position.y + radio_bola())
+	var aba := pant.y - margen
+	if position.x < izq:
+		position.x = izq
+		velocity.x = absf(velocity.x) * BILLAR_REBOTE
+	elif position.x > der:
+		position.x = der
+		velocity.x = -absf(velocity.x) * BILLAR_REBOTE
+	if position.y < arr:
+		position.y = arr
+		velocity.y = absf(velocity.y) * BILLAR_REBOTE
+	elif position.y > aba:
+		position.y = aba
+		velocity.y = -absf(velocity.y) * BILLAR_REBOTE
+	_rodar()
+
+
+## Suma al ángulo rodado lo que la bola ha avanzado EN SU RUMBO.
+##
+## Se proyecta el paso sobre el rumbo en vez de usar su longitud: así una
+## corrección de posición que no es avance —la separación de un choque, un
+## reajuste contra la banda— no hace girar la bola. `phi += |v|·dt/r` parece
+## correcto y no lo es.
+func _rodar() -> void:
+	if not _bola_listo:
+		_bola_listo = true
+		_bola_antes = position
+		# La fase entra al azar: sin esto todas nacerían con el número mirando al
+		# frente y se vería el patrón. Aparecer rodando incluye aparecer a media
+		# vuelta.
+		_bola_phi = randf() * TAU
+		return
+	var rad := radio_bola()
+	if rad > 0.001 and velocity.length_squared() > 1.0:
+		_bola_phi += (position - _bola_antes).dot(velocity.normalized()) / rad
+	_bola_antes = position
+	queue_redraw()
+
+
+## El radio del disco dibujado. Es el radio con el que dos bolas se tocan y el
+## que gobierna cuánto se desplaza la marca al rodar.
+func radio_bola() -> float:
+	return radio_dibujo * Arte.LIENZO_EN_RADIOS * BOLA_RADIO
+
+
+## Con qué radio choca este objetivo contra otro igual.
+##
+## Normalmente es el de contagio, que es lo que siempre se usó. En Billar es el
+## DIBUJADO, el mismo con el que se juzga el toque: dos bolas que se ven
+## tocándose tienen que tocarse, y el de contagio es mucho menor que el dibujo.
+func radio_contacto() -> float:
+	return radio_bola() if modo == Movimiento.BILLAR else radius
+
+
+## Cuántos píxeles mide una unidad del lienzo de arte en esta pantalla.
+func _unidad_de_arte() -> float:
+	var v := get_viewport()
+	if v == null:
+		return 1.0
+	return v.get_visible_rect().size.x / Fondo.ARTE_ANCHO
+
+
 ## Globo: sube recto con una ese sutil, y se va por arriba.
 ##
 ## La deriva lateral NO acumula: la `x` oscila alrededor de una columna que no se
@@ -1245,6 +1405,85 @@ func renacer_globo(donde: Vector2) -> void:
 	position = donde
 	_globo_listo = false
 	_preparar_globo()
+
+
+## La bola de billar, en tres capas. Devuelve si ha podido dibujarla.
+##
+## Una bola rodando se reconoce por una sola cosa: el número se va al borde, se
+## achata, desaparece y vuelve media vuelta después. El color y el brillo se
+## quedan donde están. Eso permite resolverlo sin animar el sprite:
+##
+##   cuerpo   el color y, en las rayadas, la franja   se rota al rumbo
+##   marca    el disco blanco con el número           se desplaza y se achata
+##   luz      brillo y sombra interior                no se mueve
+##
+## La LUZ es la pieza que más cambia el resultado: viene de la lámpara, no de la
+## bola, así que no puede girar. Girando el sprite entero el brillo gira con ella
+## y la bola se convierte en una peonza.
+##
+## Y el cuerpo se rota SIEMPRE, también en las lisas. La franja de una rayada es
+## un cinturón alrededor de la esfera: alineado con el rumbo no cambia de aspecto
+## al rodar en ese rumbo, así que no hay que animarla. Un círculo de color
+## uniforme rotado es el mismo círculo, de modo que la regla vale para las
+## dieciséis y no hay dos caminos de código.
+func _dibujar_bola(r: float) -> bool:
+	var cuerpo := Arte.target_capa(forma, numero, "cuerpo")
+	if cuerpo == null:
+		return false
+	var lado := r * Arte.LIENZO_EN_RADIOS
+	var destino := Rect2(Vector2(-lado, -lado) * 0.5, Vector2(lado, lado))
+	var theta := velocity.angle() if velocity.length_squared() > 1.0 else 0.0
+
+	draw_set_transform(Vector2.ZERO, theta, Vector2.ONE)
+	draw_texture_rect(cuerpo, destino, false)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	var k := cos(_bola_phi)
+	if k > BOLA_MARCA_MINIMA:
+		var marca := Arte.target_capa(forma, numero, "marca")
+		if marca != null:
+			_dibujar_marca(marca, lado, theta, k)
+	var luz := Arte.target_capa(forma, numero, "luz")
+	if luz != null:
+		draw_texture_rect(luz, destino, false)
+	return true
+
+
+## El disco del número, desplazado sobre el rumbo y recortado al círculo.
+##
+## El recorte no es opcional: sin él la marca se sale del contorno de la bola en
+## cuanto el ángulo rodado pasa de 45 grados. Se hace dibujando el propio círculo
+## como polígono texturizado —la forma del polígono ES el recorte— en vez de con
+## una máscara aparte, que costaría un material y una pasada más.
+##
+## El desplazamiento y el achatamiento van SOBRE EL RUMBO, no sobre el eje
+## horizontal. En un bioma cenital donde las bolas rebotan en cuatro bandas la
+## diagonal es el caso normal, y achatar siempre en X haría que una bola que sube
+## enseñara el número estirado a lo alto: se leería como si la marca resbalara
+## por la superficie en vez de girar con ella.
+func _dibujar_marca(marca: Texture2D, lado: float, theta: float, k: float) -> void:
+	var rad := lado * BOLA_RADIO
+	var d := rad * sin(_bola_phi)
+	var c := cos(theta)
+	var s := sin(theta)
+	# La transformación es girar al rumbo, desplazar, achatar en un solo eje y
+	# deshacer el giro. Su parte lineal sale simétrica y su determinante es
+	# exactamente el achatamiento, así que invertirla es barato.
+	var cs := c * s * (k - 1.0)
+	var a11 := k * c * c + s * s
+	var a22 := k * s * s + c * c
+	var t := Vector2(c, s) * d
+	var puntos := PackedVector2Array()
+	var uvs := PackedVector2Array()
+	for i in BOLA_LADOS:
+		var p := Vector2.from_angle(TAU * float(i) / float(BOLA_LADOS)) * rad
+		puntos.append(p)
+		# Qué punto de la textura le toca a este vértice: se deshace la
+		# transformación y se pasa a coordenadas de 0 a 1 del lienzo.
+		var q := p - t
+		var origen := Vector2(a22 * q.x - cs * q.y, -cs * q.x + a11 * q.y) / k
+		uvs.append(origen / lado + Vector2(0.5, 0.5))
+	draw_colored_polygon(puntos, Color.WHITE, uvs, marca)
 
 
 ## Planeo: vira despacio y cabecea. Ningún tramo es recto del todo, así que

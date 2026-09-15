@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://rkedfubeufib"
-path="res://.godot/imported/billar.png-d92da244e9e45af4bfa50e1cde140d0c.ctex"
+uid="uid://cejemwdyrtwsp"
+path="res://.godot/imported/bola_10_cuerpo.png-37f2f9eef4019b5e8ced26477b43f9d9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://arte/telones/billar.png"
-dest_files=["res://.godot/imported/billar.png-d92da244e9e45af4bfa50e1cde140d0c.ctex"]
+source_file="res://arte/targets/bola_10_cuerpo.png"
+dest_files=["res://.godot/imported/bola_10_cuerpo.png-37f2f9eef4019b5e8ced26477b43f9d9.ctex"]
 
 [params]
 

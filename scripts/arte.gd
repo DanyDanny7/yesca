@@ -64,6 +64,7 @@ const DIR_ASTROS := "res://arte/astros/"
 const DIR_BANDAS := "res://arte/bandas/"
 ## Detonaciones.
 const DIR_EXPLOSIONES := "res://arte/explosiones/"
+const DIR_ANCLADAS := "res://arte/ancladas/"
 
 ## Cuántos radios de ancho tiene el lienzo de un target.
 ##
@@ -131,6 +132,28 @@ static func target_tira(forma: int, variante: int = 0) -> Dictionary:
 	return _tira(base)
 
 
+## Una capa suelta de un target partido: `bola_9_cuerpo`, `bola_luz`.
+##
+## Un target se entrega entero o partido en capas, y las capas existen cuando el
+## dibujo tiene que MOVERSE POR DENTRO sin tira de fotogramas: la bola de billar
+## rueda girando el cuerpo y desplazando el número, y una tira de 24 fotogramas
+## por cada dirección posible no existe.
+##
+## Cae a la capa sin número —`bola_cuerpo`— igual que el target entero cae a
+## `bola`, así que se puede entregar una capa común y las quince propias, o solo
+## la común. `bola_luz` es de las comunes: la luz viene de la lámpara, no de la
+## bola, y es la misma para las dieciséis.
+static func target_capa(forma: int, variante: int, capa: String) -> Texture2D:
+	if forma < 0 or forma >= NOMBRE_FORMA.size():
+		return null
+	var base: String = DIR_TARGETS + NOMBRE_FORMA[forma]
+	if variante > 0:
+		var propia := _buscar("%s_%d_%s" % [base, variante, capa])
+		if propia != null:
+			return propia
+	return _buscar(base + "_" + capa)
+
+
 static func target(forma: int, variante: int = 0) -> Texture2D:
 	if forma < 0 or forma >= NOMBRE_FORMA.size():
 		return null
@@ -168,6 +191,16 @@ static func telon(tipo: int) -> Texture2D:
 ## estrellas— pero nadie dibuja «un campo de estrellas», dibuja «el cielo de
 ## Cielo abierto». El bioma es la unidad de identidad visual; el telón solo era
 ## la unidad del generador.
+## Una pieza de la capa anclada, por bioma y nombre.
+##
+## Se distingue de un astro en una cosa: un astro está en un punto del cielo y da
+## igual cuánto cielo se vea; una pieza anclada está en la esquina de la pantalla,
+## esté la esquina donde esté. Por eso el astro lleva coordenada en units y esta
+## lleva fracción de pantalla más un desplazamiento.
+static func anclada(bioma: String, pieza: String) -> Texture2D:
+	return _buscar(DIR_ANCLADAS + slug(bioma) + "_" + pieza)
+
+
 ## Una pieza suelta de la capa de astros, por su nombre de fichero.
 static func astro(pieza: String) -> Texture2D:
 	return _buscar(DIR_ASTROS + pieza)

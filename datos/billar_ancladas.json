@@ -1,0 +1,69 @@
+{
+  "bioma": "billar",
+  "ancho_pieza": 22,
+  "diametro_boca": 15,
+  "nota": "la boca mide un 50% mas que el diametro del target: boca = 1.5 * diametro_target. Con el target de Billar (8-11 units) sale 15, y la pieza 22. Si cambia el radius del bioma, la pieza escala con el target, no al reves",
+  "boca_relativa_al_target": 1.5,
+  "piezas": [
+    {
+      "pieza": "tronera",
+      "nombre": "esquina_arriba_izq",
+      "ancla": [
+        0,
+        0
+      ],
+      "dx": 11,
+      "dy": 11
+    },
+    {
+      "pieza": "tronera",
+      "nombre": "esquina_arriba_der",
+      "ancla": [
+        1,
+        0
+      ],
+      "dx": -11,
+      "dy": 11
+    },
+    {
+      "pieza": "tronera",
+      "nombre": "lado_medio_izq",
+      "ancla": [
+        0,
+        0.5
+      ],
+      "dx": 11,
+      "dy": 0
+    },
+    {
+      "pieza": "tronera",
+      "nombre": "lado_medio_der",
+      "ancla": [
+        1,
+        0.5
+      ],
+      "dx": -11,
+      "dy": 0
+    },
+    {
+      "pieza": "tronera",
+      "nombre": "esquina_abajo_izq",
+      "ancla": [
+        0,
+        1
+      ],
+      "dx": 11,
+      "dy": -11
+    },
+    {
+      "pieza": "tronera",
+      "nombre": "esquina_abajo_der",
+      "ancla": [
+        1,
+        1
+      ],
+      "dx": -11,
+      "dy": -11
+    }
+  ]
+}

@@ -122,6 +122,19 @@ En el editor, los parámetros de calibración están como `@export` en el nodo
   desaparece, pasa a ser el respaldo. Ver `contexto/13-arte-intercambiable.md`.
 - `arte/targets/` y `arte/fondos/` — donde se dejan los PNG (o SVG) que
   sustituyen formas y mosaicos. Vacías de serie: el juego arranca igual.
+  Un target se entrega entero o partido en capas —`bola_9_cuerpo`,
+  `bola_9_marca`, `bola_luz`— cuando el dibujo tiene que moverse POR DENTRO sin
+  tira de fotogramas: la bola de billar rueda girando el cuerpo y desplazando el
+  número, y una tira por cada dirección posible no existe.
+- `arte/ancladas/` + `datos/<bioma>_ancladas.json` — piezas fijas en un punto de
+  la PANTALLA, no del lienzo. El ancla es una fracción de pantalla y el
+  desplazamiento son units que escalan con el dibujo, así que la pieza cae en la
+  esquina esté la esquina donde esté, y sin deformarse. Es lo que ninguna otra
+  capa hacía: la elástica estira —una tronera redonda saldría oval—, el azulejo
+  repite, el telón se ancla abajo y los astros van en coordenada absoluta. Va
+  entre los astros y el azulejo. Las seis troneras de Billar son el mismo
+  fichero seis veces: vista desde arriba una tronera es un disco y no tiene
+  lado.
 - `audio/` — los efectos y la música, generados por síntesis con
   `tools/generar_audio.py`. Se versionan como código, no como binarios opacos:
   cambiar el timbre es editar una fórmula.

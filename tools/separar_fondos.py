@@ -71,6 +71,7 @@ EXCLUIDOS = {
     # Fiesta se reentrego entera el 09-14, con fondo de tres capas y dos piezas
     # rigidas. Trocear el boceto del 09-02 la pisaria con la version vieja.
     AJUSTE + "/fiesta": "la tanda del 09-14 trae el bioma entero",
+    AJUSTE + "/billar": "la tanda del 09-14 trae el bioma entero",
 }
 
 
@@ -166,10 +167,6 @@ def main():
             defs = m.group(0)
 
         az = re.search(r'<rect id="azulejo"[^>]*></rect>', svg) or azulejo_por_patron(svg)
-        if az is None:
-            print("%-20s -- no encuentro el azulejo (ni id ni <pattern>)" % bioma)
-            fuera += 1
-            continue
         el = re.search(r'<rect id="elastica"[^>]*></rect>', svg)
 
         # 1 · elastica: lo que va ANTES del azulejo.
@@ -180,7 +177,15 @@ def main():
         # convertirian en dos manchas del ancho de la pantalla. Cuando hay mas
         # de una figura se rasteriza al ancho del lienzo.
         cuerpo = svg[svg.index("</defs>") + len("</defs>"):] if defs else svg[svg.index(">") + 1:]
-        antes = cuerpo[:cuerpo.index(az.group(0))].strip() if el is None else el.group(0)
+        # Sin azulejo, la elastica llega hasta donde empiecen las piezas rigidas,
+        # y si tampoco las hay, hasta el final: el bioma es una sola capa.
+        if el is not None:
+            antes = el.group(0)
+        elif az is not None:
+            antes = cuerpo[:cuerpo.index(az.group(0))].strip()
+        else:
+            corte = cuerpo.find('<g id="pieza_')
+            antes = (cuerpo if corte < 0 else cuerpo[:corte]).replace("</svg>", "").strip()
         figuras = len(re.findall(r"<[a-zA-Z]", antes))
         # Los dos ejes con la MISMA escala. Deformar el lienzo no da resolucion,
         # da una banda centrada con vacio arriba y abajo: el SVG encaja el
@@ -194,33 +199,36 @@ def main():
         # 2 · azulejo: UNA repeticion del patron, sin color de fondo debajo.
         #     Sin color porque va encima de la elastica: si lo llevara, la
         #     taparia y la capa de abajo no serviria de nada.
-        relleno = atributo(az.group(0), "fill") or ""
-        pid = re.search(r"url\(#([^)]+)\)", relleno)
-        etiqueta = None
-        if pid:
-            m = re.search(r'<pattern id="%s"[^>]*>' % re.escape(pid.group(1)), svg)
-            etiqueta = m.group(0) if m else None
-        if etiqueta is None:
-            print("%-20s -- el azulejo no apunta a un <pattern>" % bioma)
-            fuera += 1
-            continue
-        pw = float(atributo(etiqueta, "width"))
-        ph = float(atributo(etiqueta, "height"))
-        dentro = contenido_patron(svg, pid.group(1))
-        if dentro is None:
-            print("%-20s -- el <pattern> esta vacio" % bioma)
-            fuera += 1
-            continue
-        io.open(os.path.join(OUT, bioma + "__azulejo.svg"), "w", encoding="utf-8").write(
-            (CABECERA % (pw * ESCALA_AZULEJO, ph * ESCALA_AZULEJO, "0 0 %g %g" % (pw, ph)))
-            + defs + dentro + "</svg>")
+        pw = ph = 0.0
+        relleno = atributo(az.group(0), "fill") if az is not None else ""
+        if az is not None:
+            pid = re.search(r"url\(#([^)]+)\)", relleno or "")
+            etiqueta = None
+            if pid:
+                m = re.search(r'<pattern id="%s"[^>]*>' % re.escape(pid.group(1)), svg)
+                etiqueta = m.group(0) if m else None
+            if etiqueta is None:
+                print("%-20s -- el azulejo no apunta a un <pattern>" % bioma)
+                fuera += 1
+                continue
+            pw = float(atributo(etiqueta, "width"))
+            ph = float(atributo(etiqueta, "height"))
+            dentro = contenido_patron(svg, pid.group(1))
+            if dentro is None:
+                print("%-20s -- el <pattern> esta vacio" % bioma)
+                fuera += 1
+                continue
+            io.open(os.path.join(OUT, bioma + "__azulejo.svg"), "w", encoding="utf-8").write(
+                (CABECERA % (pw * ESCALA_AZULEJO, ph * ESCALA_AZULEJO, "0 0 %g %g" % (pw, ph)))
+                + defs + dentro + "</svg>")
 
         # 3 · rigidas: lo que va tras el azulejo, sobre fondo transparente.
         #
         # Si vienen con nombre, cada una a su capa: el suelo se ancla abajo como
         # siempre y la guirnalda arriba. Sin nombre, todo junto es la de abajo,
         # que es como se entrego hasta ahora.
-        resto = svg[az.end():-len("</svg>")].strip()
+        desde = az.end() if az is not None else svg.find('<g id="pieza_')
+        resto = svg[desde:-len("</svg>")].strip() if desde >= 0 else ""
         piezas = dict(re.findall(
             r'<g id="pieza_(\w+)">(.*?)</g>', resto, re.S)) if resto else {}
         salidas = []
@@ -240,7 +248,7 @@ def main():
 
         print("%-20s %-11s %-11s %s" % (
             bioma, "%dx%d" % (ancho_el, alto_el),
-            "%gx%g" % (pw * ESCALA_AZULEJO, ph * ESCALA_AZULEJO),
+            "no lleva" if az is None else "%gx%g" % (pw * ESCALA_AZULEJO, ph * ESCALA_AZULEJO),
             "no tiene" if not salidas else "+".join(x[0] for x in salidas)))
         hechos += 1
 

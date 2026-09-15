@@ -101,14 +101,14 @@ const LISTA: Array[Dictionary] = [
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
 		"pista": "pista_16"},
 
-	# --- Billar: chocan entre ellos. Nada se queda quieto -------------------
-	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
+	# --- Billar: viven dentro de la mesa. Ruedan, rozan y chocan ------------
+	{"bioma": "Billar", "mov": Dot.Movimiento.BILLAR,
 		"meta": Meta.PUNTOS, "valor": 400, "escalon": 2,
 		"pista": "pista_17"},
-	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
+	{"bioma": "Billar", "mov": Dot.Movimiento.BILLAR,
 		"meta": Meta.CADENA, "valor": 7, "escalon": 3,
 		"pista": "pista_18"},
-	{"bioma": "Billar", "mov": Dot.Movimiento.CHOQUE,
+	{"bioma": "Billar", "mov": Dot.Movimiento.BILLAR,
 		"meta": Meta.SEGUNDOS, "valor": 55, "escalon": 3,
 		"pista": "pista_19"},
 
