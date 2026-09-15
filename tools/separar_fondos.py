@@ -44,24 +44,40 @@ LOTE = sys.argv[1] if len(sys.argv) > 1 else "entregas/2026-09-02-ajuste-contrat
 SRC = os.path.join(RAIZ, LOTE, "fondos")
 OUT = os.path.join(RAIZ, LOTE, "_split")
 
-## Biomas que NO se importan, con el motivo.
+## Copias de un bioma que NO se trocean, con el motivo.
+##
+## La clave es `<lote>/<bioma>` cuando lo que sobra es esa copia concreta, y
+## `<bioma>` a secas cuando el bioma no entra desde ningun lote. La diferencia
+## importa: un bioma reentregado tiene una copia vieja que hay que saltarse y una
+## nueva que hay que trocear, y las dos se llaman igual.
 ##
 ## En Asedio y Lluvia de meteoros el dibujo define DONDE SE PIERDE: el tejado
 ## mas alto es la linea de derrota y el disco de la Tierra es la zona de
 ## impacto. El arte de esta tanda no coincide con las constantes de fondo.gd, y
 ## meterlo dejaria al jugador perdiendo por tocar algo que no esta donde se ve.
 ## Se importan cuando cuadren las cifras.
+AJUSTE = "2026-09-02-ajuste-contrato"
 EXCLUIDOS = {
     "asedio": "el tejado del arte esta a 136 y ARTE_TEJADO vale 104",
     "lluvia_de_meteoros": "el planeta del arte es (62,-60,150) y ARTE_PLANETA es (26,-8,96)",
-    # Estos cuatro llegan YA PARTIDOS en la tanda por bioma, con las capas en
+    # Estos cinco llegan YA PARTIDOS en la tanda por bioma, con las capas en
     # carpetas separadas. Trocearlos aqui los sobrescribiria con una version
     # peor: la del SVG unico, que es la que la revision vino a sustituir.
-    "cielo_abierto": "viene ya partido en la tanda por bioma",
-    "invierno": "viene ya partido en la tanda por bioma",
-    "rio": "viene ya partido en la tanda por bioma",
-    "hormigas": "viene ya partido en la tanda por bioma",
+    AJUSTE + "/cielo_abierto": "viene ya partido en la tanda por bioma",
+    AJUSTE + "/invierno": "viene ya partido en la tanda por bioma",
+    AJUSTE + "/rio": "viene ya partido en la tanda por bioma",
+    AJUSTE + "/hormigas": "viene ya partido en la tanda por bioma",
+    AJUSTE + "/basico": "viene ya partido en la tanda por bioma",
+    # Fiesta se reentrego entera el 09-14, con fondo de tres capas y dos piezas
+    # rigidas. Trocear el boceto del 09-02 la pisaria con la version vieja.
+    AJUSTE + "/fiesta": "la tanda del 09-14 trae el bioma entero",
 }
+
+
+def motivo_para_saltar(lote, bioma):
+    """Por que no se trocea esta copia, o None si si se trocea."""
+    corto = lote.strip("/").split("/")[-1]
+    return EXCLUIDOS.get(corto + "/" + bioma) or EXCLUIDOS.get(bioma)
 
 ## A que capa va cada pieza rigida con nombre.
 ##
@@ -82,6 +98,12 @@ CABECERA = ('<svg xmlns="http://www.w3.org/2000/svg" '
 ## todos modos. Rasterizarla a 624 px de ancho seria diecisiete veces mas peso
 ## para el mismo resultado.
 ANCHO_ELASTICA = 24
+## A cuantas veces se rasteriza la tira elastica.
+##
+## El degradado se estira luego a la altura de la pantalla, asi que con pocas
+## filas se bandea. Cuatro veces el ancho declarado da altura de sobra sin que
+## la tira pese: un degradado vertical se comprime a casi nada.
+RESOLUCION_ELASTICA = 4
 ## A cuantas veces su tamano se rasteriza el azulejo.
 ESCALA_AZULEJO = 3
 
@@ -128,8 +150,9 @@ def main():
     hechos = fuera = 0
     for ruta in sorted(glob.glob(os.path.join(SRC, "*.svg"))):
         bioma = os.path.splitext(os.path.basename(ruta))[0]
-        if bioma in EXCLUIDOS:
-            print("%-20s -- NO SE IMPORTA: %s" % (bioma, EXCLUIDOS[bioma]))
+        salto = motivo_para_saltar(LOTE, bioma)
+        if salto:
+            print("%-20s -- NO SE IMPORTA: %s" % (bioma, salto))
             fuera += 1
             continue
 
@@ -158,8 +181,13 @@ def main():
         # de una figura se rasteriza al ancho del lienzo.
         cuerpo = svg[svg.index("</defs>") + len("</defs>"):] if defs else svg[svg.index(">") + 1:]
         antes = cuerpo[:cuerpo.index(az.group(0))].strip() if el is None else el.group(0)
-        ancho_el = ANCHO_ELASTICA if antes.count("<") <= 1 else int(ancho)
-        alto_el = int(round(ancho_el * alto / ancho)) * (4 if ancho_el == ANCHO_ELASTICA else 1)
+        figuras = len(re.findall(r"<[a-zA-Z]", antes))
+        # Los dos ejes con la MISMA escala. Deformar el lienzo no da resolucion,
+        # da una banda centrada con vacio arriba y abajo: el SVG encaja el
+        # dibujo dentro sin estirarlo.
+        esc = float(ANCHO_ELASTICA * RESOLUCION_ELASTICA) / ancho if figuras <= 1 else 1.0
+        ancho_el = int(round(ancho * esc))
+        alto_el = int(round(alto * esc))
         io.open(os.path.join(OUT, bioma + "__elastica.svg"), "w", encoding="utf-8").write(
             (CABECERA % (ancho_el, alto_el, caja)) + defs + antes + "</svg>")
 
